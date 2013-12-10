@@ -28,7 +28,6 @@ extern "C" {
 
 #define FFS_CONFIG_OS           OS_LINUX
 
-#define FFS_CONFIG_LITTLE_ENDIAN        1
 #define FFS_CONFIG_LEGACY_32BIT_API     0
 #define FFS_CONFIG_LEGACY_32BIT_API     0
 #define FFS_CONFIG_SUPPORT_CP1250       1 

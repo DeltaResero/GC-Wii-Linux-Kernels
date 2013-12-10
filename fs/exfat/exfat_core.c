@@ -166,7 +166,7 @@ INT32 ffsMountVol(struct super_block *sb, INT32 drv)
 	FS_INFO_T *p_fs = &(EXFAT_SB(sb)->fs_info);
 	BD_INFO_T *p_bd = &(EXFAT_SB(sb)->bd_info);
 
-	printk("[EXFAT] trying to mount...\n");
+	PRINTK("[EXFAT] trying to mount...\n");
 
 	p_fs->drv = drv;
 	p_fs->dev_ejected = FALSE;
@@ -264,7 +264,7 @@ INT32 ffsMountVol(struct super_block *sb, INT32 drv)
 		return FFS_MEDIAERR;
 	}
 	
-	printk("[EXFAT] mounted successfully\n");
+	PRINTK("[EXFAT] mounted successfully\n");
 
 	return FFS_SUCCESS;
 } 
@@ -273,7 +273,7 @@ INT32 ffsUmountVol(struct super_block *sb)
 {
 	FS_INFO_T *p_fs = &(EXFAT_SB(sb)->fs_info);
 	
-	printk("[EXFAT] trying to unmount...\n");
+	PRINTK("[EXFAT] trying to unmount...\n");
 
 	fs_sync(sb, 0);
 	fs_set_vol_flags(sb, VOL_CLEAN);
@@ -289,12 +289,12 @@ INT32 ffsUmountVol(struct super_block *sb)
 	bdev_close(sb);
 
 	if (p_fs->dev_ejected) {
-		printk( "[EXFAT] unmounted with media errors. "
+		PRINTK( "[EXFAT] unmounted with media errors. "
 			"device's already ejected.\n");
 		return FFS_MEDIAERR;
 	}
 	
-	printk("[EXFAT] unmounted successfully\n");
+	PRINTK("[EXFAT] unmounted successfully\n");
 
 	return FFS_SUCCESS;
 } 
@@ -525,7 +525,7 @@ INT32 ffsWriteFile(struct inode *inode, FILE_ID_T *fid, void *buffer, UINT64 cou
 {
 	INT32 modified = FALSE, offset, sec_offset, clu_offset;
 	INT32 num_clusters, num_alloc, num_alloced = (INT32) ~0;
-	UINT32 clu, last_clu, LogSector, sector;
+	UINT32 clu, last_clu, LogSector, sector = 0;
 	UINT64 oneblkwrite, write_bytes;
 	CHAIN_T new_clu;
 	TIMESTAMP_T tm;
@@ -724,7 +724,7 @@ err_out:
 INT32 ffsTruncateFile(struct inode *inode, UINT64 old_size, UINT64 new_size)
 {
 	INT32 num_clusters;
-	UINT32 last_clu = CLUSTER_32(0), sector;
+	UINT32 last_clu = CLUSTER_32(0), sector = 0;
 	CHAIN_T clu;
 	TIMESTAMP_T tm;
 	DENTRY_T *ep, *ep2;
@@ -990,7 +990,7 @@ INT32 ffsRemoveFile(struct inode *inode, FILE_ID_T *fid)
 
 INT32 ffsSetAttr(struct inode *inode, UINT32 attr)
 {
-	UINT32 type, sector;
+	UINT32 type, sector = 0;
 	DENTRY_T *ep;
 	struct super_block *sb = inode->i_sb;
 	FS_INFO_T *p_fs = &(EXFAT_SB(sb)->fs_info);
@@ -1063,7 +1063,7 @@ INT32 ffsSetAttr(struct inode *inode, UINT32 attr)
 
 INT32 ffsGetStat(struct inode *inode, DIR_ENTRY_T *info)
 {
-	UINT32 sector;
+	UINT32 sector = 0;
 	INT32 count;
 	CHAIN_T dir;
 	UNI_NAME_T uni_name;
@@ -1183,7 +1183,7 @@ INT32 ffsGetStat(struct inode *inode, DIR_ENTRY_T *info)
 
 INT32 ffsSetStat(struct inode *inode, DIR_ENTRY_T *info)
 {
-	UINT32 sector;
+	UINT32 sector = 0;
 	TIMESTAMP_T tm;
 	DENTRY_T *ep, *ep2;
 	ENTRY_SET_CACHE_T *es=NULL;
@@ -1253,7 +1253,7 @@ INT32 ffsSetStat(struct inode *inode, DIR_ENTRY_T *info)
 INT32 ffsMapCluster(struct inode *inode, INT32 clu_offset, UINT32 *clu)
 {
 	INT32 num_clusters, num_alloced, modified = FALSE;
-	UINT32 last_clu, sector;
+	UINT32 last_clu, sector = 0;
 	CHAIN_T new_clu;
 	DENTRY_T *ep;
 	ENTRY_SET_CACHE_T *es = NULL;
@@ -3360,7 +3360,7 @@ INT32 write_partial_entries_in_entry_set (struct super_block *sb, ENTRY_SET_CACH
 	dir.size = 0xffffffff;		
 
 	byte_offset = (es->sector - START_SECTOR(dir.dir)) << p_bd->sector_size_bits;
-	byte_offset += ((INT32)ep - (INT32)&(es->__buf)) + es->offset;
+	byte_offset += ((INT32 *)ep - (INT32 *)&(es->__buf)) + es->offset;
 
 	ret =_walk_fat_chain(sb, &dir, byte_offset, &clu);
 	if (ret != FFS_SUCCESS)
@@ -3711,8 +3711,7 @@ INT32 exfat_find_dir_entry(struct super_block *sb, CHAIN_T *p_dir, UNI_NAME_T *p
 				} else if (entry_type == TYPE_STREAM) {
 					if (is_feasible_entry) {
 						strm_ep = (STRM_DENTRY_T *) ep;
-						if ((p_uniname->name_hash == GET16_A(strm_ep->name_hash)) &&
-							(p_uniname->name_len == strm_ep->name_len)) {
+						if (p_uniname->name_len == strm_ep->name_len) {
 							order = 1;
 						} else {
 							is_feasible_entry = FALSE;

@@ -428,30 +428,3 @@ INT32 FsReleaseCache(struct super_block *sb)
 
 EXPORT_SYMBOL(FsReleaseCache);
 #endif
-
-static int __init init_exfat_core(void)
-{
-	int err;
-
-	printk(KERN_INFO "exFAT: Core Version %s\n", EXFAT_VERSION);
-	
-	err = FsInit();
-	if (err) {
-		if (err == FFS_MEMORYERR)
-			return -ENOMEM;
-		else
-			return -EIO;
-	}
-
-	return 0;
-}
-
-static void __exit exit_exfat_core(void)
-{
-	FsShutdown();
-}
-
-module_init(init_exfat_core);
-module_exit(exit_exfat_core);
-
-MODULE_LICENSE("GPL");
