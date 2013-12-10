@@ -348,10 +348,16 @@ CHECK		= sparse
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-CFLAGS_MODULE   =
+ifdef CONFIG_GAMECUBE_COMMON
+MODFLAGS	= -Os -fsched-spec-load -fforce-addr -fsingle-precision-constant \
+			-fivopts -fbranch-target-load-optimize -pipe -mtune=750 -mcpu=750
+else
+MODFLAGS	= -fsched-spec-load -fivopts -fbranch-target-load-optimize -pipe
+endif
+CFLAGS_MODULE   = $(MODFLAGS)
 AFLAGS_MODULE   =
-LDFLAGS_MODULE  = --strip-debug
-CFLAGS_KERNEL	=
+LDFLAGS_MODULE  = -Os --strip-debug -T $(srctree)/scripts/module-common.lds
+CFLAGS_KERNEL	= $(MODFLAGS)
 AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
