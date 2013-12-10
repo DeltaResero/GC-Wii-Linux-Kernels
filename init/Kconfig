@@ -1506,6 +1506,14 @@ config MAX_USER_RT_PRIO
 	  This option allows reducing the size of the O(1) scheduler arrays.
 	  Lowering this value too much may result in decreased performance.
 
+config NR_LDISCS
+	int "Number of tty line disciplines" if EXPERT
+	range 1 30
+	default 16
+	help
+	  Select the maximum number of tty line disciplines. Embedded systems
+	  can probably get by with only a few of these.
+
 config SHMEM
 	bool "Use full shmem filesystem" if EXPERT
 	default y
