@@ -83,6 +83,8 @@ config USB_ARCH_HAS_HCD
 	default y if ARM				# SL-811
 	default y if BLACKFIN				# SL-811
 	default y if SUPERH				# r8a66597-hcd
+	default y if WII				# rvl-sthcd
+	default y if STARLET_IOS			# rvl-sthcd
 	default PCI
 
 # ARM SA1111 chips have a non-PCI based "OHCI-compatible" USB host interface.

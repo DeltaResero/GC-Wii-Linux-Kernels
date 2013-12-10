@@ -229,8 +229,7 @@ config PPC_EARLY_DEBUG_CPM
 
 config PPC_EARLY_DEBUG_USBGECKO
 	bool "Early debugging through the USB Gecko adapter"
-	depends on GAMECUBE_COMMON
-	select USBGECKO_UDBG
+	depends on GAMECUBE_COMMON && USBGECKO_UDBG
 	help
 	  Select this to enable early debugging for Nintendo GameCube/Wii
 	  consoles via an external USB Gecko adapter.

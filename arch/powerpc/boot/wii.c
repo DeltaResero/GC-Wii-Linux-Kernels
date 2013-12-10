@@ -26,10 +26,46 @@ BSS_STACK(8192);
 
 #define EXI_CTRL		HW_REG(0x0d800070)
 #define EXI_CTRL_ENABLE		(1<<0)
+static int save_lowmem_stub(void)
+{
+	void *src, *dst;
+	size_t size;
+	u32 reg[2];
+	u32 v;
+	void *devp;
 
-#define MEM2_TOP		(0x10000000 + 64*1024*1024)
-#define FIRMWARE_DEFAULT_SIZE	(12*1024*1024)
+	devp = finddevice("/lowmem-stub");
+	if (devp == NULL) {
+		printf("lowmem-stub: none\n");
+		goto err_out;
+	}
 
+	if (getprop(devp, "reg", reg, sizeof(reg)) != sizeof(reg)) {
+		printf("unable to find %s property\n", "reg");
+		goto err_out;
+	}
+	src = (void *)reg[0];
+	size = reg[1];
+	if (getprop(devp, "save-area", &v, sizeof(v)) != sizeof(v)) {
+		printf("unable to find %s property\n", "save-area");
+		goto err_out;
+	}
+	dst = (void *)v;
+
+	printf("lowmem-stub: relocating from %08lX to %08lX (%u bytes)\n",
+		(unsigned long)src, (unsigned long)dst, size);
+	memcpy(dst, src, size);
+	flush_cache(dst, size);
+
+	return 0;
+err_out:
+	return -1;
+}
+
+/*
+ *
+ *
+ */
 
 struct mipc_infohdr {
 	char magic[3];
@@ -43,100 +79,93 @@ struct mipc_infohdr {
 
 static int mipc_check_address(u32 pa)
 {
-	/* only MEM2 addresses */
 	if (pa < 0x10000000 || pa > 0x14000000)
 		return -EINVAL;
 	return 0;
 }
 
-static struct mipc_infohdr *mipc_get_infohdr(void)
+static void platform_fixups(void)
 {
 	struct mipc_infohdr **hdrp, *hdr;
+	u32 reg[4];
+	u32 mem2_boundary, top;
+	void *devp;
 
-	/* 'mini' header pointer is the last word of MEM2 memory */
-	hdrp = (struct mipc_infohdr **)0x13fffffc;
+	/*
+	 * The mini header pointer is specified in the second "reg" entry
+	 * of the starlet-mini-ipc node.
+	 */
+	devp = find_node_by_compatible(NULL, "twiizers,starlet-mini-ipc");
+	if (!devp) {
+		printf("unable to find %s node\n", "twiizers,starlet-mini-ipc");
+		goto err_out;
+	}
+	if (getprop(devp, "reg", &reg, sizeof(reg)) != sizeof(reg)) {
+		printf("unable to find %s property\n", "reg");
+		goto err_out;
+	}
+	hdrp = (struct mipc_infohdr **)reg[2];
 	if (mipc_check_address((u32)hdrp)) {
 		printf("mini: invalid hdrp %08X\n", (u32)hdrp);
-		hdr = NULL;
-		goto out;
+		goto err_out;
 	}
 
 	hdr = *hdrp;
 	if (mipc_check_address((u32)hdr)) {
 		printf("mini: invalid hdr %08X\n", (u32)hdr);
-		hdr = NULL;
-		goto out;
+		goto err_out;
 	}
 	if (memcmp(hdr->magic, "IPC", 3)) {
-		printf("mini: invalid magic\n");
-		hdr = NULL;
-		goto out;
+		printf("mini: invalid magic, asuming ios\n");
+		goto err_out;
+	}
+	mem2_boundary = hdr->mem2_boundary;
+	if (mipc_check_address(mem2_boundary)) {
+		printf("mini: invalid mem2_boundary %08X\n", mem2_boundary);
+		goto err_out;
 	}
 
-out:
-	return hdr;
-}
+	top = mem2_boundary;
+	printf("top of mem @ %08X (%s)\n", top, "current");
 
-static int mipc_get_mem2_boundary(u32 *mem2_boundary)
-{
-	struct mipc_infohdr *hdr;
-	int error;
-
-	hdr = mipc_get_infohdr();
-	if (!hdr) {
-		error = -1;
-		goto out;
+	/* fixup local memory for EHCI controller */
+	devp = NULL;
+	while ((devp = find_node_by_compatible(devp,
+					       "nintendo,hollywood-usb-ehci"))) {
+		if (getprop(devp, "reg", &reg, sizeof(reg)) == sizeof(reg)) {
+			top -= reg[3];
+			printf("ehci %08X -> %08X\n", reg[2], top);
+			reg[2] = top;
+			setprop(devp, "reg", &reg, sizeof(reg));
+		}
 	}
 
-	if (mipc_check_address(hdr->mem2_boundary)) {
-		printf("mini: invalid mem2_boundary %08X\n",
-		       hdr->mem2_boundary);
-		error = -EINVAL;
-		goto out;
-	}
-	*mem2_boundary = hdr->mem2_boundary;
-	error = 0;
-out:
-	return error;
-
-}
-
-static void platform_fixups(void)
-{
-	void *mem;
-	u32 reg[4];
-	u32 mem2_boundary;
-	int len;
-	int error;
-
-	mem = finddevice("/memory");
-	if (!mem)
-		fatal("Can't find memory node\n");
-
-	/* two ranges of (address, size) words */
-	len = getprop(mem, "reg", reg, sizeof(reg));
-	if (len != sizeof(reg)) {
-		/* nothing to do */
-		goto out;
+	/* fixup local memory for OHCI controllers */
+	devp = NULL;
+	while ((devp = find_node_by_compatible(devp,
+					       "nintendo,hollywood-usb-ohci"))) {
+		if (getprop(devp, "reg", &reg, sizeof(reg)) == sizeof(reg)) {
+			top -= reg[3];
+			printf("ohci %08X -> %08X\n", reg[2], top);
+			reg[2] = top;
+			setprop(devp, "reg", &reg, sizeof(reg));
+		}
 	}
 
-	/* retrieve MEM2 boundary from 'mini' */
-	error = mipc_get_mem2_boundary(&mem2_boundary);
-	if (error) {
-		/* if that fails use a sane value */
-		mem2_boundary = MEM2_TOP - FIRMWARE_DEFAULT_SIZE;
-	}
+	/* fixup available memory */
+	dt_fixup_memory(0, top);
 
-	if (mem2_boundary > reg[2] && mem2_boundary < reg[2] + reg[3]) {
-		reg[3] = mem2_boundary - reg[2];
-		printf("top of MEM2 @ %08X\n", reg[2] + reg[3]);
-		setprop(mem, "reg", reg, sizeof(reg));
-	}
+	printf("top of mem @ %08X (%s)\n", top, "final");
 
-out:
+	return;
+
+err_out:
 	return;
 }
 
+/*
+ *
+ */
 void platform_init(unsigned long r3, unsigned long r4, unsigned long r5)
 {
 	u32 heapsize = 24*1024*1024 - (u32)_end;
@@ -154,5 +183,6 @@ void platform_init(unsigned long r3, unsigned long r4, unsigned long r5)
 		console_ops.write = ug_console_write;
 
 	platform_ops.fixups = platform_fixups;
+	save_lowmem_stub();
 }
 
