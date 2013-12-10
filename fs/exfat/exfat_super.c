@@ -92,8 +92,8 @@
 
 static struct kmem_cache *exfat_inode_cachep;
 
-static int exfat_default_codepage = DEFAULT_CODEPAGE;
-static char exfat_default_iocharset[] = DEFAULT_IOCHARSET;
+static int exfat_default_codepage = CONFIG_EXFAT_DEFAULT_CODEPAGE;
+static char exfat_default_iocharset[] = CONFIG_EXFAT_DEFAULT_IOCHARSET;
 
 extern struct timezone sys_tz;
 
