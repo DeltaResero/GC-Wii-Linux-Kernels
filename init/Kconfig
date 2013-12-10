@@ -1237,13 +1237,20 @@ source "usr/Kconfig"
 
 endif
 
-config CC_OPTIMIZE_FOR_SIZE
-	bool "Optimize for size"
-	help
-	  Enabling this option will pass "-Os" instead of "-O2" to gcc
-	  resulting in a smaller kernel.
+choice
+  prompt "Optimization level"
+  default CC_OPTIMIZE_DEFAULT
 
-	  If unsure, say N.
+config CC_OPTIMIZE_FOR_SIZE
+	bool "Use -Os"
+
+config CC_OPTIMIZE_DEFAULT
+	bool "Use -O2"
+
+config CC_OPTIMIZE_ALOT
+	bool "Use -O3"
+
+endchoice
 
 config CHECK_WARNING_STRICTLY
         bool "Verify Warning strictly during Compile"
