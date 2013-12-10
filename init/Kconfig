@@ -1463,6 +1463,14 @@ config CHRDEV_MAJOR_HASH_SIZE
 
 	  For a normal desktop machine, 128 may be a preferred value.
 
+config MAX_CLOCKS
+	int "Config max number of clocks" if EXPERT && EMBEDDED
+	range 8 16
+	default 16
+	help
+	  This allows you to configure the max available clocks.
+	  Kernel may not compile if this is set too low.
+
 config MAX_NR_CON_DRIVER
 	int "Number of console drivers" if EXPERT
 	range 1 16 if EMBEDDED
