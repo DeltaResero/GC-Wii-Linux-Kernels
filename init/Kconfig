@@ -1471,6 +1471,14 @@ config MAX_CLOCKS
 	  This allows you to configure the max available clocks.
 	  Kernel may not compile if this is set too low.
 
+config FB_MAX
+	int "Config max number of framebuffers" if EXPERT
+	range 1 32
+	default 32
+	depends on FB
+	help
+	  This allows your to configure the size of video_options[] array.
+
 config MAX_NR_CON_DRIVER
 	int "Number of console drivers" if EXPERT
 	range 1 16 if EMBEDDED
