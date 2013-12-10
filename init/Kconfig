@@ -1471,6 +1471,14 @@ config MAX_CLOCKS
 	  This allows you to configure the max available clocks.
 	  Kernel may not compile if this is set too low.
 
+config MAX_CMDLINECONSOLES
+	int "Set max number of console command line options" if EXPERT
+	range 1 8
+	default 8
+	help
+	  Allows to set the max number of console command line options.
+	  Smaller number smaller image. (8 for default)
+
 config FB_MAX
 	int "Config max number of framebuffers" if EXPERT
 	range 1 32
