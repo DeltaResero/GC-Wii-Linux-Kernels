@@ -80,6 +80,9 @@ GRTAGS
 GSYMS
 GTAGS
 
+# Compiled sstrip
+sstrip
+
 *.orig
 *~
 \#*#
