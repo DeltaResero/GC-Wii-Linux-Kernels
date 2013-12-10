@@ -158,6 +158,27 @@ config TMPFS_XATTR
 
 	  If unsure, say N.
 
+config TMPFS_ROOT
+	bool "Use tmpfs instead of ramfs for initramfs"
+	depends on TMPFS && SHMEM
+	default n
+	help
+	  This replaces the ramfs used for unpacking the cpio images
+	  with tmpfs.
+
+	  If unsure, say N
+
+config RAMFS
+	bool "Ramfs file system support" if TMPFS_ROOT
+	default y
+	---help---
+	  Ramfs is a file system which keeps all files in RAM. Unlike tmpfs,
+	  it cannot be swapped to disk, and it has the risk of deadlocking
+	  the system by using all memory.
+
+	  Ramfs is used for booting the system and unpacking the cpio if
+	  TMPFS_ROOT is not set.
+
 config HUGETLBFS
 	bool "HugeTLB file system support"
 	depends on X86 || IA64 || SPARC64 || (S390 && 64BIT) || \
