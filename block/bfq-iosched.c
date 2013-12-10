@@ -2930,14 +2930,22 @@ static void bfq_exit_queue(struct elevator_queue *e)
 	kfree(bfqd);
 }
 
-static int bfq_init_queue(struct request_queue *q)
+static int bfq_init_queue(struct request_queue *q, struct elevator_type *e)
 {
 	struct bfq_group *bfqg;
 	struct bfq_data *bfqd;
+	struct elevator_queue *eq;
+
+	eq = elevator_alloc(q, e);
+	if (eq == NULL)
+		return -ENOMEM;
 
 	bfqd = kmalloc_node(sizeof(*bfqd), GFP_KERNEL | __GFP_ZERO, q->node);
-	if (bfqd == NULL)
+	if (bfqd == NULL) {
+		kobject_put(&eq->kobj);
 		return -ENOMEM;
+	}
+	eq->elevator_data = bfqd;
 
 	/*
 	 * Our fallback bfqq if bfq_find_alloc_queue() runs into OOM issues.
@@ -2948,11 +2956,15 @@ static int bfq_init_queue(struct request_queue *q)
 	atomic_inc(&bfqd->oom_bfqq.ref);
 
 	bfqd->queue = q;
-	q->elevator->elevator_data = bfqd;
+
+	spin_lock_irq(q->queue_lock);
+	q->elevator = eq;
+	spin_unlock_irq(q->queue_lock);
 
 	bfqg = bfq_alloc_root_group(bfqd, q->node);
 	if (bfqg == NULL) {
 		kfree(bfqd);
+		kobject_put(&eq->kobj);
 		return -ENOMEM;
 	}
 
