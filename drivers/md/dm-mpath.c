@@ -1201,8 +1201,9 @@ static void pg_init_done(void *data, int errors)
 			errors = 0;
 			break;
 		}
-		DMERR("Could not failover the device: Handler scsi_dh_%s "
-		      "Error %d.", m->hw_handler_name, errors);
+		DMERR("Count not failover device %s: Handler scsi_dh_%s "
+		      "was not loaded.", pgpath->path.pdev,
+		      m->hw_handler_name);
 		/*
 		 * Fail path for now, so we do not ping pong
 		 */
@@ -1214,6 +1215,10 @@ static void pg_init_done(void *data, int errors)
 		 * controller so try the other pg.
 		 */
 		bypass_pg(m, pg, 1);
+		break;
+	case SCSI_DH_DEV_OFFLINED:
+		DMWARN("Device %s offlined.", pgpath->path.pdev);
+		errors = 0;
 		break;
 	case SCSI_DH_RETRY:
 		/* Wait before retrying. */
@@ -1236,7 +1241,8 @@ static void pg_init_done(void *data, int errors)
 	spin_lock_irqsave(&m->lock, flags);
 	if (errors) {
 		if (pgpath == m->current_pgpath) {
-			DMERR("Could not failover device. Error %d.", errors);
+			DMERR("Could not failover device %s, error %d.",
+			      pgpath->path.pdev, errors);
 			m->current_pgpath = NULL;
 			m->current_pg = NULL;
 		}
