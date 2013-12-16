@@ -108,6 +108,7 @@ enum pageflags {
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	PG_compound_lock,
 #endif
+	PG_readaheadunused,	/* user oriented readahead as yet unused */
 	__NR_PAGEFLAGS,
 
 	/* Filesystems */
@@ -230,6 +231,8 @@ PAGEFLAG(MappedToDisk, mappedtodisk)
 /* PG_readahead is only used for file reads; PG_reclaim is only for writes */
 PAGEFLAG(Reclaim, reclaim) TESTCLEARFLAG(Reclaim, reclaim)
 PAGEFLAG(Readahead, reclaim)		/* Reminder to do async read-ahead */
+
+PAGEFLAG(ReadaheadUnused, readaheadunused)
 
 #ifdef CONFIG_HIGHMEM
 /*
