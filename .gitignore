@@ -75,6 +75,9 @@ series
 cscope.*
 ncscope.*
 
+# Compiled sstrip
+sstrip
+
 # gnu global files
 GPATH
 GRTAGS
