@@ -1070,6 +1070,11 @@ MODULE_LICENSE ("GPL");
 #define OF_PLATFORM_DRIVER	ohci_hcd_ppc_of_driver
 #endif
 
+#ifdef CONFIG_USB_OHCI_HCD_HLWD
+#include "ohci-hlwd.c"
+#define OF_PLATFORM_DRIVER	ohci_hcd_hlwd_driver
+#endif
+
 #ifdef CONFIG_PLAT_SPEAR
 #include "ohci-spear.c"
 #define PLATFORM_DRIVER		spear_ohci_hcd_driver
