@@ -611,23 +611,27 @@ static struct pgpath *parse_path(struct dm_arg_set *as, struct path_selector *ps
 		memcpy(p->path.pdev, p->path.dev->name, 16);
 	}
 
-	if (m->hw_handler_name && p->path.dev) {
+	if (p->path.dev) {
 		struct request_queue *q = bdev_get_queue(p->path.dev->bdev);
 
-		r = scsi_dh_attach(q, m->hw_handler_name);
-		if (r == -EBUSY) {
-			/*
-			 * Already attached to different hw_handler,
-			 * try to reattach with correct one.
-			 */
-			scsi_dh_detach(q);
+		if (m->hw_handler_name) {
 			r = scsi_dh_attach(q, m->hw_handler_name);
-		}
-
-		if (r < 0) {
-			ti->error = "error attaching hardware handler";
-			dm_put_device(ti, p->path.dev);
-			goto bad;
+			if (r == -EBUSY) {
+				/*
+				 * Already attached to different hw_handler,
+				 * try to reattach with correct one.
+				 */
+				scsi_dh_detach(q);
+				r = scsi_dh_attach(q, m->hw_handler_name);
+			}
+			if (r < 0) {
+				ti->error = "error attaching hardware handler";
+				dm_put_device(ti, p->path.dev);
+				goto bad;
+			}
+		} else {
+			/* Play safe and detach hardware handler */
+			scsi_dh_detach(q);
 		}
 
 		if (m->hw_handler_params) {
