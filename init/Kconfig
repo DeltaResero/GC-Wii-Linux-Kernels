@@ -664,6 +664,14 @@ config CGROUP_MEM_RES_CTLR
 	  This config option also selects MM_OWNER config option, which
 	  could in turn add some fork/exit overhead.
 
+config CGROUP_MEM_RES_CTLR_DISABLED
+	bool "Memory Resource Controller disabled by default"
+	depends on CGROUP_MEM_RES_CTLR
+	default n
+	help
+	  Disable the memory group resource controller unless explicitly
+	  enabled using the kernel parameter "cgroup_enable=memory".
+
 config CGROUP_MEM_RES_CTLR_SWAP
 	bool "Memory Resource Controller Swap Extension"
 	depends on CGROUP_MEM_RES_CTLR && SWAP
