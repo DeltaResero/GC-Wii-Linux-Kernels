@@ -1096,6 +1096,8 @@ static struct nfs_server *nfs_alloc_server(void)
 	INIT_LIST_HEAD(&server->state_owners_lru);
 
 	atomic_set(&server->active, 0);
+	init_waitqueue_head(&server->writeback_wait[BLK_RW_SYNC]);
+	init_waitqueue_head(&server->writeback_wait[BLK_RW_ASYNC]);
 
 	server->io_stats = nfs_alloc_iostats();
 	if (!server->io_stats) {
