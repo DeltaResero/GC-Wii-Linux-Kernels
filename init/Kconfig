@@ -1232,6 +1232,16 @@ config BINFMT_SCRIPT
 
 	  For a normal desktop machine, this should not normally be disabled.
 
+config MEMPOOL
+	default n
+	bool "Use mempool allocator" if EXPERT
+	help
+	  The mempool allocator attempts keep a reserve pool of
+	  various objects available for use in low-memory situations.
+	  Disabling this feature may make more memory available and
+	  will somewhat decrease code size, but with a higher risk of
+	  deadlock under some loads.
+
 config SHMEM
 	bool "Use full shmem filesystem" if EXPERT
 	default y
