@@ -17,7 +17,6 @@
 #include <linux/irq.h>
 #include <linux/kexec.h>
 #include <linux/seq_file.h>
-#include <linux/of_platform.h>
 
 #include <asm/io.h>
 #include <asm/machdep.h>
@@ -29,29 +28,36 @@
 #include "usbgecko_udbg.h"
 
 
-static void gamecube_spin(void)
+static void gamecube_restart(char *cmd)
 {
+	local_irq_disable();
+	flipper_platform_reset();
 	/* spin until power button pressed */
 	for (;;)
 		cpu_relax();
 }
 
-static void gamecube_restart(char *cmd)
-{
-	local_irq_disable();
-	flipper_platform_reset();
-	gamecube_spin();
-}
-
 static void gamecube_power_off(void)
 {
 	local_irq_disable();
-	gamecube_spin();
+	/* spin until power button pressed */
+	for (;;)
+		cpu_relax();
 }
 
 static void gamecube_halt(void)
 {
 	gamecube_restart(NULL);
+}
+
+static void gamecube_show_cpuinfo(struct seq_file *m)
+{
+	seq_printf(m, "vendor\t\t: IBM\n");
+	seq_printf(m, "machine\t\t: Nintendo GameCube\n");
+}
+
+static void gamecube_setup_arch(void)
+{
 }
 
 static void __init gamecube_init_early(void)
@@ -72,7 +78,7 @@ static int __init gamecube_probe(void)
 
 static void gamecube_shutdown(void)
 {
-	flipper_quiesce();
+	/* currently not used */
 }
 
 #ifdef CONFIG_KEXEC
@@ -86,7 +92,9 @@ static int gamecube_kexec_prepare(struct kimage *image)
 define_machine(gamecube) {
 	.name			= "gamecube",
 	.probe			= gamecube_probe,
+	.setup_arch		= gamecube_setup_arch,
 	.init_early		= gamecube_init_early,
+	.show_cpuinfo		= gamecube_show_cpuinfo,
 	.restart		= gamecube_restart,
 	.power_off		= gamecube_power_off,
 	.halt			= gamecube_halt,
@@ -97,22 +105,7 @@ define_machine(gamecube) {
 	.machine_shutdown	= gamecube_shutdown,
 #ifdef CONFIG_KEXEC
 	.machine_kexec_prepare	= gamecube_kexec_prepare,
+	.machine_kexec		= default_machine_kexec,
 #endif
 };
-
-
-static struct of_device_id gamecube_of_bus[] = {
-	{ .compatible = "nintendo,flipper", },
-	{ },
-};
-
-static int __init gamecube_device_probe(void)
-{
-	if (!machine_is(gamecube))
-		return 0;
-
-	of_platform_bus_probe(NULL, gamecube_of_bus, NULL);
-	return 0;
-}
-device_initcall(gamecube_device_probe);
 

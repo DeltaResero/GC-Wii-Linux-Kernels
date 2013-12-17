@@ -82,11 +82,6 @@ extern struct task_struct *current_set[NR_CPUS];
 int __map_without_bats;
 int __map_without_ltlbs;
 
-/*
- * This tells the system to allow ioremapping memory marked as reserved.
- */
-int __allow_ioremap_reserved;
-
 /* max amount of low RAM to map in */
 unsigned long __max_low_memory = MAX_LOW_MEM;
 
@@ -136,13 +131,9 @@ void __init MMU_init(void)
 	MMU_setup();
 
 	if (lmb.memory.cnt > 1) {
-#ifndef CONFIG_WII
 		lmb.memory.cnt = 1;
 		lmb_analyze();
 		printk(KERN_WARNING "Only using first contiguous memory region");
-#else
-		wii_memory_fixups();
-#endif
 	}
 
 	total_lowmem = total_memory = lmb_end_of_DRAM() - memstart_addr;

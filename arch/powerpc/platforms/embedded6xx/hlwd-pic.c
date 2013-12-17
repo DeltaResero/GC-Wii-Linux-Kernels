@@ -45,10 +45,9 @@ static void hlwd_pic_mask_and_ack(unsigned int virq)
 {
 	int irq = virq_to_hw(virq);
 	void __iomem *io_base = get_irq_chip_data(virq);
-	u32 mask = 1 << irq;
 
-	clrbits32(io_base + HW_BROADWAY_IMR, mask);
-	out_be32(io_base + HW_BROADWAY_ICR, mask);
+	clear_bit(irq, io_base + HW_BROADWAY_IMR);
+	set_bit(irq, io_base + HW_BROADWAY_ICR);
 }
 
 static void hlwd_pic_ack(unsigned int virq)
@@ -56,7 +55,7 @@ static void hlwd_pic_ack(unsigned int virq)
 	int irq = virq_to_hw(virq);
 	void __iomem *io_base = get_irq_chip_data(virq);
 
-	out_be32(io_base + HW_BROADWAY_ICR, 1 << irq);
+	set_bit(irq, io_base + HW_BROADWAY_ICR);
 }
 
 static void hlwd_pic_mask(unsigned int virq)
@@ -64,7 +63,7 @@ static void hlwd_pic_mask(unsigned int virq)
 	int irq = virq_to_hw(virq);
 	void __iomem *io_base = get_irq_chip_data(virq);
 
-	clrbits32(io_base + HW_BROADWAY_IMR, 1 << irq);
+	clear_bit(irq, io_base + HW_BROADWAY_IMR);
 }
 
 static void hlwd_pic_unmask(unsigned int virq)
@@ -72,12 +71,12 @@ static void hlwd_pic_unmask(unsigned int virq)
 	int irq = virq_to_hw(virq);
 	void __iomem *io_base = get_irq_chip_data(virq);
 
-	setbits32(io_base + HW_BROADWAY_IMR, 1 << irq);
+	set_bit(irq, io_base + HW_BROADWAY_IMR);
 }
 
 
 static struct irq_chip hlwd_pic = {
-	.name		= "hlwd-pic",
+	.typename	= "hlwd-pic",
 	.ack		= hlwd_pic_ack,
 	.mask_ack	= hlwd_pic_mask_and_ack,
 	.mask		= hlwd_pic_mask,
@@ -120,10 +119,10 @@ static unsigned int __hlwd_pic_get_irq(struct irq_host *h)
 	irq_status = in_be32(io_base + HW_BROADWAY_ICR) &
 		     in_be32(io_base + HW_BROADWAY_IMR);
 	if (irq_status == 0)
-		return NO_IRQ;	/* no more IRQs pending */
+		return NO_IRQ_IGNORE;	/* no more IRQs pending */
 
-	irq = __ffs(irq_status);
-	return irq_linear_revmap(h, irq);
+	__asm__ __volatile__("cntlzw %0,%1" : "=r"(irq) : "r"(irq_status));
+	return irq_linear_revmap(h, 31 - irq);
 }
 
 static void hlwd_pic_irq_cascade(unsigned int cascade_virq,
@@ -137,7 +136,7 @@ static void hlwd_pic_irq_cascade(unsigned int cascade_virq,
 	raw_spin_unlock(&desc->lock);
 
 	virq = __hlwd_pic_get_irq(irq_host);
-	if (virq != NO_IRQ)
+	if (virq != NO_IRQ_IGNORE)
 		generic_handle_irq(virq);
 	else
 		pr_err("spurious interrupt!\n");
@@ -158,7 +157,7 @@ static void __hlwd_quiesce(void __iomem *io_base)
 {
 	/* mask and ack all IRQs */
 	out_be32(io_base + HW_BROADWAY_IMR, 0);
-	out_be32(io_base + HW_BROADWAY_ICR, 0xffffffff);
+	out_be32(io_base + HW_BROADWAY_ICR, ~0);
 }
 
 struct irq_host *hlwd_pic_init(struct device_node *np)
@@ -184,7 +183,7 @@ struct irq_host *hlwd_pic_init(struct device_node *np)
 	__hlwd_quiesce(io_base);
 
 	irq_host = irq_alloc_host(np, IRQ_HOST_MAP_LINEAR, HLWD_NR_IRQS,
-				  &hlwd_irq_host_ops, -1);
+				  &hlwd_irq_host_ops, NO_IRQ_IGNORE);
 	if (!irq_host) {
 		pr_err("failed to allocate irq_host\n");
 		return NULL;
@@ -220,8 +219,6 @@ void hlwd_pic_probe(void)
 			set_irq_data(cascade_virq, host);
 			set_irq_chained_handler(cascade_virq,
 						hlwd_pic_irq_cascade);
-			hlwd_irq_host = host;
-			break;
 		}
 	}
 }

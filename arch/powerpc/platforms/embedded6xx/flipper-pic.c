@@ -1,7 +1,7 @@
 /*
  * arch/powerpc/platforms/embedded6xx/flipper-pic.c
  *
- * Nintendo GameCube/Wii "Flipper" interrupt controller support.
+ * Nintendo GameCube/Wii interrupt controller support.
  * Copyright (C) 2004-2009 The GameCube Linux Team
  * Copyright (C) 2007,2008,2009 Albert Herranz
  *
@@ -22,25 +22,6 @@
 
 #include "flipper-pic.h"
 
-#define FLIPPER_NR_IRQS		32
-
-/*
- * Each interrupt has a corresponding bit in both
- * the Interrupt Cause (ICR) and Interrupt Mask (IMR) registers.
- *
- * Enabling/disabling an interrupt line involves setting/clearing
- * the corresponding bit in IMR.
- * Except for the RSW interrupt, all interrupts get deasserted automatically
- * when the source deasserts the interrupt.
- */
-#define FLIPPER_ICR		0x00
-#define FLIPPER_ICR_RSS		(1<<16) /* reset switch state */
-
-#define FLIPPER_IMR		0x04
-
-#define FLIPPER_RESET		0x24
-
-
 /*
  * IRQ chip hooks.
  *
@@ -50,11 +31,9 @@ static void flipper_pic_mask_and_ack(unsigned int virq)
 {
 	int irq = virq_to_hw(virq);
 	void __iomem *io_base = get_irq_chip_data(virq);
-	u32 mask = 1 << irq;
 
-	clrbits32(io_base + FLIPPER_IMR, mask);
-	/* this is at least needed for RSW */
-	out_be32(io_base + FLIPPER_ICR, mask);
+	clear_bit(irq, io_base + FLIPPER_IMR);
+	set_bit(irq, io_base + FLIPPER_ICR);
 }
 
 static void flipper_pic_ack(unsigned int virq)
@@ -62,8 +41,7 @@ static void flipper_pic_ack(unsigned int virq)
 	int irq = virq_to_hw(virq);
 	void __iomem *io_base = get_irq_chip_data(virq);
 
-	/* this is at least needed for RSW */
-	out_be32(io_base + FLIPPER_ICR, 1 << irq);
+	set_bit(irq, io_base + FLIPPER_ICR);
 }
 
 static void flipper_pic_mask(unsigned int virq)
@@ -71,7 +49,7 @@ static void flipper_pic_mask(unsigned int virq)
 	int irq = virq_to_hw(virq);
 	void __iomem *io_base = get_irq_chip_data(virq);
 
-	clrbits32(io_base + FLIPPER_IMR, 1 << irq);
+	clear_bit(irq, io_base + FLIPPER_IMR);
 }
 
 static void flipper_pic_unmask(unsigned int virq)
@@ -79,12 +57,12 @@ static void flipper_pic_unmask(unsigned int virq)
 	int irq = virq_to_hw(virq);
 	void __iomem *io_base = get_irq_chip_data(virq);
 
-	setbits32(io_base + FLIPPER_IMR, 1 << irq);
+	set_bit(irq, io_base + FLIPPER_IMR);
 }
 
 
 static struct irq_chip flipper_pic = {
-	.name		= "flipper-pic",
+	.typename	= "flipper-pic",
 	.ack		= flipper_pic_ack,
 	.mask_ack	= flipper_pic_mask_and_ack,
 	.mask		= flipper_pic_mask,
@@ -139,28 +117,17 @@ static void __flipper_quiesce(void __iomem *io_base)
 
 struct irq_host * __init flipper_pic_init(struct device_node *np)
 {
-	struct device_node *pi;
-	struct irq_host *irq_host = NULL;
+	struct irq_host *irq_host;
 	struct resource res;
 	void __iomem *io_base;
 	int retval;
 
-	pi = of_get_parent(np);
-	if (!pi) {
-		pr_err("no parent found\n");
-		goto out;
-	}
-	if (!of_device_is_compatible(pi, "nintendo,flipper-pi")) {
-		pr_err("unexpected parent compatible\n");
-		goto out;
-	}
-
-	retval = of_address_to_resource(pi, 0, &res);
+	retval = of_address_to_resource(np, 0, &res);
 	if (retval) {
 		pr_err("no io memory range found\n");
-		goto out;
+		return NULL;
 	}
-	io_base = ioremap(res.start, resource_size(&res));
+	io_base = ioremap(res.start, res.end - res.start + 1);
 
 	pr_info("controller at 0x%08x mapped to 0x%p\n", res.start, io_base);
 
@@ -175,7 +142,6 @@ struct irq_host * __init flipper_pic_init(struct device_node *np)
 
 	irq_host->host_data = io_base;
 
-out:
 	return irq_host;
 }
 
@@ -188,10 +154,10 @@ unsigned int flipper_pic_get_irq(void)
 	irq_status = in_be32(io_base + FLIPPER_ICR) &
 		     in_be32(io_base + FLIPPER_IMR);
 	if (irq_status == 0)
-		return NO_IRQ;	/* no more IRQs pending */
+		return -1;	/* no more IRQs pending */
 
-	irq = __ffs(irq_status);
-	return irq_linear_revmap(flipper_irq_host, irq);
+	__asm__ __volatile__("cntlzw %0,%1" : "=r"(irq) : "r"(irq_status));
+	return irq_linear_revmap(flipper_irq_host, 31 - irq);
 }
 
 /*

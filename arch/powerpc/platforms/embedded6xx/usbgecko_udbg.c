@@ -12,12 +12,11 @@
  *
  */
 
-#include <mm/mmu_decl.h>
-
 #include <asm/io.h>
 #include <asm/prom.h>
 #include <asm/udbg.h>
-#include <asm/fixmap.h>
+
+#include <mm/mmu_decl.h>
 
 #include "usbgecko_udbg.h"
 
@@ -45,7 +44,7 @@
 static void __iomem *ug_io_base;
 
 /*
- * Performs one input/output transaction between the exi host and the usbgecko.
+ * Performs one input/output transaction between the spi host and the usbgecko.
  */
 static u32 ug_io_transaction(u32 in)
 {
@@ -120,9 +119,20 @@ static void ug_putc(char ch)
 
 	while (!ug_is_txfifo_ready() && count--)
 		barrier();
-	if (count >= 0)
+	if (count)
 		ug_raw_putc(ch);
 }
+
+#if 0
+/*
+ * Trasmits a null terminated character string.
+ */
+static void ug_puts(char *s)
+{
+	while (*s)
+		ug_putc(*s++);
+}
+#endif
 
 /*
  * Returns true if the RX fifo is ready for transmission.
@@ -199,38 +209,20 @@ static int ug_udbg_getc_poll(void)
 /*
  * Retrieves and prepares the virtual address needed to access the hardware.
  */
-static void __iomem *ug_udbg_setup_exi_io_base(struct device_node *np)
+static void __iomem *ug_udbg_setup_io_base(struct device_node *np)
 {
-	void __iomem *exi_io_base = NULL;
 	phys_addr_t paddr;
 	const unsigned int *reg;
 
 	reg = of_get_property(np, "reg", NULL);
 	if (reg) {
 		paddr = of_translate_address(np, reg);
-		if (paddr)
-			exi_io_base = ioremap(paddr, reg[1]);
+		if (paddr) {
+			ug_io_base = ioremap(paddr, reg[1]);
+			return ug_io_base;
+		}
 	}
-	return exi_io_base;
-}
-
-/*
- * Checks if a USB Gecko adapter is inserted in any memory card slot.
- */
-static void __iomem *ug_udbg_probe(void __iomem *exi_io_base)
-{
-	int i;
-
-	/* look for a usbgecko on memcard slots A and B */
-	for (i = 0; i < 2; i++) {
-		ug_io_base = exi_io_base + 0x14 * i;
-		if (ug_is_adapter_present())
-			break;
-	}
-	if (i == 2)
-		ug_io_base = NULL;
-	return ug_io_base;
-
+	return NULL;
 }
 
 /*
@@ -238,27 +230,50 @@ static void __iomem *ug_udbg_probe(void __iomem *exi_io_base)
  */
 void __init ug_udbg_init(void)
 {
-	struct device_node *np;
-	void __iomem *exi_io_base;
+	struct device_node *np = NULL;
+	struct device_node *stdout;
+	const char *path;
 
 	if (ug_io_base)
 		udbg_printf("%s: early -> final\n", __func__);
 
-	np = of_find_compatible_node(NULL, NULL, "nintendo,flipper-exi");
+	if (!of_chosen) {
+		udbg_printf("%s: missing of_chosen\n", __func__);
+		goto done;
+	}
+
+	path = of_get_property(of_chosen, "linux,stdout-path", NULL);
+	if (!path) {
+		udbg_printf("%s: missing %s property", __func__,
+			    "linux,stdout-path");
+		goto done;
+	}
+
+	stdout = of_find_node_by_path(path);
+	if (!stdout) {
+		udbg_printf("%s: missing path %s", __func__, path);
+		goto done;
+	}
+
+	for (np = NULL;
+	    (np = of_find_compatible_node(np, NULL, "usbgecko,usbgecko"));)
+		if (np == stdout)
+			break;
+
+	of_node_put(stdout);
 	if (!np) {
-		udbg_printf("%s: EXI node not found\n", __func__);
+		udbg_printf("%s: stdout is not an usbgecko", __func__);
 		goto done;
 	}
 
-	exi_io_base = ug_udbg_setup_exi_io_base(np);
-	if (!exi_io_base) {
-		udbg_printf("%s: failed to setup EXI io base\n", __func__);
+	if (!ug_udbg_setup_io_base(np)) {
+		udbg_printf("%s: failed to setup io base", __func__);
 		goto done;
 	}
 
-	if (!ug_udbg_probe(exi_io_base)) {
+	if (!ug_is_adapter_present()) {
 		udbg_printf("usbgecko_udbg: not found\n");
-		iounmap(exi_io_base);
+		ug_io_base = NULL;
 	} else {
 		udbg_putc = ug_udbg_putc;
 		udbg_getc = ug_udbg_getc;
@@ -274,54 +289,30 @@ done:
 
 #ifdef CONFIG_PPC_EARLY_DEBUG_USBGECKO
 
-static phys_addr_t __init ug_early_grab_io_addr(void)
-{
-#if defined(CONFIG_GAMECUBE)
-	return 0x0c000000;
-#elif defined(CONFIG_WII)
-	return 0x0d000000;
-#else
-#error Invalid platform for USB Gecko based early debugging.
-#endif
-}
-
 /*
  * USB Gecko early debug support initialization for udbg.
+ *
  */
 void __init udbg_init_usbgecko(void)
 {
-	void __iomem *early_debug_area;
-	void __iomem *exi_io_base;
+	unsigned long vaddr, paddr;
 
-	/*
-	 * At this point we have a BAT already setup that enables I/O
-	 * to the EXI hardware.
-	 *
-	 * The BAT uses a virtual address range reserved at the fixmap.
-	 * This must match the virtual address configured in
-	 * head_32.S:setup_usbgecko_bat().
-	 */
-	early_debug_area = (void __iomem *)__fix_to_virt(FIX_EARLY_DEBUG_BASE);
-	exi_io_base = early_debug_area + 0x00006800;
+#if defined(CONFIG_GAMECUBE)
+	paddr = 0x0c000000;
+#elif defined(CONFIG_WII)
+	paddr = 0x0d000000;
+#else
+#error Invalid platform for USB Gecko based early debugging.
+#endif
 
-	/* try to detect a USB Gecko */
-	if (!ug_udbg_probe(exi_io_base))
-		return;
+	vaddr = 0xc0000000 | paddr;
+	setbat(1, vaddr, paddr, 128*1024, PAGE_KERNEL_NCG);
 
-	/* we found a USB Gecko, load udbg hooks */
+	ug_io_base = (void __iomem *)(vaddr | 0x6814);
+
 	udbg_putc = ug_udbg_putc;
 	udbg_getc = ug_udbg_getc;
 	udbg_getc_poll = ug_udbg_getc_poll;
-
-	/*
-	 * Prepare again the same BAT for MMU_init.
-	 * This allows udbg I/O to continue working after the MMU is
-	 * turned on for real.
-	 * It is safe to continue using the same virtual address as it is
-	 * a reserved fixmap area.
-	 */
-	setbat(1, (unsigned long)early_debug_area,
-	       ug_early_grab_io_addr(), 128*1024, PAGE_KERNEL_NCG);
 }
 
 #endif /* CONFIG_PPC_EARLY_DEBUG_USBGECKO */

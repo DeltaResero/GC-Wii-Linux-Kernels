@@ -86,7 +86,7 @@ static void ug_putc(char ch)
 
 	while (!ug_is_txfifo_ready() && count--)
 		barrier();
-	if (count >= 0)
+	if (count)
 		ug_raw_putc(ch);
 }
 
@@ -101,47 +101,27 @@ void ug_console_write(const char *buf, int len)
 	}
 }
 
-static int ug_is_adapter_present(void)
+int ug_is_adapter_present(void)
 {
 	if (!ug_io_base)
 		return 0;
 	return ug_io_transaction(0x90000000) == 0x04700000;
 }
 
-static void *ug_grab_exi_io_base(void)
+int ug_grab_io_base(void)
 {
 	u32 v;
 	void *devp;
 
-	devp = find_node_by_compatible(NULL, "nintendo,flipper-exi");
+	devp = find_node_by_alias("ugecon");
 	if (devp == NULL)
 		goto err_out;
 	if (getprop(devp, "virtual-reg", &v, sizeof(v)) != sizeof(v))
 		goto err_out;
 
-	return (void *)v;
+	ug_io_base = (u8 *)v;
+	return 0;
 
 err_out:
-	return NULL;
+	return -1;
 }
-
-void *ug_probe(void)
-{
-	void *exi_io_base;
-	int i;
-
-	exi_io_base = ug_grab_exi_io_base();
-	if (!exi_io_base)
-		return NULL;
-
-	/* look for a usbgecko on memcard slots A and B */
-	for (i = 0; i < 2; i++) {
-		ug_io_base = exi_io_base + 0x14 * i;
-		if (ug_is_adapter_present())
-			break;
-	}
-	if (i == 2)
-		ug_io_base = NULL;
-	return ug_io_base;
-}
-

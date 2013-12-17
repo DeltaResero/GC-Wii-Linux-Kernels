@@ -1209,22 +1209,18 @@ setup_cpm_bat:
 #ifdef CONFIG_PPC_EARLY_DEBUG_USBGECKO
 setup_usbgecko_bat:
 	/* prepare a BAT for early io */
-#if defined(CONFIG_GAMECUBE)
 	lis	r8, 0x0c00
-#elif defined(CONFIG_WII)
-	lis	r8, 0x0d00
-#else
-#error Invalid platform for USB Gecko based early debugging.
-#endif
-	/*
-	 * The virtual address used must match the virtual address
-	 * associated to the fixmap entry FIX_EARLY_DEBUG_BASE.
-	 */
-	lis	r11, 0xfffe	/* top 128K */
 	ori	r8, r8, 0x002a	/* uncached, guarded ,rw */
-	ori	r11, r11, 0x2	/* 128K, Vs=1, Vp=0 */
+	lis	r11, 0xcc00
+	ori	r11, r11, 0x3	/* 128K */
+#ifdef CONFIG_WII
+	oris	r8, r8, 0x0100
+	oris	r11, r11, 0x0100
+#endif
 	mtspr	SPRN_DBAT1L, r8
 	mtspr	SPRN_DBAT1U, r11
+	sync
+	isync
 	blr
 #endif
 
