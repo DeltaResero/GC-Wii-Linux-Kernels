@@ -109,6 +109,7 @@ enum pageflags {
 	PG_compound_lock,
 #endif
 	PG_readaheadunused,	/* user oriented readahead as yet unused */
+	PG_readahead,		/* page in a readahead window */
 	__NR_PAGEFLAGS,
 
 	/* Filesystems */
