@@ -1048,6 +1048,15 @@ config PRINTK
 	  very difficult to diagnose system problems, saying N here is
 	  strongly discouraged.
 
+config IDE_HWIFS
+	depends on IDE
+	int "Number of IDE hardware interfaces (0 for default)" if EXPERT
+	range 0 20
+	default 0
+	help
+	  Select the maximum number of IDE interfaces (0 for default).
+	  Saves up to 14k.
+
 config BUG
 	bool "BUG() support" if EXPERT
 	default y
