@@ -1132,6 +1132,16 @@ config EVENTFD
 
 	  If unsure, say Y.
 
+config MAX_NR_CON_DRIVER
+	int "Number of console drivers" if EXPERT
+	range 1 16
+	default 8 if EMBEDDED
+	default 16 if !EMBEDDED
+	help
+	  Select the maximum number of console drivers (16 for default).
+
+	  For a normal desktop machine, 8 should be a preferred value.
+
 config SHMEM
 	bool "Use full shmem filesystem" if EXPERT
 	default y
