@@ -1,5 +1,5 @@
 /*
- * BFQ-v5r1 for 3.4.0: data structures and common functions prototypes.
+ * BFQ-v6r2 for 3.4.0: data structures and common functions prototypes.
  *
  * Based on ideas and code from CFQ:
  * Copyright (C) 2003 Jens Axboe <axboe@kernel.dk>
@@ -612,6 +612,8 @@ static void bfq_dispatch_insert(struct request_queue *q, struct request *rq);
 static struct bfq_queue *bfq_get_queue(struct bfq_data *bfqd,
 				       struct bfq_group *bfqg, int is_sync,
 				       struct io_context *ioc, gfp_t gfp_mask);
+static void bfq_end_raising_async_queues(struct bfq_data *bfqd,
+					 struct bfq_group *bfqg);
 static void bfq_put_async_queues(struct bfq_data *bfqd, struct bfq_group *bfqg);
 static void bfq_exit_bfqq(struct bfq_data *bfqd, struct bfq_queue *bfqq);
 #endif
