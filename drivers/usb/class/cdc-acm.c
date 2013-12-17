@@ -170,6 +170,7 @@ static void acm_write_done(struct acm *acm, struct acm_wb *wb)
 {
 	wb->use = 0;
 	acm->transmitting--;
+	usb_autopm_put_interface_async(acm->control);
 }
 
 /*
@@ -211,9 +212,12 @@ static int acm_write_start(struct acm *acm, int wbn)
 	}
 
 	dbg("%s susp_count: %d", __func__, acm->susp_count);
+	usb_autopm_get_interface_async(acm->control);
 	if (acm->susp_count) {
-		acm->delayed_wb = wb;
-		schedule_work(&acm->waker);
+		if (!acm->delayed_wb)
+			acm->delayed_wb = wb;
+		else
+			usb_autopm_put_interface_async(acm->control);
 		spin_unlock_irqrestore(&acm->write_lock, flags);
 		return 0;	/* A white lie */
 	}
@@ -293,6 +297,8 @@ static void acm_ctrl_irq(struct urb *urb)
 	if (!ACM_READY(acm))
 		goto exit;
 
+	usb_mark_last_busy(acm->dev);
+
 	data = (unsigned char *)(dr + 1);
 	switch (dr->bNotificationType) {
 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
@@ -332,7 +338,6 @@ static void acm_ctrl_irq(struct urb *urb)
 		break;
 	}
 exit:
-	usb_mark_last_busy(acm->dev);
 	retval = usb_submit_urb(urb, GFP_ATOMIC);
 	if (retval)
 		dev_err(&urb->dev->dev, "%s - usb_submit_urb failed with "
@@ -530,25 +535,10 @@ static void acm_softint(struct work_struct *work)
 	if (!ACM_READY(acm))
 		return;
 	tty = tty_port_tty_get(&acm->port);
+	if (!tty)
+		return;
 	tty_wakeup(tty);
 	tty_kref_put(tty);
-}
-
-static void acm_waker(struct work_struct *waker)
-{
-	struct acm *acm = container_of(waker, struct acm, waker);
-	int rv;
-
-	rv = usb_autopm_get_interface(acm->control);
-	if (rv < 0) {
-		dev_err(&acm->dev->dev, "Autopm failure in %s\n", __func__);
-		return;
-	}
-	if (acm->delayed_wb) {
-		acm_start_wb(acm, acm->delayed_wb);
-		acm->delayed_wb = NULL;
-	}
-	usb_autopm_put_interface(acm->control);
 }
 
 /*
@@ -665,8 +655,10 @@ static void acm_port_down(struct acm *acm, int drain)
 		usb_kill_urb(acm->ctrlurb);
 		for (i = 0; i < ACM_NW; i++)
 			usb_kill_urb(acm->wb[i].urb);
+		tasklet_disable(&acm->urb_task);
 		for (i = 0; i < nr; i++)
 			usb_kill_urb(acm->ru[i].urb);
+		tasklet_enable(&acm->urb_task);
 		acm->control->needs_remote_wakeup = 0;
 		usb_autopm_put_interface(acm->control);
 	}
@@ -1178,7 +1170,6 @@ made_compressed_probe:
 	acm->urb_task.func = acm_rx_tasklet;
 	acm->urb_task.data = (unsigned long) acm;
 	INIT_WORK(&acm->work, acm_softint);
-	INIT_WORK(&acm->waker, acm_waker);
 	init_waitqueue_head(&acm->drain_wait);
 	spin_lock_init(&acm->throttle_lock);
 	spin_lock_init(&acm->write_lock);
@@ -1215,7 +1206,7 @@ made_compressed_probe:
 		if (rcv->urb == NULL) {
 			dev_dbg(&intf->dev,
 				"out of memory (read urbs usb_alloc_urb)\n");
-			goto alloc_fail7;
+			goto alloc_fail6;
 		}
 
 		rcv->urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
@@ -1239,7 +1230,7 @@ made_compressed_probe:
 		if (snd->urb == NULL) {
 			dev_dbg(&intf->dev,
 				"out of memory (write urbs usb_alloc_urb)");
-			goto alloc_fail7;
+			goto alloc_fail8;
 		}
 
 		if (usb_endpoint_xfer_int(epwrite))
@@ -1278,6 +1269,7 @@ made_compressed_probe:
 		i = device_create_file(&intf->dev,
 						&dev_attr_iCountryCodeRelDate);
 		if (i < 0) {
+			device_remove_file(&intf->dev, &dev_attr_wCountryCodes);
 			kfree(acm->country_codes);
 			goto skip_countries;
 		}
@@ -1314,6 +1306,7 @@ alloc_fail8:
 		usb_free_urb(acm->wb[i].urb);
 alloc_fail7:
 	acm_read_buffers_free(acm);
+alloc_fail6:
 	for (i = 0; i < num_rx_buf; i++)
 		usb_free_urb(acm->ru[i].urb);
 	usb_free_urb(acm->ctrlurb);
@@ -1343,7 +1336,6 @@ static void stop_data_traffic(struct acm *acm)
 	tasklet_enable(&acm->urb_task);
 
 	cancel_work_sync(&acm->work);
-	cancel_work_sync(&acm->waker);
 }
 
 static void acm_disconnect(struct usb_interface *intf)
@@ -1435,6 +1427,7 @@ static int acm_suspend(struct usb_interface *intf, pm_message_t message)
 static int acm_resume(struct usb_interface *intf)
 {
 	struct acm *acm = usb_get_intfdata(intf);
+	struct acm_wb *wb;
 	int rv = 0;
 	int cnt;
 
@@ -1449,6 +1442,21 @@ static int acm_resume(struct usb_interface *intf)
 	mutex_lock(&acm->mutex);
 	if (acm->port.count) {
 		rv = usb_submit_urb(acm->ctrlurb, GFP_NOIO);
+
+		spin_lock_irq(&acm->write_lock);
+		if (acm->delayed_wb) {
+			wb = acm->delayed_wb;
+			acm->delayed_wb = NULL;
+			spin_unlock_irq(&acm->write_lock);
+			acm_start_wb(acm, wb);
+		} else {
+			spin_unlock_irq(&acm->write_lock);
+		}
+
+		/*
+		 * delayed error checking because we must
+		 * do the write path at all cost
+		 */
 		if (rv < 0)
 			goto err_out;
 
@@ -1573,6 +1581,9 @@ static struct usb_device_id acm_ids[] = {
 	{ NOKIA_PCSUITE_ACM_INFO(0x00e9), }, /* Nokia 5320 XpressMusic */
 	{ NOKIA_PCSUITE_ACM_INFO(0x0108), }, /* Nokia 5320 XpressMusic 2G */
 	{ NOKIA_PCSUITE_ACM_INFO(0x01f5), }, /* Nokia N97, RM-505 */
+
+	/* Support for Owen devices */
+	{ USB_DEVICE(0x03eb, 0x0030), }, /* Owen SI30 */
 
 	/* NOTE: non-Nokia COMM/ACM/0xff is likely MSFT RNDIS... NOT a modem! */
 

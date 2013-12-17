@@ -766,6 +766,8 @@ int kvm_arch_vcpu_ioctl_get_sregs(struct kvm_vcpu *vcpu,
 	struct kvmppc_vcpu_book3s *vcpu3s = to_book3s(vcpu);
 	int i;
 
+	vcpu_load(vcpu);
+
 	sregs->pvr = vcpu->arch.pvr;
 
 	sregs->u.s.sdr1 = to_book3s(vcpu)->sdr1;
@@ -784,6 +786,9 @@ int kvm_arch_vcpu_ioctl_get_sregs(struct kvm_vcpu *vcpu,
 			sregs->u.s.ppc32.dbat[i] = vcpu3s->dbat[i].raw;
 		}
 	}
+
+	vcpu_put(vcpu);
+
 	return 0;
 }
 
@@ -792,6 +797,8 @@ int kvm_arch_vcpu_ioctl_set_sregs(struct kvm_vcpu *vcpu,
 {
 	struct kvmppc_vcpu_book3s *vcpu3s = to_book3s(vcpu);
 	int i;
+
+	vcpu_load(vcpu);
 
 	kvmppc_set_pvr(vcpu, sregs->pvr);
 
@@ -819,6 +826,9 @@ int kvm_arch_vcpu_ioctl_set_sregs(struct kvm_vcpu *vcpu,
 
 	/* Flush the MMU after messing with the segments */
 	kvmppc_mmu_pte_flush(vcpu, 0, 0);
+
+	vcpu_put(vcpu);
+
 	return 0;
 }
 
@@ -848,7 +858,8 @@ int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm,
 	struct kvm_vcpu *vcpu;
 	ulong ga, ga_end;
 	int is_dirty = 0;
-	int r, n;
+	int r;
+	unsigned long n;
 
 	down_write(&kvm->slots_lock);
 
@@ -866,7 +877,7 @@ int kvm_vm_ioctl_get_dirty_log(struct kvm *kvm,
 		kvm_for_each_vcpu(n, vcpu, kvm)
 			kvmppc_mmu_pte_pflush(vcpu, ga, ga_end);
 
-		n = ALIGN(memslot->npages, BITS_PER_LONG) / 8;
+		n = kvm_dirty_bitmap_bytes(memslot);
 		memset(memslot->dirty_bitmap, 0, n);
 	}
 

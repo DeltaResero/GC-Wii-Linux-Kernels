@@ -1934,6 +1934,15 @@ static void cfq_setup_merge(struct cfq_queue *cfqq, struct cfq_queue *new_cfqq)
 	int process_refs, new_process_refs;
 	struct cfq_queue *__cfqq;
 
+	/*
+	 * If there are no process references on the new_cfqq, then it is
+	 * unsafe to follow the ->new_cfqq chain as other cfqq's in the
+	 * chain may have dropped their last reference (not just their
+	 * last process reference).
+	 */
+	if (!cfqq_process_refs(new_cfqq))
+		return;
+
 	/* Avoid a circular list and skip interim queue merges */
 	while ((__cfqq = new_cfqq->new_cfqq)) {
 		if (__cfqq == cfqq)
@@ -1942,17 +1951,17 @@ static void cfq_setup_merge(struct cfq_queue *cfqq, struct cfq_queue *new_cfqq)
 	}
 
 	process_refs = cfqq_process_refs(cfqq);
+	new_process_refs = cfqq_process_refs(new_cfqq);
 	/*
 	 * If the process for the cfqq has gone away, there is no
 	 * sense in merging the queues.
 	 */
-	if (process_refs == 0)
+	if (process_refs == 0 || new_process_refs == 0)
 		return;
 
 	/*
 	 * Merge in the direction of the lesser amount of work.
 	 */
-	new_process_refs = cfqq_process_refs(new_cfqq);
 	if (new_process_refs >= process_refs) {
 		cfqq->new_cfqq = new_cfqq;
 		atomic_add(process_refs, &new_cfqq->ref);
@@ -2481,14 +2490,9 @@ static void cfq_free_io_context(struct io_context *ioc)
 	__call_for_each_cic(ioc, cic_free_func);
 }
 
-static void cfq_exit_cfqq(struct cfq_data *cfqd, struct cfq_queue *cfqq)
+static void cfq_put_cooperator(struct cfq_queue *cfqq)
 {
 	struct cfq_queue *__cfqq, *next;
-
-	if (unlikely(cfqq == cfqd->active_queue)) {
-		__cfq_slice_expired(cfqd, cfqq, 0);
-		cfq_schedule_dispatch(cfqd);
-	}
 
 	/*
 	 * If this queue was scheduled to merge with another queue, be
@@ -2505,6 +2509,16 @@ static void cfq_exit_cfqq(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 		cfq_put_queue(__cfqq);
 		__cfqq = next;
 	}
+}
+
+static void cfq_exit_cfqq(struct cfq_data *cfqd, struct cfq_queue *cfqq)
+{
+	if (unlikely(cfqq == cfqd->active_queue)) {
+		__cfq_slice_expired(cfqd, cfqq, 0);
+		cfq_schedule_dispatch(cfqd);
+	}
+
+	cfq_put_cooperator(cfqq);
 
 	cfq_put_queue(cfqq);
 }
@@ -2523,8 +2537,14 @@ static void __cfq_exit_single_io_context(struct cfq_data *cfqd,
 	cic->dead_key = (unsigned long) cic->key;
 	cic->key = NULL;
 
-	if (ioc->ioc_data == cic)
+	rcu_read_lock();
+	if (rcu_dereference(ioc->ioc_data) == cic) {
+		rcu_read_unlock();
+		spin_lock(&ioc->lock);
 		rcu_assign_pointer(ioc->ioc_data, NULL);
+		spin_unlock(&ioc->lock);
+	} else
+		rcu_read_unlock();
 
 	if (cic->cfqq[BLK_RW_ASYNC]) {
 		cfq_exit_cfqq(cfqd, cic->cfqq[BLK_RW_ASYNC]);
@@ -3248,6 +3268,10 @@ static bool cfq_should_wait_busy(struct cfq_data *cfqd, struct cfq_queue *cfqq)
 {
 	struct cfq_io_context *cic = cfqd->active_cic;
 
+	/* If the queue already has requests, don't wait */
+	if (!RB_EMPTY_ROOT(&cfqq->sort_list))
+		return false;
+
 	/* If there are other queues in the group, don't wait */
 	if (cfqq->cfqg->nr_cfqq > 1)
 		return false;
@@ -3459,6 +3483,9 @@ split_cfqq(struct cfq_io_context *cic, struct cfq_queue *cfqq)
 	}
 
 	cic_set_cfqq(cic, NULL, 1);
+
+	cfq_put_cooperator(cfqq);
+
 	cfq_put_queue(cfqq);
 	return NULL;
 }

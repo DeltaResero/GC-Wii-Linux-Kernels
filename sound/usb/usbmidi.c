@@ -984,6 +984,8 @@ static void snd_usbmidi_output_drain(struct snd_rawmidi_substream *substream)
 	DEFINE_WAIT(wait);
 	long timeout = msecs_to_jiffies(50);
 
+	if (ep->umidi->disconnected)
+		return;
 	/*
 	 * The substream buffer is empty, but some data might still be in the
 	 * currently active URBs, so we have to wait for those to complete.
@@ -1121,14 +1123,21 @@ static int snd_usbmidi_in_endpoint_create(struct snd_usb_midi* umidi,
  * Frees an output endpoint.
  * May be called when ep hasn't been initialized completely.
  */
-static void snd_usbmidi_out_endpoint_delete(struct snd_usb_midi_out_endpoint* ep)
+static void snd_usbmidi_out_endpoint_clear(struct snd_usb_midi_out_endpoint *ep)
 {
 	unsigned int i;
 
 	for (i = 0; i < OUTPUT_URBS; ++i)
-		if (ep->urbs[i].urb)
+		if (ep->urbs[i].urb) {
 			free_urb_and_buffer(ep->umidi, ep->urbs[i].urb,
 					    ep->max_transfer);
+			ep->urbs[i].urb = NULL;
+		}
+}
+
+static void snd_usbmidi_out_endpoint_delete(struct snd_usb_midi_out_endpoint *ep)
+{
+	snd_usbmidi_out_endpoint_clear(ep);
 	kfree(ep);
 }
 
@@ -1162,10 +1171,22 @@ static int snd_usbmidi_out_endpoint_create(struct snd_usb_midi* umidi,
 		pipe = usb_sndintpipe(umidi->dev, ep_info->out_ep);
 	else
 		pipe = usb_sndbulkpipe(umidi->dev, ep_info->out_ep);
-	if (umidi->usb_id == USB_ID(0x0a92, 0x1020)) /* ESI M4U */
-		ep->max_transfer = 4;
-	else
+	switch (umidi->usb_id) {
+	default:
 		ep->max_transfer = usb_maxpacket(umidi->dev, pipe, 1);
+		break;
+		/*
+		 * Various chips declare a packet size larger than 4 bytes, but
+		 * do not actually work with larger packets:
+		 */
+	case USB_ID(0x0a92, 0x1020): /* ESI M4U */
+	case USB_ID(0x1430, 0x474b): /* RedOctane GH MIDI INTERFACE */
+	case USB_ID(0x15ca, 0x0101): /* Textech USB Midi Cable */
+	case USB_ID(0x15ca, 0x1806): /* Textech USB Midi Cable */
+	case USB_ID(0x1a86, 0x752d): /* QinHeng CH345 "USB2.0-MIDI" */
+		ep->max_transfer = 4;
+		break;
+	}
 	for (i = 0; i < OUTPUT_URBS; ++i) {
 		buffer = usb_buffer_alloc(umidi->dev,
 					  ep->max_transfer, GFP_KERNEL,
@@ -1248,15 +1269,18 @@ void snd_usbmidi_disconnect(struct list_head* p)
 				usb_kill_urb(ep->out->urbs[j].urb);
 			if (umidi->usb_protocol_ops->finish_out_endpoint)
 				umidi->usb_protocol_ops->finish_out_endpoint(ep->out);
+			ep->out->active_urbs = 0;
+			if (ep->out->drain_urbs) {
+				ep->out->drain_urbs = 0;
+				wake_up(&ep->out->drain_wait);
+			}
 		}
 		if (ep->in)
 			for (j = 0; j < INPUT_URBS; ++j)
 				usb_kill_urb(ep->in->urbs[j]);
 		/* free endpoints here; later call can result in Oops */
-		if (ep->out) {
-			snd_usbmidi_out_endpoint_delete(ep->out);
-			ep->out = NULL;
-		}
+		if (ep->out)
+			snd_usbmidi_out_endpoint_clear(ep->out);
 		if (ep->in) {
 			snd_usbmidi_in_endpoint_delete(ep->in);
 			ep->in = NULL;
@@ -1407,6 +1431,12 @@ static struct port_info {
 	EXTERNAL_PORT(0x086a, 0x0001, 8, "%s Broadcast"),
 	EXTERNAL_PORT(0x086a, 0x0002, 8, "%s Broadcast"),
 	EXTERNAL_PORT(0x086a, 0x0003, 4, "%s Broadcast"),
+	/* Access Music Virus TI */
+	EXTERNAL_PORT(0x133e, 0x0815, 0, "%s MIDI"),
+	PORT_INFO(0x133e, 0x0815, 1, "%s Synth", 0,
+		SNDRV_SEQ_PORT_TYPE_MIDI_GENERIC |
+		SNDRV_SEQ_PORT_TYPE_HARDWARE |
+		SNDRV_SEQ_PORT_TYPE_SYNTHESIZER),
 };
 
 static struct port_info *find_port_info(struct snd_usb_midi* umidi, int number)

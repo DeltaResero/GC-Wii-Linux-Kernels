@@ -186,7 +186,7 @@ static int p54_tx_qos_accounting_alloc(struct p54_common *priv,
 	struct ieee80211_tx_queue_stats *queue;
 	unsigned long flags;
 
-	if (WARN_ON(p54_queue > P54_QUEUE_NUM))
+	if (WARN_ON(p54_queue >= P54_QUEUE_NUM))
 		return -EINVAL;
 
 	queue = &priv->tx_stats[p54_queue];
@@ -617,7 +617,7 @@ static void p54_tx_80211_header(struct p54_common *priv, struct sk_buff *skb,
 	else
 		*burst_possible = false;
 
-	if (info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ)
+	if (!(info->flags & IEEE80211_TX_CTL_ASSIGN_SEQ))
 		*flags |= P54_HDR_FLAG_DATA_OUT_SEQNR;
 
 	if (info->flags & IEEE80211_TX_CTL_PSPOLL_RESPONSE)
@@ -703,7 +703,7 @@ int p54_tx_80211(struct ieee80211_hw *dev, struct sk_buff *skb)
 	struct p54_tx_info *p54info;
 	struct p54_hdr *hdr;
 	struct p54_tx_data *txhdr;
-	unsigned int padding, len, extra_len;
+	unsigned int padding, len, extra_len = 0;
 	int i, j, ridx;
 	u16 hdr_flags = 0, aid = 0;
 	u8 rate, queue = 0, crypt_offset = 0;

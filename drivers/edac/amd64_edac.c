@@ -1567,7 +1567,7 @@ static int f10_match_to_this_node(struct amd64_pvt *pvt, int dram_range,
 	debugf1("   HoleOffset=0x%x  HoleValid=0x%x IntlvSel=0x%x\n",
 			hole_off, hole_valid, intlv_sel);
 
-	if (intlv_en ||
+	if (intlv_en &&
 	    (intlv_sel != ((sys_addr >> 12) & intlv_en)))
 		return -EINVAL;
 
@@ -1958,20 +1958,20 @@ static int get_channel_from_ecc_syndrome(struct mem_ctl_info *mci, u16 syndrome)
 	u32 value = 0;
 	int err_sym = 0;
 
-	amd64_read_pci_cfg(pvt->misc_f3_ctl, 0x180, &value);
+	if (boot_cpu_data.x86 == 0x10) {
 
-	/* F3x180[EccSymbolSize]=1, x8 symbols */
-	if (boot_cpu_data.x86 == 0x10 &&
-	    boot_cpu_data.x86_model > 7 &&
-	    value & BIT(25)) {
-		err_sym = decode_syndrome(syndrome, x8_vectors,
-					  ARRAY_SIZE(x8_vectors), 8);
-		return map_err_sym_to_channel(err_sym, 8);
-	} else {
-		err_sym = decode_syndrome(syndrome, x4_vectors,
-					  ARRAY_SIZE(x4_vectors), 4);
-		return map_err_sym_to_channel(err_sym, 4);
+		amd64_read_pci_cfg(pvt->misc_f3_ctl, 0x180, &value);
+
+		/* F3x180[EccSymbolSize]=1 => x8 symbols */
+		if (boot_cpu_data.x86_model > 7 &&
+		    value & BIT(25)) {
+			err_sym = decode_syndrome(syndrome, x8_vectors,
+						  ARRAY_SIZE(x8_vectors), 8);
+			return map_err_sym_to_channel(err_sym, 8);
+		}
 	}
+	err_sym = decode_syndrome(syndrome, x4_vectors, ARRAY_SIZE(x4_vectors), 4);
+	return map_err_sym_to_channel(err_sym, 4);
 }
 
 /*

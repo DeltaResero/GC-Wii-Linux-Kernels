@@ -525,16 +525,13 @@ static void ath_beacon_config_ap(struct ath_softc *sc,
 {
 	u32 nexttbtt, intval;
 
-	/* Configure the timers only when the TSF has to be reset */
-
-	if (!(sc->sc_flags & SC_OP_TSF_RESET))
-		return;
-
 	/* NB: the beacon interval is kept internally in TU's */
 	intval = conf->beacon_interval & ATH9K_BEACON_PERIOD;
 	intval /= ATH_BCBUF;    /* for staggered beacons */
 	nexttbtt = intval;
-	intval |= ATH9K_BEACON_RESET_TSF;
+
+	if (sc->sc_flags & SC_OP_TSF_RESET)
+		intval |= ATH9K_BEACON_RESET_TSF;
 
 	/*
 	 * In AP mode we enable the beacon timers and SWBA interrupts to
@@ -575,6 +572,13 @@ static void ath_beacon_config_sta(struct ath_softc *sc,
 	u32 nexttbtt = 0, intval, tsftu;
 	u64 tsf;
 	int num_beacons, offset, dtim_dec_count, cfp_dec_count;
+
+	/* No need to configure beacon if we are not associated */
+	if (!common->curaid) {
+		ath_print(common, ATH_DBG_BEACON,
+			 "STA is not yet associated..skipping beacon config\n");
+		return;
+	}
 
 	memset(&bs, 0, sizeof(bs));
 	intval = conf->beacon_interval & ATH9K_BEACON_PERIOD;

@@ -159,6 +159,10 @@ void recalc_sigpending(void)
 
 /* Given the mask, find the first available signal that should be serviced. */
 
+#define SYNCHRONOUS_MASK \
+	(sigmask(SIGSEGV) | sigmask(SIGBUS) | sigmask(SIGILL) | \
+	 sigmask(SIGTRAP) | sigmask(SIGFPE))
+
 int next_signal(struct sigpending *pending, sigset_t *mask)
 {
 	unsigned long i, *s, *m, x;
@@ -166,26 +170,39 @@ int next_signal(struct sigpending *pending, sigset_t *mask)
 
 	s = pending->signal.sig;
 	m = mask->sig;
+
+	/*
+	 * Handle the first word specially: it contains the
+	 * synchronous signals that need to be dequeued first.
+	 */
+	x = *s &~ *m;
+	if (x) {
+		if (x & SYNCHRONOUS_MASK)
+			x &= SYNCHRONOUS_MASK;
+		sig = ffz(~x) + 1;
+		return sig;
+	}
+
 	switch (_NSIG_WORDS) {
 	default:
-		for (i = 0; i < _NSIG_WORDS; ++i, ++s, ++m)
-			if ((x = *s &~ *m) != 0) {
-				sig = ffz(~x) + i*_NSIG_BPW + 1;
-				break;
-			}
-		break;
-
-	case 2: if ((x = s[0] &~ m[0]) != 0)
-			sig = 1;
-		else if ((x = s[1] &~ m[1]) != 0)
-			sig = _NSIG_BPW + 1;
-		else
+		for (i = 1; i < _NSIG_WORDS; ++i) {
+			x = *++s &~ *++m;
+			if (!x)
+				continue;
+			sig = ffz(~x) + i*_NSIG_BPW + 1;
 			break;
-		sig += ffz(~x);
+		}
 		break;
 
-	case 1: if ((x = *s &~ *m) != 0)
-			sig = ffz(~x) + 1;
+	case 2:
+		x = s[1] &~ m[1];
+		if (!x)
+			break;
+		sig = ffz(~x) + _NSIG_BPW + 1;
+		break;
+
+	case 1:
+		/* Nothing to do */
 		break;
 	}
 
@@ -625,7 +642,7 @@ static inline bool si_fromuser(const struct siginfo *info)
 static int check_kill_permission(int sig, struct siginfo *info,
 				 struct task_struct *t)
 {
-	const struct cred *cred = current_cred(), *tcred;
+	const struct cred *cred, *tcred;
 	struct pid *sid;
 	int error;
 
@@ -639,8 +656,10 @@ static int check_kill_permission(int sig, struct siginfo *info,
 	if (error)
 		return error;
 
+	cred = current_cred();
 	tcred = __task_cred(t);
-	if ((cred->euid ^ tcred->suid) &&
+	if (!same_thread_group(current, t) &&
+	    (cred->euid ^ tcred->suid) &&
 	    (cred->euid ^ tcred->uid) &&
 	    (cred->uid  ^ tcred->suid) &&
 	    (cred->uid  ^ tcred->uid) &&
@@ -2387,9 +2406,13 @@ SYSCALL_DEFINE3(rt_sigqueueinfo, pid_t, pid, int, sig,
 		return -EFAULT;
 
 	/* Not even root can pretend to send signals from the kernel.
-	   Nor can they impersonate a kill(), which adds source info.  */
-	if (info.si_code >= 0)
+	 * Nor can they impersonate a kill()/tgkill(), which adds source info.
+	 */
+	if (info.si_code >= 0 || info.si_code == SI_TKILL) {
+		/* We used to allow any < 0 si_code */
+		WARN_ON_ONCE(info.si_code < 0);
 		return -EPERM;
+	}
 	info.si_signo = sig;
 
 	/* POSIX.1b doesn't mention process groups.  */
@@ -2403,9 +2426,13 @@ long do_rt_tgsigqueueinfo(pid_t tgid, pid_t pid, int sig, siginfo_t *info)
 		return -EINVAL;
 
 	/* Not even root can pretend to send signals from the kernel.
-	   Nor can they impersonate a kill(), which adds source info.  */
-	if (info->si_code >= 0)
+	 * Nor can they impersonate a kill()/tgkill(), which adds source info.
+	 */
+	if (info->si_code >= 0 || info->si_code == SI_TKILL) {
+		/* We used to allow any < 0 si_code */
+		WARN_ON_ONCE(info->si_code < 0);
 		return -EPERM;
+	}
 	info->si_signo = sig;
 
 	return do_send_specific(tgid, pid, sig, info);

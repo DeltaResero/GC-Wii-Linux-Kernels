@@ -162,12 +162,14 @@ radeon_connector_analog_encoder_conflict_solve(struct drm_connector *connector,
 {
 	struct drm_device *dev = connector->dev;
 	struct drm_connector *conflict;
+	struct radeon_connector *radeon_conflict;
 	int i;
 
 	list_for_each_entry(conflict, &dev->mode_config.connector_list, head) {
 		if (conflict == connector)
 			continue;
 
+		radeon_conflict = to_radeon_connector(conflict);
 		for (i = 0; i < DRM_CONNECTOR_MAX_ENCODER; i++) {
 			if (conflict->encoder_ids[i] == 0)
 				break;
@@ -175,6 +177,9 @@ radeon_connector_analog_encoder_conflict_solve(struct drm_connector *connector,
 			/* if the IDs match */
 			if (conflict->encoder_ids[i] == encoder->base.id) {
 				if (conflict->status != connector_status_connected)
+					continue;
+
+				if (radeon_conflict->use_digital)
 					continue;
 
 				if (priority == true) {
@@ -315,7 +320,7 @@ int radeon_connector_set_property(struct drm_connector *connector, struct drm_pr
 		radeon_encoder = to_radeon_encoder(encoder);
 		if (!radeon_encoder->enc_priv)
 			return 0;
-		if (rdev->is_atom_bios) {
+		if (ASIC_IS_AVIVO(rdev) || radeon_r4xx_atom) {
 			struct radeon_encoder_atom_dac *dac_int;
 			dac_int = radeon_encoder->enc_priv;
 			dac_int->tv_std = val;
@@ -774,30 +779,27 @@ static enum drm_connector_status radeon_dvi_detect(struct drm_connector *connect
 			} else
 				ret = connector_status_connected;
 
-			/* multiple connectors on the same encoder with the same ddc line
-			 * This tends to be HDMI and DVI on the same encoder with the
-			 * same ddc line.  If the edid says HDMI, consider the HDMI port
-			 * connected and the DVI port disconnected.  If the edid doesn't
-			 * say HDMI, vice versa.
+			/* This gets complicated.  We have boards with VGA + HDMI with a
+			 * shared DDC line and we have boards with DVI-D + HDMI with a shared
+			 * DDC line.  The latter is more complex because with DVI<->HDMI adapters
+			 * you don't really know what's connected to which port as both are digital.
 			 */
 			if (radeon_connector->shared_ddc && (ret == connector_status_connected)) {
 				struct drm_device *dev = connector->dev;
+				struct radeon_device *rdev = dev->dev_private;
 				struct drm_connector *list_connector;
 				struct radeon_connector *list_radeon_connector;
 				list_for_each_entry(list_connector, &dev->mode_config.connector_list, head) {
 					if (connector == list_connector)
 						continue;
 					list_radeon_connector = to_radeon_connector(list_connector);
-					if (radeon_connector->devices == list_radeon_connector->devices) {
-						if (drm_detect_hdmi_monitor(radeon_connector->edid)) {
-							if (connector->connector_type == DRM_MODE_CONNECTOR_DVID) {
-								kfree(radeon_connector->edid);
-								radeon_connector->edid = NULL;
-								ret = connector_status_disconnected;
-							}
-						} else {
-							if ((connector->connector_type == DRM_MODE_CONNECTOR_HDMIA) ||
-							    (connector->connector_type == DRM_MODE_CONNECTOR_HDMIB)) {
+					if (list_radeon_connector->shared_ddc &&
+					    (list_radeon_connector->ddc_bus->rec.i2c_id ==
+					     radeon_connector->ddc_bus->rec.i2c_id)) {
+						/* cases where both connectors are digital */
+						if (list_connector->connector_type != DRM_MODE_CONNECTOR_VGA) {
+							/* hpd is our only option in this case */
+							if (!radeon_hpd_sense(rdev, radeon_connector->hpd.hpd)) {
 								kfree(radeon_connector->edid);
 								radeon_connector->edid = NULL;
 								ret = connector_status_disconnected;

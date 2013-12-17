@@ -149,7 +149,7 @@ static struct symbol *symbol__new(u64 start, u64 len, const char *name)
 	return self;
 }
 
-static void symbol__delete(struct symbol *self)
+void symbol__delete(struct symbol *self)
 {
 	free(((void *)self) - symbol_conf.priv_size);
 }
@@ -503,7 +503,7 @@ static int dso__split_kallsyms(struct dso *self, struct map *map,
 				return -1;
 
 			curr_map = map__new2(pos->start, dso, map->type);
-			if (map == NULL) {
+			if (curr_map == NULL) {
 				dso__delete(dso);
 				return -1;
 			}

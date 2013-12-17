@@ -436,6 +436,9 @@ int __irq_set_trigger(struct irq_desc *desc, unsigned int irq,
 		/* note that IRQF_TRIGGER_MASK == IRQ_TYPE_SENSE_MASK */
 		desc->status &= ~(IRQ_LEVEL | IRQ_TYPE_SENSE_MASK);
 		desc->status |= flags;
+
+		if (chip != desc->chip)
+			irq_chip_set_defaults(desc->chip);
 	}
 
 	return ret;
@@ -483,8 +486,26 @@ static int irq_wait_for_interrupt(struct irqaction *action)
  */
 static void irq_finalize_oneshot(unsigned int irq, struct irq_desc *desc)
 {
+again:
 	chip_bus_lock(irq, desc);
 	raw_spin_lock_irq(&desc->lock);
+
+	/*
+	 * Implausible though it may be we need to protect us against
+	 * the following scenario:
+	 *
+	 * The thread is faster done than the hard interrupt handler
+	 * on the other CPU. If we unmask the irq line then the
+	 * interrupt can come in again and masks the line, leaves due
+	 * to IRQ_INPROGRESS and the irq line is masked forever.
+	 */
+	if (unlikely(desc->status & IRQ_INPROGRESS)) {
+		raw_spin_unlock_irq(&desc->lock);
+		chip_bus_sync_unlock(irq, desc);
+		cpu_relax();
+		goto again;
+	}
+
 	if (!(desc->status & IRQ_DISABLED) && (desc->status & IRQ_MASKED)) {
 		desc->status &= ~IRQ_MASKED;
 		desc->chip->unmask(irq);
@@ -734,6 +755,16 @@ __setup_irq(unsigned int irq, struct irq_desc *desc, struct irqaction *new)
 
 		if (new->flags & IRQF_ONESHOT)
 			desc->status |= IRQ_ONESHOT;
+
+		/*
+		 * Force MSI interrupts to run with interrupts
+		 * disabled. The multi vector cards can cause stack
+		 * overflows due to nested interrupts when enough of
+		 * them are directed to a core and fire at the same
+		 * time.
+		 */
+		if (desc->msi_desc)
+			new->flags |= IRQF_DISABLED;
 
 		if (!(desc->status & IRQ_NOAUTOEN)) {
 			desc->depth = 0;
@@ -1066,7 +1097,7 @@ int request_threaded_irq(unsigned int irq, irq_handler_t handler,
 	if (retval)
 		kfree(action);
 
-#ifdef CONFIG_DEBUG_SHIRQ
+#ifdef CONFIG_DEBUG_SHIRQ_FIXME
 	if (!retval && (irqflags & IRQF_SHARED)) {
 		/*
 		 * It's a shared IRQ -- the driver ought to be prepared for it

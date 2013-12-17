@@ -122,72 +122,36 @@ static void pseries_mach_cpu_die(void)
 		if (!get_lppaca()->shared_proc)
 			get_lppaca()->donate_dedicated_cpu = 1;
 
-		printk(KERN_INFO
-			"cpu %u (hwid %u) ceding for offline with hint %d\n",
-			cpu, hwcpu, cede_latency_hint);
 		while (get_preferred_offline_state(cpu) == CPU_STATE_INACTIVE) {
 			extended_cede_processor(cede_latency_hint);
-			printk(KERN_INFO "cpu %u (hwid %u) returned from cede.\n",
-				cpu, hwcpu);
-			printk(KERN_INFO
-			"Decrementer value = %x Timebase value = %llx\n",
-			get_dec(), get_tb());
 		}
-
-		printk(KERN_INFO "cpu %u (hwid %u) got prodded to go online\n",
-			cpu, hwcpu);
 
 		if (!get_lppaca()->shared_proc)
 			get_lppaca()->donate_dedicated_cpu = 0;
 		get_lppaca()->idle = 0;
+
+		if (get_preferred_offline_state(cpu) == CPU_STATE_ONLINE) {
+			unregister_slb_shadow(hwcpu, __pa(get_slb_shadow()));
+
+			/*
+			 * Call to start_secondary_resume() will not return.
+			 * Kernel stack will be reset and start_secondary()
+			 * will be called to continue the online operation.
+			 */
+			start_secondary_resume();
+		}
 	}
 
-	if (get_preferred_offline_state(cpu) == CPU_STATE_ONLINE) {
-		unregister_slb_shadow(hwcpu, __pa(get_slb_shadow()));
+	/* Requested state is CPU_STATE_OFFLINE at this point */
+	WARN_ON(get_preferred_offline_state(cpu) != CPU_STATE_OFFLINE);
 
-		/*
-		 * NOTE: Calling start_secondary() here for now to
-		 * start new context.
-		 * However, need to do it cleanly by resetting the
-		 * stack pointer.
-		 */
-		start_secondary();
-
-	} else if (get_preferred_offline_state(cpu) == CPU_STATE_OFFLINE) {
-
-		set_cpu_current_state(cpu, CPU_STATE_OFFLINE);
-		unregister_slb_shadow(hard_smp_processor_id(),
-					__pa(get_slb_shadow()));
-		rtas_stop_self();
-	}
+	set_cpu_current_state(cpu, CPU_STATE_OFFLINE);
+	unregister_slb_shadow(hwcpu, __pa(get_slb_shadow()));
+	rtas_stop_self();
 
 	/* Should never get here... */
 	BUG();
 	for(;;);
-}
-
-static int qcss_tok;	/* query-cpu-stopped-state token */
-
-/* Get state of physical CPU.
- * Return codes:
- *	0	- The processor is in the RTAS stopped state
- *	1	- stop-self is in progress
- *	2	- The processor is not in the RTAS stopped state
- *	-1	- Hardware Error
- *	-2	- Hardware Busy, Try again later.
- */
-static int query_cpu_stopped(unsigned int pcpu)
-{
-	int cpu_status, status;
-
-	status = rtas_call(qcss_tok, 1, 2, &cpu_status, pcpu);
-	if (status != 0) {
-		printk(KERN_ERR
-		       "RTAS query-cpu-stopped-state failed: %i\n", status);
-		return status;
-	}
-
-	return cpu_status;
 }
 
 static int pseries_cpu_disable(void)
@@ -236,8 +200,9 @@ static void pseries_cpu_die(unsigned int cpu)
 	} else if (get_preferred_offline_state(cpu) == CPU_STATE_OFFLINE) {
 
 		for (tries = 0; tries < 25; tries++) {
-			cpu_status = query_cpu_stopped(pcpu);
-			if (cpu_status == 0 || cpu_status == -1)
+			cpu_status = smp_query_cpu_stopped(pcpu);
+			if (cpu_status == QCSS_STOPPED ||
+			    cpu_status == QCSS_HARDWARE_ERROR)
 				break;
 			cpu_relax();
 		}
@@ -412,6 +377,7 @@ static int __init pseries_cpu_hotplug_init(void)
 	struct device_node *np;
 	const char *typep;
 	int cpu;
+	int qcss_tok;
 
 	for_each_node_by_name(np, "interrupt-controller") {
 		typep = of_get_property(np, "compatible", NULL);

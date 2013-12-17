@@ -224,7 +224,8 @@ struct sock_xprt {
 	 * State of TCP reply receive
 	 */
 	__be32			tcp_fraghdr,
-				tcp_xid;
+				tcp_xid,
+				tcp_calldir;
 
 	u32			tcp_offset,
 				tcp_reclen;
@@ -728,6 +729,8 @@ static void xs_reset_transport(struct sock_xprt *transport)
 	if (sk == NULL)
 		return;
 
+	transport->srcport = 0;
+
 	write_lock_bh(&sk->sk_callback_lock);
 	transport->inet = NULL;
 	transport->sock = NULL;
@@ -947,7 +950,7 @@ static inline void xs_tcp_read_calldir(struct sock_xprt *transport,
 {
 	size_t len, used;
 	u32 offset;
-	__be32	calldir;
+	char *p;
 
 	/*
 	 * We want transport->tcp_offset to be 8 at the end of this routine
@@ -956,26 +959,33 @@ static inline void xs_tcp_read_calldir(struct sock_xprt *transport,
 	 * transport->tcp_offset is 4 (after having already read the xid).
 	 */
 	offset = transport->tcp_offset - sizeof(transport->tcp_xid);
-	len = sizeof(calldir) - offset;
+	len = sizeof(transport->tcp_calldir) - offset;
 	dprintk("RPC:       reading CALL/REPLY flag (%Zu bytes)\n", len);
-	used = xdr_skb_read_bits(desc, &calldir, len);
+	p = ((char *) &transport->tcp_calldir) + offset;
+	used = xdr_skb_read_bits(desc, p, len);
 	transport->tcp_offset += used;
 	if (used != len)
 		return;
 	transport->tcp_flags &= ~TCP_RCV_READ_CALLDIR;
-	transport->tcp_flags |= TCP_RCV_COPY_CALLDIR;
-	transport->tcp_flags |= TCP_RCV_COPY_DATA;
 	/*
 	 * We don't yet have the XDR buffer, so we will write the calldir
 	 * out after we get the buffer from the 'struct rpc_rqst'
 	 */
-	if (ntohl(calldir) == RPC_REPLY)
+	switch (ntohl(transport->tcp_calldir)) {
+	case RPC_REPLY:
+		transport->tcp_flags |= TCP_RCV_COPY_CALLDIR;
+		transport->tcp_flags |= TCP_RCV_COPY_DATA;
 		transport->tcp_flags |= TCP_RPC_REPLY;
-	else
+		break;
+	case RPC_CALL:
+		transport->tcp_flags |= TCP_RCV_COPY_CALLDIR;
+		transport->tcp_flags |= TCP_RCV_COPY_DATA;
 		transport->tcp_flags &= ~TCP_RPC_REPLY;
-	dprintk("RPC:       reading %s CALL/REPLY flag %08x\n",
-			(transport->tcp_flags & TCP_RPC_REPLY) ?
-				"reply for" : "request with", calldir);
+		break;
+	default:
+		dprintk("RPC:       invalid request message type\n");
+		xprt_force_disconnect(&transport->xprt);
+	}
 	xs_tcp_check_fraghdr(transport);
 }
 
@@ -995,12 +1005,10 @@ static inline void xs_tcp_read_common(struct rpc_xprt *xprt,
 		/*
 		 * Save the RPC direction in the XDR buffer
 		 */
-		__be32	calldir = transport->tcp_flags & TCP_RPC_REPLY ?
-					htonl(RPC_REPLY) : 0;
-
 		memcpy(rcvbuf->head[0].iov_base + transport->tcp_copied,
-			&calldir, sizeof(calldir));
-		transport->tcp_copied += sizeof(calldir);
+			&transport->tcp_calldir,
+			sizeof(transport->tcp_calldir));
+		transport->tcp_copied += sizeof(transport->tcp_calldir);
 		transport->tcp_flags &= ~TCP_RCV_COPY_CALLDIR;
 	}
 
@@ -1358,7 +1366,6 @@ static void xs_tcp_state_change(struct sock *sk)
 	case TCP_CLOSE_WAIT:
 		/* The server initiated a shutdown of the socket */
 		xprt_force_disconnect(xprt);
-	case TCP_SYN_SENT:
 		xprt->connect_cookie++;
 	case TCP_CLOSING:
 		/*
@@ -1805,6 +1812,7 @@ static void xs_tcp_reuse_connection(struct rpc_xprt *xprt, struct sock_xprt *tra
 static int xs_tcp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
 {
 	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
+	int ret = -ENOTCONN;
 
 	if (!transport->inet) {
 		struct sock *sk = sock->sk;
@@ -1836,12 +1844,22 @@ static int xs_tcp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
 	}
 
 	if (!xprt_bound(xprt))
-		return -ENOTCONN;
+		goto out;
 
 	/* Tell the socket layer to start connecting... */
 	xprt->stat.connect_count++;
 	xprt->stat.connect_start = jiffies;
-	return kernel_connect(sock, xs_addr(xprt), xprt->addrlen, O_NONBLOCK);
+	ret = kernel_connect(sock, xs_addr(xprt), xprt->addrlen, O_NONBLOCK);
+	switch (ret) {
+	case 0:
+	case -EINPROGRESS:
+		/* SYN_SENT! */
+		xprt->connect_cookie++;
+		if (xprt->reestablish_timeout < XS_TCP_INIT_REEST_TO)
+			xprt->reestablish_timeout = XS_TCP_INIT_REEST_TO;
+	}
+out:
+	return ret;
 }
 
 /**
@@ -1912,6 +1930,11 @@ static void xs_tcp_setup_socket(struct rpc_xprt *xprt,
 	case -EALREADY:
 		xprt_clear_connecting(xprt);
 		return;
+	case -EINVAL:
+		/* Happens, for instance, if the user specified a link
+		 * local IPv6 address without a scope-id.
+		 */
+		goto out;
 	}
 out_eagain:
 	status = -EAGAIN;

@@ -380,7 +380,6 @@ static void ath9k_hw_init_config(struct ath_hw *ah)
 	ah->config.pcie_clock_req = 0;
 	ah->config.pcie_waen = 0;
 	ah->config.analog_shiftreg = 1;
-	ah->config.ht_enable = 1;
 	ah->config.ofdm_trig_low = 200;
 	ah->config.ofdm_trig_high = 500;
 	ah->config.cck_trig_high = 200;
@@ -391,6 +390,11 @@ static void ath9k_hw_init_config(struct ath_hw *ah)
 		ah->config.spurchans[i][0] = AR_NO_SPUR;
 		ah->config.spurchans[i][1] = AR_NO_SPUR;
 	}
+
+	if (ah->hw_version.devid != AR2427_DEVID_PCIE)
+		ah->config.ht_enable = 1;
+	else
+		ah->config.ht_enable = 0;
 
 	ah->config.intr_mitigation = true;
 
@@ -590,6 +594,7 @@ static bool ath9k_hw_devid_supported(u16 devid)
 	case AR5416_DEVID_AR9287_PCI:
 	case AR5416_DEVID_AR9287_PCIE:
 	case AR9271_USB:
+	case AR2427_DEVID_PCIE:
 		return true;
 	default:
 		break;
@@ -891,6 +896,8 @@ int ath9k_hw_init(struct ath_hw *ah)
 
 	ath9k_hw_init_defaults(ah);
 	ath9k_hw_init_config(ah);
+
+	ath9k_hw_read_revisions(ah);
 
 	if (!ath9k_hw_set_reset_reg(ah, ATH9K_RESET_POWER_ON)) {
 		ath_print(common, ATH_DBG_FATAL,
@@ -1345,6 +1352,16 @@ static void ath9k_hw_override_ini(struct ath_hw *ah,
 	 * Necessary to avoid issues on AR5416 2.0
 	 */
 	REG_WRITE(ah, 0x9800 + (651 << 2), 0x11);
+
+	/*
+	 * Disable RIFS search on some chips to avoid baseband
+	 * hang issues.
+	 */
+	if (AR_SREV_9100(ah) || AR_SREV_9160(ah)) {
+		val = REG_READ(ah, AR_PHY_HEAVY_CLIP_FACTOR_RIFS);
+		val &= ~AR_PHY_RIFS_INIT_DELAY;
+		REG_WRITE(ah, AR_PHY_HEAVY_CLIP_FACTOR_RIFS, val);
+	}
 }
 
 static u32 ath9k_hw_def_ini_fixup(struct ath_hw *ah,
@@ -1794,8 +1811,6 @@ static bool ath9k_hw_set_reset_power_on(struct ath_hw *ah)
 			  "RTC not waking up\n");
 		return false;
 	}
-
-	ath9k_hw_read_revisions(ah);
 
 	return ath9k_hw_set_reset(ah, ATH9K_RESET_WARM);
 }
