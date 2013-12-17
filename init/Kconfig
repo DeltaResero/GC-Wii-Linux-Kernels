@@ -973,7 +973,6 @@ config PANIC_TIMEOUT
 menuconfig EXPERT
 	bool "Configure standard kernel features (expert users)"
 	# Unhide debug options, to make the on-by-default options visible
-	select DEBUG_KERNEL
 	help
 	  This option allows certain base kernel options and settings
           to be disabled or tweaked. This is for specialized
@@ -1082,9 +1081,6 @@ config PCSPKR_PLATFORM
 	help
           This option allows to disable the internal PC-Speaker
           support, saving some memory.
-
-config HAVE_PCSPKR_PLATFORM
-	bool
 
 config BASE_FULL
 	default y
@@ -1269,6 +1265,9 @@ config EMBEDDED
 	  an embedded system so certain expert options are available
 	  for configuration.
 
+config HAVE_PCSPKR_PLATFORM
+	bool
+
 config HAVE_PERF_EVENTS
 	bool
 	help
@@ -1356,7 +1355,7 @@ config PCI_QUIRKS
           unaffected by PCI quirks.
 
 config SLUB_DEBUG
-	default y
+	default n
 	bool "Enable SLUB debugging support" if EXPERT
 	depends on SLUB && SYSFS
 	help
