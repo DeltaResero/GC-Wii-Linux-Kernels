@@ -152,7 +152,7 @@ int ptrace_attach(struct task_struct *task)
 	retval = -EPERM;
 	if (task->pid <= 1)
 		goto bad;
-	if (task == current)
+	if (task->tgid == current->tgid)
 		goto bad;
 	/* the same process cannot be attached many times */
 	if (task->ptrace & PT_PTRACED)
@@ -238,7 +238,8 @@ int access_process_vm(struct task_struct *tsk, unsigned long addr, void *buf, in
 		if (write) {
 			copy_to_user_page(vma, page, addr,
 					  maddr + offset, buf, bytes);
-			set_page_dirty_lock(page);
+			if (!PageCompound(page))
+				set_page_dirty_lock(page);
 		} else {
 			copy_from_user_page(vma, page, addr,
 					    buf, maddr + offset, bytes);

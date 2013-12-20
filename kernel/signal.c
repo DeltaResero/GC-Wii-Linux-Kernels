@@ -406,6 +406,8 @@ void __exit_signal(struct task_struct *tsk)
 
 void exit_signal(struct task_struct *tsk)
 {
+	atomic_dec(&tsk->signal->live);
+
 	write_lock_irq(&tasklist_lock);
 	__exit_signal(tsk);
 	write_unlock_irq(&tasklist_lock);
@@ -1522,7 +1524,7 @@ void do_notify_parent(struct task_struct *tsk, int sig)
 
 	psig = tsk->parent->sighand;
 	spin_lock_irqsave(&psig->siglock, flags);
-	if (sig == SIGCHLD &&
+	if (!tsk->ptrace && sig == SIGCHLD &&
 	    (psig->action[SIGCHLD-1].sa.sa_handler == SIG_IGN ||
 	     (psig->action[SIGCHLD-1].sa.sa_flags & SA_NOCLDWAIT))) {
 		/*
