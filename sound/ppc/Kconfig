@@ -19,5 +19,12 @@ config SND_POWERMAC
 	  To compile this driver as a module, choose M here: the module
 	  will be called snd-powermac.
 
+config SND_GAMECUBE
+	tristate "Nintendo GameCube audio"
+	depends on SND
+	help
+	  Say 'Y' or 'M' to include support for the Nintendo GameCube
+	  audio system.
+
 endmenu
 

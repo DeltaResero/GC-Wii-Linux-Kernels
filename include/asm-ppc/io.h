@@ -34,7 +34,7 @@
 #include <asm/mpc83xx.h>
 #elif defined(CONFIG_85xx)
 #include <asm/mpc85xx.h>
-#elif defined(CONFIG_APUS)
+#elif defined(CONFIG_APUS) || defined(CONFIG_GAMECUBE)
 #define _IO_BASE	0
 #define _ISA_MEM_BASE	0
 #define PCI_DRAM_OFFSET 0
@@ -149,7 +149,7 @@ static inline void writeb(__u8 b, volatile void __iomem *addr)
 }
 #endif
 
-#if defined(CONFIG_APUS)
+#if defined(CONFIG_APUS) || defined(CONFIG_GAMECUBE)
 static inline __u16 readw(volatile void __iomem *addr)
 {
 	return *(__force volatile __u16 *)(addr);
@@ -189,7 +189,7 @@ static inline void writel(__u32 b, volatile void __iomem *addr)
 {
 	out_le32(addr, b);
 }
-#endif /* CONFIG_APUS */
+#endif /* CONFIG_APUS || CONFIG_GAMECUBE */
 
 #define readb_relaxed(addr) readb(addr)
 #define readw_relaxed(addr) readw(addr)
