@@ -565,11 +565,14 @@ int cifs_unlink(struct inode *inode, struct dentry *direntry)
 	struct cifsInodeInfo *cifsInode;
 	FILE_BASIC_INFO *pinfo_buf;
 
-	cFYI(1, ("cifs_unlink, inode = 0x%p with ", inode));
+	cFYI(1, ("cifs_unlink, inode = 0x%p", inode));
 
 	xid = GetXid();
 
-	cifs_sb = CIFS_SB(inode->i_sb);
+	if(inode)
+		cifs_sb = CIFS_SB(inode->i_sb);
+	else
+		cifs_sb = CIFS_SB(direntry->d_sb);
 	pTcon = cifs_sb->tcon;
 
 	/* Unlink can be called from rename so we can not grab the sem here
@@ -693,9 +696,11 @@ int cifs_unlink(struct inode *inode, struct dentry *direntry)
 					   when needed */
 		direntry->d_inode->i_ctime = current_fs_time(inode->i_sb);
 	}
-	inode->i_ctime = inode->i_mtime = current_fs_time(inode->i_sb);
-	cifsInode = CIFS_I(inode);
-	cifsInode->time = 0;	/* force revalidate of dir as well */
+	if(inode) {
+		inode->i_ctime = inode->i_mtime = current_fs_time(inode->i_sb);
+		cifsInode = CIFS_I(inode);
+		cifsInode->time = 0;	/* force revalidate of dir as well */
+	}
 
 	kfree(full_path);
 	FreeXid(xid);
@@ -747,7 +752,8 @@ int cifs_mkdir(struct inode *inode, struct dentry *direntry, int mode)
 		d_instantiate(direntry, newinode);
 		if (direntry->d_inode)
 			direntry->d_inode->i_nlink = 2;
-		if (cifs_sb->tcon->ses->capabilities & CAP_UNIX)
+		if (cifs_sb->tcon->ses->capabilities & CAP_UNIX) {
+			mode &= ~current->fs->umask;
 			if (cifs_sb->mnt_cifs_flags & CIFS_MOUNT_SET_UID) {
 				CIFSSMBUnixSetPerms(xid, pTcon, full_path,
 						    mode,
@@ -765,7 +771,7 @@ int cifs_mkdir(struct inode *inode, struct dentry *direntry, int mode)
 						    cifs_sb->mnt_cifs_flags & 
 						    CIFS_MOUNT_MAP_SPECIAL_CHR);
 			}
-		else {
+		} else {
 			/* BB to be implemented via Windows secrty descriptors
 			   eg CIFSSMBWinSetPerms(xid, pTcon, full_path, mode,
 						 -1, -1, local_nls); */
@@ -878,10 +884,14 @@ int cifs_rename(struct inode *source_inode, struct dentry *source_direntry,
 			kmalloc(2 * sizeof(FILE_UNIX_BASIC_INFO), GFP_KERNEL);
 		if (info_buf_source != NULL) {
 			info_buf_target = info_buf_source + 1;
-			rc = CIFSSMBUnixQPathInfo(xid, pTcon, fromName,
-				info_buf_source, cifs_sb_source->local_nls, 
-				cifs_sb_source->mnt_cifs_flags &
-					CIFS_MOUNT_MAP_SPECIAL_CHR);
+			if (pTcon->ses->capabilities & CAP_UNIX)
+				rc = CIFSSMBUnixQPathInfo(xid, pTcon, fromName,
+					info_buf_source, 
+					cifs_sb_source->local_nls,
+					cifs_sb_source->mnt_cifs_flags &
+						CIFS_MOUNT_MAP_SPECIAL_CHR);
+			/* else rc is still EEXIST so will fall through to
+			   unlink the target and retry rename */
 			if (rc == 0) {
 				rc = CIFSSMBUnixQPathInfo(xid, pTcon, toName,
 						info_buf_target,
@@ -930,7 +940,7 @@ int cifs_rename(struct inode *source_inode, struct dentry *source_direntry,
 				 cifs_sb_source->mnt_cifs_flags & 
 					CIFS_MOUNT_MAP_SPECIAL_CHR);
 		if (rc==0) {
-			CIFSSMBRenameOpenFile(xid, pTcon, netfid, toName,
+			rc = CIFSSMBRenameOpenFile(xid, pTcon, netfid, toName,
 					      cifs_sb_source->local_nls, 
 					      cifs_sb_source->mnt_cifs_flags &
 						CIFS_MOUNT_MAP_SPECIAL_CHR);

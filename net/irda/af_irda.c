@@ -138,7 +138,6 @@ static void irda_disconnect_indication(void *instance, void *sap,
 		sk->sk_shutdown |= SEND_SHUTDOWN;
 
 		sk->sk_state_change(sk);
-		/* Uh-oh... Should use sock_orphan ? */
                 sock_set_flag(sk, SOCK_DEAD);
 
 		/* Close our TSAP.
@@ -1142,8 +1141,6 @@ static int irda_create(struct socket *sock, int protocol)
 			self->max_sdu_size_rx = TTP_SAR_UNBOUND;
 			break;
 		default:
-			IRDA_ERROR("%s: protocol not supported!\n",
-				   __FUNCTION__);
 			return -ESOCKTNOSUPPORT;
 		}
 		break;
@@ -1441,7 +1438,7 @@ static int irda_recvmsg_stream(struct kiocb *iocb, struct socket *sock,
 			 */
 			ret = sock_error(sk);
 			if (ret)
-				break;
+				;
 			else if (sk->sk_shutdown & RCV_SHUTDOWN)
 				;
 			else if (noblock)

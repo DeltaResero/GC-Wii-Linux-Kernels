@@ -1100,7 +1100,7 @@ int irttp_connect_request(struct tsap_cb *self, __u8 dtsap_sel,
 			return -ENOMEM;
 
 		/* Reserve space for MUX_CONTROL and LAP header */
-		skb_reserve(tx_skb, TTP_MAX_HEADER);
+		skb_reserve(tx_skb, TTP_MAX_HEADER + TTP_SAR_HEADER);
 	} else {
 		tx_skb = userdata;
 		/*
@@ -1348,7 +1348,7 @@ int irttp_connect_response(struct tsap_cb *self, __u32 max_sdu_size,
 			return -ENOMEM;
 
 		/* Reserve space for MUX_CONTROL and LAP header */
-		skb_reserve(tx_skb, TTP_MAX_HEADER);
+		skb_reserve(tx_skb, TTP_MAX_HEADER + TTP_SAR_HEADER);
 	} else {
 		tx_skb = userdata;
 		/*
@@ -1454,6 +1454,7 @@ struct tsap_cb *irttp_dup(struct tsap_cb *orig, void *instance)
 
 	/* Not everything should be copied */
 	new->notify.instance = instance;
+	spin_lock_init(&new->lock);
 	init_timer(&new->todo_timer);
 
 	skb_queue_head_init(&new->rx_queue);

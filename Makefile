@@ -1,8 +1,8 @@
 VERSION = 2
 PATCHLEVEL = 6
 SUBLEVEL = 16
-EXTRAVERSION =
-NAME=Sliding Snow Leopard
+EXTRAVERSION = .62
+NAME=Stable Penguin
 
 # *DOCUMENTATION*
 # To see a list of typical targets execute "make help"
@@ -511,6 +511,8 @@ CFLAGS		+= $(call add-align,CONFIG_CC_ALIGN_LABELS,-labels)
 CFLAGS		+= $(call add-align,CONFIG_CC_ALIGN_LOOPS,-loops)
 CFLAGS		+= $(call add-align,CONFIG_CC_ALIGN_JUMPS,-jumps)
 
+include $(srctree)/arch/$(ARCH)/Makefile
+
 ifdef CONFIG_FRAME_POINTER
 CFLAGS		+= -fno-omit-frame-pointer $(call cc-option,-fno-optimize-sibling-calls,)
 else
@@ -521,7 +523,8 @@ ifdef CONFIG_DEBUG_INFO
 CFLAGS		+= -g
 endif
 
-include $(srctree)/arch/$(ARCH)/Makefile
+# Force gcc to behave correct even for buggy distributions
+CFLAGS		+= $(call cc-option, -fno-stack-protector)
 
 # arch Makefile may override CC so keep this after arch Makefile is included
 NOSTDINC_FLAGS += -nostdinc -isystem $(shell $(CC) -print-file-name=include)

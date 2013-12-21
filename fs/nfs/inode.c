@@ -859,8 +859,8 @@ nfs_setattr(struct dentry *dentry, struct iattr *attr)
 
 	lock_kernel();
 	nfs_begin_data_update(inode);
-	/* Write all dirty data if we're changing file permissions or size */
-	if ((attr->ia_valid & (ATTR_MODE|ATTR_UID|ATTR_GID|ATTR_SIZE)) != 0) {
+	/* Write all dirty data */
+	if (S_ISREG(inode->i_mode)) {
 		filemap_write_and_wait(inode->i_mapping);
 		nfs_wb_all(inode);
 	}

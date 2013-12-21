@@ -248,6 +248,7 @@ static void velocity_free_rd_ring(struct velocity_info *vptr);
 static void velocity_free_tx_buf(struct velocity_info *vptr, struct velocity_td_info *);
 static int velocity_soft_reset(struct velocity_info *vptr);
 static void mii_init(struct velocity_info *vptr, u32 mii_status);
+static u32 velocity_get_link(struct net_device *dev);
 static u32 velocity_get_opt_media_mode(struct velocity_info *vptr);
 static void velocity_print_link_status(struct velocity_info *vptr);
 static void safe_disable_mii_autopoll(struct mac_regs __iomem * regs);
@@ -797,6 +798,9 @@ static int __devinit velocity_found1(struct pci_dev *pdev, const struct pci_devi
 	ret = register_netdev(dev);
 	if (ret < 0)
 		goto err_iounmap;
+
+	if (velocity_get_link(dev))
+		netif_carrier_off(dev);
 
 	velocity_print_info(vptr);
 	pci_set_drvdata(pdev, dev);
@@ -1653,8 +1657,10 @@ static void velocity_error(struct velocity_info *vptr, int status)
 
 		if (linked) {
 			vptr->mii_status &= ~VELOCITY_LINK_FAIL;
+			netif_carrier_on(vptr->dev);
 		} else {
 			vptr->mii_status |= VELOCITY_LINK_FAIL;
+			netif_carrier_off(vptr->dev);
 		}
 
 		velocity_print_link_status(vptr);
@@ -2736,7 +2742,7 @@ static u32 check_connection_type(struct mac_regs __iomem * regs)
 
 	if (PHYSR0 & PHYSR0_SPDG)
 		status |= VELOCITY_SPEED_1000;
-	if (PHYSR0 & PHYSR0_SPD10)
+	else if (PHYSR0 & PHYSR0_SPD10)
 		status |= VELOCITY_SPEED_10;
 	else
 		status |= VELOCITY_SPEED_100;
@@ -2845,8 +2851,17 @@ static int velocity_get_settings(struct net_device *dev, struct ethtool_cmd *cmd
 	u32 status;
 	status = check_connection_type(vptr->mac_regs);
 
-	cmd->supported = SUPPORTED_TP | SUPPORTED_Autoneg | SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full | SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full | SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full;
-	if (status & VELOCITY_SPEED_100)
+	cmd->supported = SUPPORTED_TP |
+			SUPPORTED_Autoneg |
+			SUPPORTED_10baseT_Half |
+			SUPPORTED_10baseT_Full |
+			SUPPORTED_100baseT_Half |
+			SUPPORTED_100baseT_Full |
+			SUPPORTED_1000baseT_Half |
+			SUPPORTED_1000baseT_Full;
+	if (status & VELOCITY_SPEED_1000)
+		cmd->speed = SPEED_1000;
+	else if (status & VELOCITY_SPEED_100)
 		cmd->speed = SPEED_100;
 	else
 		cmd->speed = SPEED_10;
@@ -2890,7 +2905,7 @@ static u32 velocity_get_link(struct net_device *dev)
 {
 	struct velocity_info *vptr = dev->priv;
 	struct mac_regs __iomem * regs = vptr->mac_regs;
-	return BYTE_REG_BITS_IS_ON(PHYSR0_LINKGD, &regs->PHYSR0)  ? 0 : 1;
+	return BYTE_REG_BITS_IS_ON(PHYSR0_LINKGD, &regs->PHYSR0) ? 1 : 0;
 }
 
 static void velocity_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)

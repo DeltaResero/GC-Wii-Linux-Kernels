@@ -944,9 +944,9 @@ out:
 	return rc;
 }
 
-static int ipx_map_frame_type(unsigned char type)
+static __be16 ipx_map_frame_type(unsigned char type)
 {
-	int rc = 0;
+	__be16 rc = 0;
 
 	switch (type) {
 	case IPX_FRAME_ETHERII:	rc = htons(ETH_P_IPX);		break;
@@ -1235,27 +1235,27 @@ static int ipxitf_ioctl(unsigned int cmd, void __user *arg)
 /* Note: We assume ipx_tctrl==0 and htons(length)==ipx_pktsize */
 /* This functions should *not* mess with packet contents */
 
-__u16 ipx_cksum(struct ipxhdr *packet, int length) 
+__be16 ipx_cksum(struct ipxhdr *packet, int length)
 {
 	/* 
 	 *	NOTE: sum is a net byte order quantity, which optimizes the 
 	 *	loop. This only works on big and little endian machines. (I
 	 *	don't know of a machine that isn't.)
 	 */
-	/* start at ipx_dest - We skip the checksum field and start with
-	 * ipx_type before the loop, not considering ipx_tctrl in the calc */
-	__u16 *p = (__u16 *)&packet->ipx_dest;
-	__u32 i = (length >> 1) - 1; /* Number of complete words */
-	__u32 sum = packet->ipx_type << sizeof(packet->ipx_tctrl); 
+	/* handle the first 3 words separately; checksum should be skipped
+	 * and ipx_tctrl masked out */
+	__u16 *p = (__u16 *)packet;
+	__u32 sum = p[1] + (p[2] & (__force u16)htons(0x00ff));
+	__u32 i = (length >> 1) - 3; /* Number of remaining complete words */
 
-	/* Loop through all complete words except the checksum field,
-	 * ipx_type (accounted above) and ipx_tctrl (not used in the cksum) */
-	while (--i)
+	/* Loop through them */
+	p += 3;
+	while (i--)
 		sum += *p++;
 
 	/* Add on the last part word if it exists */
 	if (packet->ipx_pktsize & htons(1))
-		sum += ntohs(0xff00) & *p;
+		sum += (__force u16)htons(0xff00) & *p;
 
 	/* Do final fixup */
 	sum = (sum & 0xffff) + (sum >> 16);
@@ -1264,7 +1264,14 @@ __u16 ipx_cksum(struct ipxhdr *packet, int length)
 	if (sum >= 0x10000)
 		sum++;
 
-	return ~sum;
+	/*
+	 * Leave 0 alone; we don't want 0xffff here.  Note that we can't get
+	 * here with 0x10000, so this check is the same as ((__u16)sum)
+	 */
+	if (sum)
+		sum = ~sum;
+
+	return (__force __be16)sum;
 }
 
 const char *ipx_frame_name(unsigned short frame)
@@ -1643,13 +1650,17 @@ static int ipx_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_ty
 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
 		goto out;
 
-	ipx		= ipx_hdr(skb);
-	ipx_pktsize	= ntohs(ipx->ipx_pktsize);
+	if (!pskb_may_pull(skb, sizeof(struct ipxhdr)))
+		goto drop;
+
+	ipx_pktsize = ntohs(ipx_hdr(skb)->ipx_pktsize);
 	
 	/* Too small or invalid header? */
-	if (ipx_pktsize < sizeof(struct ipxhdr) || ipx_pktsize > skb->len)
+	if (ipx_pktsize < sizeof(struct ipxhdr) ||
+	    !pskb_may_pull(skb, ipx_pktsize))
 		goto drop;
                         
+	ipx = ipx_hdr(skb);
 	if (ipx->ipx_checksum != IPX_NO_CHECKSUM &&
 	   ipx->ipx_checksum != ipx_cksum(ipx, ipx_pktsize))
 		goto drop;
@@ -1999,19 +2010,27 @@ static void __exit ipx_proto_finito(void)
 
 	ipxitf_cleanup();
 
-	unregister_snap_client(pSNAP_datalink);
-	pSNAP_datalink = NULL;
+	if (pSNAP_datalink) {
+		unregister_snap_client(pSNAP_datalink);
+		pSNAP_datalink = NULL;
+	}
 
-	unregister_8022_client(p8022_datalink);
-	p8022_datalink = NULL;
+	if (p8022_datalink) {
+		unregister_8022_client(p8022_datalink);
+		p8022_datalink = NULL;
+	}
 
 	dev_remove_pack(&ipx_8023_packet_type);
-	destroy_8023_client(p8023_datalink);
-	p8023_datalink = NULL;
+	if (p8023_datalink) {
+		destroy_8023_client(p8023_datalink);
+		p8023_datalink = NULL;
+	}
 
 	dev_remove_pack(&ipx_dix_packet_type);
-	destroy_EII_client(pEII_datalink);
-	pEII_datalink = NULL;
+	if (pEII_datalink) {
+		destroy_EII_client(pEII_datalink);
+		pEII_datalink = NULL;
+	}
 
 	proto_unregister(&ipx_proto);
 	sock_unregister(ipx_family_ops.family);

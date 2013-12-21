@@ -955,11 +955,10 @@ qla1280_error_action(struct scsi_cmnd *cmd, enum action action)
 
 	case BUS_RESET:
 		if (qla1280_verbose)
-			printk(KERN_INFO "qla1280(%ld:%d): Issuing BUS "
-			       "DEVICE RESET\n", ha->host_no, bus);
-		if (qla1280_bus_reset(ha, bus == 0))
+			printk(KERN_INFO "qla1280(%ld:%d): Issued bus "
+			       "reset.\n", ha->host_no, bus);
+		if (qla1280_bus_reset(ha, bus) == 0)
 			result = SUCCESS;
-
 		break;
 
 	case ADAPTER_RESET:
@@ -2886,7 +2885,7 @@ qla1280_64bit_start_scsi(struct scsi_qla_host *ha, struct srb * sp)
 	memset(((char *)pkt + 8), 0, (REQUEST_ENTRY_SIZE - 8));
 
 	/* Set ISP command timeout. */
-	pkt->timeout = cpu_to_le16(30);
+	pkt->timeout = cpu_to_le16(cmd->timeout_per_command/HZ);
 
 	/* Set device target ID and LUN */
 	pkt->lun = SCSI_LUN_32(cmd);
@@ -3185,7 +3184,7 @@ qla1280_32bit_start_scsi(struct scsi_qla_host *ha, struct srb * sp)
 	memset(((char *)pkt + 8), 0, (REQUEST_ENTRY_SIZE - 8));
 
 	/* Set ISP command timeout. */
-	pkt->timeout = cpu_to_le16(30);
+	pkt->timeout = cpu_to_le16(cmd->timeout_per_command/HZ);
 
 	/* Set device target ID and LUN */
 	pkt->lun = SCSI_LUN_32(cmd);

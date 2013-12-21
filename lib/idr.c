@@ -37,27 +37,36 @@ static kmem_cache_t *idr_layer_cache;
 static struct idr_layer *alloc_layer(struct idr *idp)
 {
 	struct idr_layer *p;
+	unsigned long flags;
 
-	spin_lock(&idp->lock);
+	spin_lock_irqsave(&idp->lock, flags);
 	if ((p = idp->id_free)) {
 		idp->id_free = p->ary[0];
 		idp->id_free_cnt--;
 		p->ary[0] = NULL;
 	}
-	spin_unlock(&idp->lock);
+	spin_unlock_irqrestore(&idp->lock, flags);
 	return(p);
+}
+
+/* only called when idp->lock is held */
+static void __free_layer(struct idr *idp, struct idr_layer *p)
+{
+	p->ary[0] = idp->id_free;
+	idp->id_free = p;
+	idp->id_free_cnt++;
 }
 
 static void free_layer(struct idr *idp, struct idr_layer *p)
 {
+	unsigned long flags;
+
 	/*
 	 * Depends on the return element being zeroed.
 	 */
-	spin_lock(&idp->lock);
-	p->ary[0] = idp->id_free;
-	idp->id_free = p;
-	idp->id_free_cnt++;
-	spin_unlock(&idp->lock);
+	spin_lock_irqsave(&idp->lock, flags);
+	__free_layer(idp, p);
+	spin_unlock_irqrestore(&idp->lock, flags);
 }
 
 /**
@@ -161,6 +170,7 @@ static int idr_get_new_above_int(struct idr *idp, void *ptr, int starting_id)
 {
 	struct idr_layer *p, *new;
 	int layers, v, id;
+	unsigned long flags;
 
 	id = starting_id;
 build_up:
@@ -184,12 +194,14 @@ build_up:
 			 * The allocation failed.  If we built part of
 			 * the structure tear it down.
 			 */
+			spin_lock_irqsave(&idp->lock, flags);
 			for (new = p; p && p != idp->top; new = p) {
 				p = p->ary[0];
 				new->ary[0] = NULL;
 				new->bitmap = new->count = 0;
-				free_layer(idp, new);
+				__free_layer(idp, new);
 			}
+			spin_unlock_irqrestore(&idp->lock, flags);
 			return -1;
 		}
 		new->ary[0] = p;

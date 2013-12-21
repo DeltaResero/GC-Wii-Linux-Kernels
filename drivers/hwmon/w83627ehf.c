@@ -105,9 +105,9 @@ superio_exit(void)
  * ISA constants
  */
 
-#define REGION_ALIGNMENT	~7
-#define REGION_OFFSET		5
-#define REGION_LENGTH		2
+#define IOREGION_ALIGNMENT	~7
+#define IOREGION_OFFSET		5
+#define IOREGION_LENGTH		2
 #define ADDR_REG_OFFSET		5
 #define DATA_REG_OFFSET		6
 
@@ -309,7 +309,7 @@ static void w83627ehf_write_fan_div(struct i2c_client *client, int nr)
 		break;
 	case 4:
 		reg = (w83627ehf_read_value(client, W83627EHF_REG_DIODE) & 0x73)
-		    | ((data->fan_div[4] & 0x03) << 3)
+		    | ((data->fan_div[4] & 0x03) << 2)
 		    | ((data->fan_div[4] & 0x04) << 5);
 		w83627ehf_write_value(client, W83627EHF_REG_DIODE, reg);
 		break;
@@ -362,9 +362,9 @@ static struct w83627ehf_data *w83627ehf_update_device(struct device *dev)
 			   time */
 			if (data->fan[i] == 0xff
 			 && data->fan_div[i] < 0x07) {
-			 	dev_dbg(&client->dev, "Increasing fan %d "
+			 	dev_dbg(&client->dev, "Increasing fan%d "
 					"clock divider from %u to %u\n",
-					i, div_from_reg(data->fan_div[i]),
+					i + 1, div_from_reg(data->fan_div[i]),
 					div_from_reg(data->fan_div[i] + 1));
 				data->fan_div[i]++;
 				w83627ehf_write_fan_div(client, i);
@@ -675,7 +675,7 @@ static int w83627ehf_detect(struct i2c_adapter *adapter)
 	struct w83627ehf_data *data;
 	int i, err = 0;
 
-	if (!request_region(address + REGION_OFFSET, REGION_LENGTH,
+	if (!request_region(address + IOREGION_OFFSET, IOREGION_LENGTH,
 	                    w83627ehf_driver.driver.name)) {
 		err = -EBUSY;
 		goto exit;
@@ -764,7 +764,7 @@ exit_detach:
 exit_free:
 	kfree(data);
 exit_release:
-	release_region(address + REGION_OFFSET, REGION_LENGTH);
+	release_region(address + IOREGION_OFFSET, IOREGION_LENGTH);
 exit:
 	return err;
 }
@@ -778,7 +778,7 @@ static int w83627ehf_detach_client(struct i2c_client *client)
 
 	if ((err = i2c_detach_client(client)))
 		return err;
-	release_region(client->addr + REGION_OFFSET, REGION_LENGTH);
+	release_region(client->addr + IOREGION_OFFSET, IOREGION_LENGTH);
 	kfree(data);
 
 	return 0;
@@ -786,6 +786,7 @@ static int w83627ehf_detach_client(struct i2c_client *client)
 
 static struct i2c_driver w83627ehf_driver = {
 	.driver = {
+		.owner	= THIS_MODULE,
 		.name	= "w83627ehf",
 	},
 	.attach_adapter	= w83627ehf_detect,
@@ -810,7 +811,7 @@ static int __init w83627ehf_find(int sioaddr, unsigned short *addr)
 	superio_select(W83627EHF_LD_HWM);
 	val = (superio_inb(SIO_REG_ADDR) << 8)
 	    | superio_inb(SIO_REG_ADDR + 1);
-	*addr = val & REGION_ALIGNMENT;
+	*addr = val & IOREGION_ALIGNMENT;
 	if (*addr == 0) {
 		superio_exit();
 		return -ENODEV;

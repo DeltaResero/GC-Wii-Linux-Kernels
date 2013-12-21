@@ -103,16 +103,25 @@ unsigned long convert_rip_to_linear(struct task_struct *child, struct pt_regs *r
 		u32 *desc;
 		unsigned long base;
 
-		down(&child->mm->context.sem);
-		desc = child->mm->context.ldt + (seg & ~7);
-		base = (desc[0] >> 16) | ((desc[1] & 0xff) << 16) | (desc[1] & 0xff000000);
+		seg &= ~7UL;
 
-		/* 16-bit code segment? */
-		if (!((desc[1] >> 22) & 1))
-			addr &= 0xffff;
-		addr += base;
+		down(&child->mm->context.sem);
+		if (unlikely((seg >> 3) >= child->mm->context.size))
+			addr = -1L; /* bogus selector, access would fault */
+		else {
+			desc = child->mm->context.ldt + seg;
+			base = ((desc[0] >> 16) |
+				((desc[1] & 0xff) << 16) |
+				(desc[1] & 0xff000000));
+
+			/* 16-bit code segment? */
+			if (!((desc[1] >> 22) & 1))
+				addr &= 0xffff;
+			addr += base;
+		}
 		up(&child->mm->context.sem);
 	}
+
 	return addr;
 }
 
@@ -223,10 +232,6 @@ static int putreg(struct task_struct *child,
 {
 	unsigned long tmp; 
 	
-	/* Some code in the 64bit emulation may not be 64bit clean.
-	   Don't take any chances. */
-	if (test_tsk_thread_flag(child, TIF_IA32))
-		value &= 0xffffffff;
 	switch (regno) {
 		case offsetof(struct user_regs_struct,fs):
 			if (value && (value & 3) != 3)

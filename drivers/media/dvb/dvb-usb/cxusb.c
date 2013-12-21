@@ -149,6 +149,15 @@ static int cxusb_power_ctrl(struct dvb_usb_device *d, int onoff)
 		return cxusb_ctrl_msg(d, CMD_POWER_OFF, &b, 1, NULL, 0);
 }
 
+static int cxusb_bluebird_power_ctrl(struct dvb_usb_device *d, int onoff)
+{
+	u8 b = 0;
+	if (onoff)
+		return cxusb_ctrl_msg(d, CMD_POWER_ON, &b, 1, NULL, 0);
+	else
+		return 0;
+}
+
 static int cxusb_streaming_ctrl(struct dvb_usb_device *d, int onoff)
 {
 	u8 buf[2] = { 0x03, 0x00 };
@@ -411,8 +420,8 @@ static int bluebird_patch_dvico_firmware_download(struct usb_device *udev, const
 	    fw->data[BLUEBIRD_01_ID_OFFSET + 1] == USB_VID_DVICO >> 8) {
 
 		/* FIXME: are we allowed to change the fw-data ? */
-		fw->data[BLUEBIRD_01_ID_OFFSET + 2] = udev->descriptor.idProduct + 1;
-		fw->data[BLUEBIRD_01_ID_OFFSET + 3] = udev->descriptor.idProduct >> 8;
+		fw->data[BLUEBIRD_01_ID_OFFSET + 2] = le16_to_cpu(udev->descriptor.idProduct) + 1;
+		fw->data[BLUEBIRD_01_ID_OFFSET + 3] = le16_to_cpu(udev->descriptor.idProduct) >> 8;
 
 		return usb_cypress_load_firmware(udev,fw,CYPRESS_FX2);
 	}
@@ -505,7 +514,7 @@ static struct dvb_usb_properties cxusb_bluebird_lgh064f_properties = {
 	.size_of_priv     = sizeof(struct cxusb_state),
 
 	.streaming_ctrl   = cxusb_streaming_ctrl,
-	.power_ctrl       = cxusb_power_ctrl,
+	.power_ctrl       = cxusb_bluebird_power_ctrl,
 	.frontend_attach  = cxusb_lgdt3303_frontend_attach,
 	.tuner_attach     = cxusb_lgh064f_tuner_attach,
 
@@ -545,7 +554,7 @@ static struct dvb_usb_properties cxusb_bluebird_dee1601_properties = {
 	.size_of_priv     = sizeof(struct cxusb_state),
 
 	.streaming_ctrl   = cxusb_streaming_ctrl,
-	.power_ctrl       = cxusb_power_ctrl,
+	.power_ctrl       = cxusb_bluebird_power_ctrl,
 	.frontend_attach  = cxusb_dee1601_frontend_attach,
 	.tuner_attach     = cxusb_dee1601_tuner_attach,
 
@@ -594,7 +603,7 @@ static struct dvb_usb_properties cxusb_bluebird_lgz201_properties = {
 	.size_of_priv     = sizeof(struct cxusb_state),
 
 	.streaming_ctrl   = cxusb_streaming_ctrl,
-	.power_ctrl       = cxusb_power_ctrl,
+	.power_ctrl       = cxusb_bluebird_power_ctrl,
 	.frontend_attach  = cxusb_mt352_frontend_attach,
 	.tuner_attach     = cxusb_lgz201_tuner_attach,
 
@@ -634,7 +643,7 @@ static struct dvb_usb_properties cxusb_bluebird_dtt7579_properties = {
 	.size_of_priv     = sizeof(struct cxusb_state),
 
 	.streaming_ctrl   = cxusb_streaming_ctrl,
-	.power_ctrl       = cxusb_power_ctrl,
+	.power_ctrl       = cxusb_bluebird_power_ctrl,
 	.frontend_attach  = cxusb_mt352_frontend_attach,
 	.tuner_attach     = cxusb_dtt7579_tuner_attach,
 

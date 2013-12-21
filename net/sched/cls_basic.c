@@ -83,6 +83,13 @@ static void basic_put(struct tcf_proto *tp, unsigned long f)
 
 static int basic_init(struct tcf_proto *tp)
 {
+	struct basic_head *head;
+
+	head = kzalloc(sizeof(*head), GFP_KERNEL);
+	if (head == NULL)
+		return -ENOBUFS;
+	INIT_LIST_HEAD(&head->flist);
+	tp->root = head;
 	return 0;
 }
 
@@ -104,6 +111,7 @@ static void basic_destroy(struct tcf_proto *tp)
 		list_del(&f->link);
 		basic_delete_filter(tp, f);
 	}
+	kfree(head);
 }
 
 static int basic_delete(struct tcf_proto *tp, unsigned long arg)
@@ -178,16 +186,6 @@ static int basic_change(struct tcf_proto *tp, unsigned long base, u32 handle,
 	}
 
 	err = -ENOBUFS;
-	if (head == NULL) {
-		head = kmalloc(sizeof(*head), GFP_KERNEL);
-		if (head == NULL)
-			goto errout;
-
-		memset(head, 0, sizeof(*head));
-		INIT_LIST_HEAD(&head->flist);
-		tp->root = head;
-	}
-
 	f = kmalloc(sizeof(*f), GFP_KERNEL);
 	if (f == NULL)
 		goto errout;
@@ -197,7 +195,7 @@ static int basic_change(struct tcf_proto *tp, unsigned long base, u32 handle,
 	if (handle)
 		f->handle = handle;
 	else {
-		int i = 0x80000000;
+		unsigned int i = 0x80000000;
 		do {
 			if (++head->hgenerator == 0x7FFFFFFF)
 				head->hgenerator = 1;

@@ -1077,8 +1077,8 @@ static int fastcall do_path_lookup(int dfd, const char *name,
 	nd->flags = flags;
 	nd->depth = 0;
 
-	read_lock(&current->fs->lock);
 	if (*name=='/') {
+		read_lock(&current->fs->lock);
 		if (current->fs->altroot && !(nd->flags & LOOKUP_NOALT)) {
 			nd->mnt = mntget(current->fs->altrootmnt);
 			nd->dentry = dget(current->fs->altroot);
@@ -1089,33 +1089,35 @@ static int fastcall do_path_lookup(int dfd, const char *name,
 		}
 		nd->mnt = mntget(current->fs->rootmnt);
 		nd->dentry = dget(current->fs->root);
+		read_unlock(&current->fs->lock);
 	} else if (dfd == AT_FDCWD) {
+		read_lock(&current->fs->lock);
 		nd->mnt = mntget(current->fs->pwdmnt);
 		nd->dentry = dget(current->fs->pwd);
+		read_unlock(&current->fs->lock);
 	} else {
 		struct dentry *dentry;
 
 		file = fget_light(dfd, &fput_needed);
 		retval = -EBADF;
 		if (!file)
-			goto unlock_fail;
+			goto out_fail;
 
 		dentry = file->f_dentry;
 
 		retval = -ENOTDIR;
 		if (!S_ISDIR(dentry->d_inode->i_mode))
-			goto fput_unlock_fail;
+			goto fput_fail;
 
 		retval = file_permission(file, MAY_EXEC);
 		if (retval)
-			goto fput_unlock_fail;
+			goto fput_fail;
 
 		nd->mnt = mntget(file->f_vfsmnt);
 		nd->dentry = dget(dentry);
 
 		fput_light(file, fput_needed);
 	}
-	read_unlock(&current->fs->lock);
 	current->total_link_count = 0;
 	retval = link_path_walk(name, nd);
 out:
@@ -1124,13 +1126,12 @@ out:
 				nd->dentry->d_inode))
 		audit_inode(name, nd->dentry->d_inode, flags);
 	}
+out_fail:
 	return retval;
 
-fput_unlock_fail:
+fput_fail:
 	fput_light(file, fput_needed);
-unlock_fail:
-	read_unlock(&current->fs->lock);
-	return retval;
+	goto out_fail;
 }
 
 int fastcall path_lookup(const char *name, unsigned int flags,
@@ -1488,7 +1489,7 @@ int may_open(struct nameidata *nd, int acc_mode, int flag)
 	if (S_ISLNK(inode->i_mode))
 		return -ELOOP;
 	
-	if (S_ISDIR(inode->i_mode) && (flag & FMODE_WRITE))
+	if (S_ISDIR(inode->i_mode) && (acc_mode & MAY_WRITE))
 		return -EISDIR;
 
 	error = vfs_permission(nd, acc_mode);
@@ -1507,7 +1508,7 @@ int may_open(struct nameidata *nd, int acc_mode, int flag)
 			return -EACCES;
 
 		flag &= ~O_TRUNC;
-	} else if (IS_RDONLY(inode) && (flag & FMODE_WRITE))
+	} else if (IS_RDONLY(inode) && (acc_mode & MAY_WRITE))
 		return -EROFS;
 	/*
 	 * An append-only file must be opened in append mode for writing.
@@ -1628,6 +1629,12 @@ do_last:
 		goto exit;
 	}
 
+	if (IS_ERR(nd->intent.open.file)) {
+		mutex_unlock(&dir->d_inode->i_mutex);
+		error = PTR_ERR(nd->intent.open.file);
+		goto exit_dput;
+	}
+
 	/* Negative dentry, just create the file */
 	if (!path.dentry->d_inode) {
 		if (!IS_POSIXACL(dir->d_inode))
@@ -1701,8 +1708,14 @@ do_link:
 	if (error)
 		goto exit_dput;
 	error = __do_follow_link(&path, nd);
-	if (error)
+	if (error) {
+		/* Does someone understand code flow here? Or it is only
+		 * me so stupid? Anathema to whoever designed this non-sense
+		 * with "intent.open".
+		 */
+		release_open_intent(nd);
 		return error;
+	}
 	nd->flags &= ~LOOKUP_PARENT;
 	if (nd->last_type == LAST_BIND)
 		goto ok;

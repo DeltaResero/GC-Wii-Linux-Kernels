@@ -314,6 +314,7 @@ void elv_insert(request_queue_t *q, struct request *rq, int where)
 {
 	struct list_head *pos;
 	unsigned ordseq;
+	int unplug_it = 1;
 
 	rq->q = q;
 
@@ -364,6 +365,12 @@ void elv_insert(request_queue_t *q, struct request *rq, int where)
 		 */
 		rq->flags |= REQ_SOFTBARRIER;
 
+		/*
+		 * Most requeues happen because of a busy condition,
+		 * don't force unplug of the queue for that case.
+		 */
+		unplug_it = 0;
+
 		if (q->ordseq == 0) {
 			list_add(&rq->queuelist, &q->queue_head);
 			break;
@@ -386,7 +393,7 @@ void elv_insert(request_queue_t *q, struct request *rq, int where)
 		BUG();
 	}
 
-	if (blk_queue_plugged(q)) {
+	if (unplug_it && blk_queue_plugged(q)) {
 		int nrq = q->rq.count[READ] + q->rq.count[WRITE]
 			- q->in_flight;
 
@@ -808,7 +815,7 @@ ssize_t elv_iosched_show(request_queue_t *q, char *name)
 	struct list_head *entry;
 	int len = 0;
 
-	spin_lock_irq(q->queue_lock);
+	spin_lock_irq(&elv_list_lock);
 	list_for_each(entry, &elv_list) {
 		struct elevator_type *__e;
 
@@ -818,7 +825,7 @@ ssize_t elv_iosched_show(request_queue_t *q, char *name)
 		else
 			len += sprintf(name+len, "%s ", __e->elevator_name);
 	}
-	spin_unlock_irq(q->queue_lock);
+	spin_unlock_irq(&elv_list_lock);
 
 	len += sprintf(len+name, "\n");
 	return len;

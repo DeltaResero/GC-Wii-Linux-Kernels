@@ -64,7 +64,7 @@ static void __iommu_flushall(struct pci_iommu *iommu)
 #define IOPTE_IS_DUMMY(iommu, iopte)	\
 	((iopte_val(*iopte) & IOPTE_PAGE) == (iommu)->dummy_page_pa)
 
-static void inline iopte_make_dummy(struct pci_iommu *iommu, iopte_t *iopte)
+static inline void iopte_make_dummy(struct pci_iommu *iommu, iopte_t *iopte)
 {
 	unsigned long val = iopte_val(*iopte);
 
@@ -219,7 +219,7 @@ static inline void iommu_free_ctx(struct pci_iommu *iommu, int ctx)
  * DMA for PCI device PDEV.  Return non-NULL cpu-side address if
  * successful and set *DMA_ADDRP to the PCI side dma address.
  */
-void *pci_alloc_consistent(struct pci_dev *pdev, size_t size, dma_addr_t *dma_addrp)
+void *__pci_alloc_consistent(struct pci_dev *pdev, size_t size, dma_addr_t *dma_addrp, gfp_t gfp)
 {
 	struct pcidev_cookie *pcp;
 	struct pci_iommu *iommu;
@@ -233,7 +233,7 @@ void *pci_alloc_consistent(struct pci_dev *pdev, size_t size, dma_addr_t *dma_ad
 	if (order >= 10)
 		return NULL;
 
-	first_page = __get_free_pages(GFP_ATOMIC, order);
+	first_page = __get_free_pages(gfp, order);
 	if (first_page == 0UL)
 		return NULL;
 	memset((char *)first_page, 0, PAGE_SIZE << order);
@@ -282,7 +282,7 @@ void pci_free_consistent(struct pci_dev *pdev, size_t size, void *cpu, dma_addr_
 
 	spin_lock_irqsave(&iommu->lock, flags);
 
-	free_npages(iommu, dvma, npages);
+	free_npages(iommu, dvma - iommu->page_table_map_base, npages);
 
 	spin_unlock_irqrestore(&iommu->lock, flags);
 

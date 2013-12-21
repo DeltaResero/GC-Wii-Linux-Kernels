@@ -533,30 +533,35 @@ static void __clone_and_map(struct clone_info *ci)
 
 	} else {
 		/*
-		 * Create two copy bios to deal with io that has
-		 * been split across a target.
+		 * Handle a bvec that must be split between two or more targets.
 		 */
 		struct bio_vec *bv = bio->bi_io_vec + ci->idx;
+		sector_t remaining = to_sector(bv->bv_len);
+		unsigned int offset = 0;
 
-		clone = split_bvec(bio, ci->sector, ci->idx,
-				   bv->bv_offset, max);
-		__map_bio(ti, clone, tio);
+		do {
+			if (offset) {
+				ti = dm_table_find_target(ci->map, ci->sector);
+				max = max_io_len(ci->md, ci->sector, ti);
 
-		ci->sector += max;
-		ci->sector_count -= max;
-		ti = dm_table_find_target(ci->map, ci->sector);
+				tio = alloc_tio(ci->md);
+				tio->io = ci->io;
+				tio->ti = ti;
+				memset(&tio->info, 0, sizeof(tio->info));
+			}
 
-		len = to_sector(bv->bv_len) - max;
-		clone = split_bvec(bio, ci->sector, ci->idx,
-				   bv->bv_offset + to_bytes(max), len);
-		tio = alloc_tio(ci->md);
-		tio->io = ci->io;
-		tio->ti = ti;
-		memset(&tio->info, 0, sizeof(tio->info));
-		__map_bio(ti, clone, tio);
+			len = min(remaining, max);
 
-		ci->sector += len;
-		ci->sector_count -= len;
+			clone = split_bvec(bio, ci->sector, ci->idx,
+					   bv->bv_offset + offset, len);
+
+			__map_bio(ti, clone, tio);
+
+			ci->sector += len;
+			ci->sector_count -= len;
+			offset += to_bytes(len);
+		} while (remaining -= len);
+
 		ci->idx++;
 	}
 }
@@ -783,6 +788,9 @@ static struct mapped_device *alloc_dev(unsigned int minor, int persistent)
 		return NULL;
 	}
 
+	if (!try_module_get(THIS_MODULE))
+		goto bad0;
+
 	/* get a minor number for the dev */
 	r = persistent ? specific_minor(md, minor) : next_free_minor(md, &minor);
 	if (r < 0)
@@ -843,6 +851,8 @@ static struct mapped_device *alloc_dev(unsigned int minor, int persistent)
 	blk_put_queue(md->queue);
 	free_minor(minor);
  bad1:
+	module_put(THIS_MODULE);
+ bad0:
 	kfree(md);
 	return NULL;
 }
@@ -861,6 +871,7 @@ static void free_dev(struct mapped_device *md)
 	free_minor(minor);
 	put_disk(md->disk);
 	blk_put_queue(md->queue);
+	module_put(THIS_MODULE);
 	kfree(md);
 }
 
@@ -1093,6 +1104,7 @@ int dm_suspend(struct mapped_device *md, int do_lockfs)
 {
 	struct dm_table *map = NULL;
 	DECLARE_WAITQUEUE(wait, current);
+	struct bio *def;
 	int r = -EINVAL;
 
 	down(&md->suspend_lock);
@@ -1152,9 +1164,11 @@ int dm_suspend(struct mapped_device *md, int do_lockfs)
 	/* were we interrupted ? */
 	r = -EINTR;
 	if (atomic_read(&md->pending)) {
+		clear_bit(DMF_BLOCK_IO, &md->flags);
+		def = bio_list_get(&md->deferred);
+		__flush_deferred_io(md, def);
 		up_write(&md->io_lock);
 		unlock_fs(md);
-		clear_bit(DMF_BLOCK_IO, &md->flags);
 		goto out;
 	}
 	up_write(&md->io_lock);

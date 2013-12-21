@@ -168,9 +168,9 @@ static int l2cap_conn_del(struct hci_conn *hcon, int err)
 static inline void l2cap_chan_add(struct l2cap_conn *conn, struct sock *sk, struct sock *parent)
 {
 	struct l2cap_chan_list *l = &conn->chan_list;
-	write_lock(&l->lock);
+	write_lock_bh(&l->lock);
 	__l2cap_chan_add(conn, sk, parent);
-	write_unlock(&l->lock);
+	write_unlock_bh(&l->lock);
 }
 
 static inline u8 l2cap_get_ident(struct l2cap_conn *conn)
@@ -183,14 +183,14 @@ static inline u8 l2cap_get_ident(struct l2cap_conn *conn)
 	 *  200 - 254 are used by utilities like l2ping, etc.
 	 */
 
-	spin_lock(&conn->lock);
+	spin_lock_bh(&conn->lock);
 
 	if (++conn->tx_ident > 128)
 		conn->tx_ident = 1;
 
 	id = conn->tx_ident;
 
-	spin_unlock(&conn->lock);
+	spin_unlock_bh(&conn->lock);
 
 	return id;
 }
@@ -414,7 +414,7 @@ static int l2cap_sock_create(struct socket *sock, int protocol)
 
 	sock->ops = &l2cap_sock_ops;
 
-	sk = l2cap_sock_alloc(sock, protocol, GFP_KERNEL);
+	sk = l2cap_sock_alloc(sock, protocol, GFP_ATOMIC);
 	if (!sk)
 		return -ENOMEM;
 
@@ -440,6 +440,12 @@ static int l2cap_sock_bind(struct socket *sock, struct sockaddr *addr, int addr_
 		goto done;
 	}
 
+	if (la->l2_psm > 0 && btohs(la->l2_psm) < 0x1001 &&
+				!capable(CAP_NET_BIND_SERVICE)) {
+		err = -EACCES;
+		goto done;
+	}
+		
 	write_lock_bh(&l2cap_sk_list.lock);
 
 	if (la->l2_psm && __l2cap_get_sock_by_addr(la->l2_psm, &la->l2_bdaddr)) {
@@ -1007,7 +1013,7 @@ static inline void l2cap_chan_unlink(struct l2cap_chan_list *l, struct sock *sk)
 {
 	struct sock *next = l2cap_pi(sk)->next_c, *prev = l2cap_pi(sk)->prev_c;
 
-	write_lock(&l->lock);
+	write_lock_bh(&l->lock);
 	if (sk == l->head)
 		l->head = next;
 
@@ -1015,7 +1021,7 @@ static inline void l2cap_chan_unlink(struct l2cap_chan_list *l, struct sock *sk)
 		l2cap_pi(next)->prev_c = prev;
 	if (prev)
 		l2cap_pi(prev)->next_c = next;
-	write_unlock(&l->lock);
+	write_unlock_bh(&l->lock);
 
 	__sock_put(sk);
 }
@@ -1425,11 +1431,11 @@ static inline int l2cap_connect_req(struct l2cap_conn *conn, struct l2cap_cmd_hd
 	if (!sk)
 		goto response;
 
-	write_lock(&list->lock);
+	write_lock_bh(&list->lock);
 
 	/* Check if we already have channel with that dcid */
 	if (__l2cap_get_chan_by_dcid(list, scid)) {
-		write_unlock(&list->lock);
+		write_unlock_bh(&list->lock);
 		sock_set_flag(sk, SOCK_ZAPPED);
 		l2cap_sock_kill(sk);
 		goto response;
@@ -1467,7 +1473,7 @@ static inline int l2cap_connect_req(struct l2cap_conn *conn, struct l2cap_cmd_hd
 	result = status = 0;
 
 done:
-	write_unlock(&list->lock);
+	write_unlock_bh(&list->lock);
 
 response:
 	bh_unlock_sock(parent);
@@ -2151,8 +2157,8 @@ static ssize_t l2cap_sysfs_show(struct class *dev, char *buf)
 
 		str += sprintf(str, "%s %s %d %d 0x%4.4x 0x%4.4x %d %d 0x%x\n",
 				batostr(&bt_sk(sk)->src), batostr(&bt_sk(sk)->dst),
-				sk->sk_state, pi->psm, pi->scid, pi->dcid, pi->imtu,
-				pi->omtu, pi->link_mode);
+				sk->sk_state, btohs(pi->psm), pi->scid, pi->dcid,
+				pi->imtu, pi->omtu, pi->link_mode);
 	}
 
 	read_unlock_bh(&l2cap_sk_list.lock);

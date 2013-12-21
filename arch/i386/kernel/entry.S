@@ -128,6 +128,8 @@ ENTRY(ret_from_fork)
 	call schedule_tail
 	GET_THREAD_INFO(%ebp)
 	popl %eax
+	pushl $0x0202			# Reset kernel eflags
+	popfl
 	jmp syscall_exit
 
 /*
@@ -259,7 +261,6 @@ restore_nocheck:
 1:	iret
 .section .fixup,"ax"
 iret_exc:
-	sti
 	pushl $0			# no error code
 	pushl $do_iret_error
 	jmp error_code

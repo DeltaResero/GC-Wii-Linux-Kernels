@@ -210,6 +210,16 @@ struct saa7134_format {
 #define SAA7134_BOARD_MSI_TVATANYWHERE_PLUS  82
 #define SAA7134_BOARD_CINERGY250PCI 83
 #define SAA7134_BOARD_FLYDVB_TRIO 84
+#define SAA7134_BOARD_AVERMEDIA_777 85
+#define SAA7134_BOARD_FLYDVBT_LR301 86
+#define SAA7134_BOARD_ADS_DUO_CARDBUS_PTV331 87
+#define SAA7134_BOARD_TEVION_DVBT_220RF 88
+#define SAA7134_BOARD_ELSA_700TV       89
+#define SAA7134_BOARD_KWORLD_ATSC110   90
+#define SAA7134_BOARD_AVERMEDIA_A169_B 91
+#define SAA7134_BOARD_AVERMEDIA_A169_B1 92
+#define SAA7134_BOARD_MD7134_BRIDGE_2     93
+#define SAA7134_BOARD_FLYDVBT_HYBRID_CARDBUS 94
 
 #define SAA7134_MAXBOARDS 8
 #define SAA7134_INPUT_MAX 8
@@ -571,8 +581,8 @@ void saa7134_dma_free(struct saa7134_dev *dev,struct saa7134_buf *buf);
 
 int saa7134_set_dmabits(struct saa7134_dev *dev);
 
-extern int (*dmasound_init)(struct saa7134_dev *dev);
-extern int (*dmasound_exit)(struct saa7134_dev *dev);
+extern int (*saa7134_dmasound_init)(struct saa7134_dev *dev);
+extern int (*saa7134_dmasound_exit)(struct saa7134_dev *dev);
 
 
 /* ----------------------------------------------------------- */

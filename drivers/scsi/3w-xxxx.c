@@ -1286,7 +1286,7 @@ static int tw_map_scsi_sg_data(struct pci_dev *pdev, struct scsi_cmnd *cmd)
 	if (cmd->use_sg == 0)
 		return 0;
 
-	use_sg = pci_map_sg(pdev, cmd->buffer, cmd->use_sg, DMA_BIDIRECTIONAL);
+	use_sg = pci_map_sg(pdev, cmd->buffer, cmd->use_sg, cmd->sc_data_direction);
 	
 	if (use_sg == 0) {
 		printk(KERN_WARNING "3w-xxxx: tw_map_scsi_sg_data(): pci_map_sg() failed.\n");
@@ -1308,7 +1308,7 @@ static u32 tw_map_scsi_single_data(struct pci_dev *pdev, struct scsi_cmnd *cmd)
 	if (cmd->request_bufflen == 0)
 		return 0;
 
-	mapping = pci_map_page(pdev, virt_to_page(cmd->request_buffer), offset_in_page(cmd->request_buffer), cmd->request_bufflen, DMA_BIDIRECTIONAL);
+	mapping = pci_map_page(pdev, virt_to_page(cmd->request_buffer), offset_in_page(cmd->request_buffer), cmd->request_bufflen, cmd->sc_data_direction);
 
 	if (mapping == 0) {
 		printk(KERN_WARNING "3w-xxxx: tw_map_scsi_single_data(): pci_map_page() failed.\n");
@@ -1327,10 +1327,10 @@ static void tw_unmap_scsi_data(struct pci_dev *pdev, struct scsi_cmnd *cmd)
 
 	switch(cmd->SCp.phase) {
 		case TW_PHASE_SINGLE:
-			pci_unmap_page(pdev, cmd->SCp.have_data_in, cmd->request_bufflen, DMA_BIDIRECTIONAL);
+			pci_unmap_page(pdev, cmd->SCp.have_data_in, cmd->request_bufflen, cmd->sc_data_direction);
 			break;
 		case TW_PHASE_SGLIST:
-			pci_unmap_sg(pdev, cmd->request_buffer, cmd->use_sg, DMA_BIDIRECTIONAL);
+			pci_unmap_sg(pdev, cmd->request_buffer, cmd->use_sg, cmd->sc_data_direction);
 			break;
 	}
 } /* End tw_unmap_scsi_data() */
@@ -1508,10 +1508,12 @@ static void tw_transfer_internal(TW_Device_Extension *tw_dev, int request_id,
 	struct scsi_cmnd *cmd = tw_dev->srb[request_id];
 	void *buf;
 	unsigned int transfer_len;
+	unsigned long flags = 0;
 
 	if (cmd->use_sg) {
 		struct scatterlist *sg =
 			(struct scatterlist *)cmd->request_buffer;
+		local_irq_save(flags);
 		buf = kmap_atomic(sg->page, KM_IRQ0) + sg->offset;
 		transfer_len = min(sg->length, len);
 	} else {
@@ -1526,6 +1528,7 @@ static void tw_transfer_internal(TW_Device_Extension *tw_dev, int request_id,
 
 		sg = (struct scatterlist *)cmd->request_buffer;
 		kunmap_atomic(buf - sg->offset, KM_IRQ0);
+		local_irq_restore(flags);
 	}
 }
 

@@ -240,12 +240,15 @@ static int do_basic_checks(struct nf_conn *conntrack,
 			flag = 1;
 		}
 
-		/* Cookie Ack/Echo chunks not the first OR 
-		   Init / Init Ack / Shutdown compl chunks not the only chunks */
-		if ((sch->type == SCTP_CID_COOKIE_ACK 
+		/*
+		 * Cookie Ack/Echo chunks not the first OR
+		 * Init / Init Ack / Shutdown compl chunks not the only chunks
+		 * OR zero-length.
+		 */
+		if (((sch->type == SCTP_CID_COOKIE_ACK
 			|| sch->type == SCTP_CID_COOKIE_ECHO
 			|| flag)
-		     && count !=0 ) {
+		      && count !=0) || !sch->length) {
 			DEBUGP("Basic checks failed\n");
 			return 1;
 		}
@@ -256,7 +259,7 @@ static int do_basic_checks(struct nf_conn *conntrack,
 	}
 
 	DEBUGP("Basic checks passed\n");
-	return 0;
+	return count == 0;
 }
 
 static int new_state(enum ip_conntrack_dir dir,
@@ -464,7 +467,8 @@ static int sctp_new(struct nf_conn *conntrack, const struct sk_buff *skb,
 					 SCTP_CONNTRACK_NONE, sch->type);
 
 		/* Invalid: delete conntrack */
-		if (newconntrack == SCTP_CONNTRACK_MAX) {
+		if (newconntrack == SCTP_CONNTRACK_NONE ||
+		    newconntrack == SCTP_CONNTRACK_MAX) {
 			DEBUGP("nf_conntrack_sctp: invalid new deleting.\n");
 			return 0;
 		}

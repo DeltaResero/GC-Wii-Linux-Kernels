@@ -48,13 +48,14 @@ build_path_from_dentry(struct dentry *direntry)
 	struct dentry *temp;
 	int namelen = 0;
 	char *full_path;
-	char dirsep = CIFS_DIR_SEP(CIFS_SB(direntry->d_sb));
+	char dirsep;
 
 	if(direntry == NULL)
 		return NULL;  /* not much we can do if dentry is freed and
 		we need to reopen the file after it was closed implicitly
 		when the server crashed */
 
+	dirsep = CIFS_DIR_SEP(CIFS_SB(direntry->d_sb));
 cifs_bp_rename_retry:
 	for (temp = direntry; !IS_ROOT(temp);) {
 		namelen += (1 + temp->d_name.len);
@@ -197,7 +198,8 @@ cifs_create(struct inode *inode, struct dentry *direntry, int mode,
 		/* If Open reported that we actually created a file
 		then we now have to set the mode if possible */
 		if ((cifs_sb->tcon->ses->capabilities & CAP_UNIX) &&
-			(oplock & CIFS_CREATE_ACTION))
+			(oplock & CIFS_CREATE_ACTION)) {
+			mode &= ~current->fs->umask;
 			if(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_SET_UID) {
 				CIFSSMBUnixSetPerms(xid, pTcon, full_path, mode,
 					(__u64)current->fsuid,
@@ -215,7 +217,7 @@ cifs_create(struct inode *inode, struct dentry *direntry, int mode,
 					cifs_sb->mnt_cifs_flags & 
 						CIFS_MOUNT_MAP_SPECIAL_CHR);
 			}
-		else {
+		} else {
 			/* BB implement mode setting via Windows security descriptors */
 			/* eg CIFSSMBWinSetPerms(xid,pTcon,full_path,mode,-1,-1,local_nls);*/
 			/* could set r/o dos attribute if mode & 0222 == 0 */
@@ -323,6 +325,7 @@ int cifs_mknod(struct inode *inode, struct dentry *direntry, int mode,
 	if(full_path == NULL)
 		rc = -ENOMEM;
 	else if (pTcon->ses->capabilities & CAP_UNIX) {
+		mode &= ~current->fs->umask;
 		if(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_SET_UID) {
 			rc = CIFSSMBUnixSetPerms(xid, pTcon, full_path,
 				mode,(__u64)current->fsuid,(__u64)current->fsgid,
@@ -440,6 +443,20 @@ cifs_lookup(struct inode *parent_dir_inode, struct dentry *direntry, struct name
 
 	cifs_sb = CIFS_SB(parent_dir_inode->i_sb);
 	pTcon = cifs_sb->tcon;
+
+	/*
+	 * Don't allow the separator character in a path component.
+	 * The VFS will not allow "/", but "\" is allowed by posix.
+	 */
+	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_POSIX_PATHS)) {
+		int i;
+		for (i = 0; i < direntry->d_name.len; i++)
+			if (direntry->d_name.name[i] == '\\') {
+				cFYI(1, ("Invalid file name"));
+				FreeXid(xid);
+				return ERR_PTR(-EINVAL);
+			}
+	}
 
 	/* can not grab the rename sem here since it would
 	deadlock in the cases (beginning of sys_rename itself)

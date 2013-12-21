@@ -183,6 +183,8 @@ static long restore_sigcontext(struct pt_regs *regs, sigset_t *set, int sig,
 	err |= __get_user(msr, &sc->gp_regs[PT_MSR]);
 	if (err)
 		return err;
+	if (v_regs && !access_ok(VERIFY_READ, v_regs, 34 * sizeof(vector128)))
+		return -EFAULT;
 	/* Copy 33 vec registers (vr0..31 and vscr) from the stack */
 	if (v_regs != 0 && (msr & MSR_VEC) != 0)
 		err |= __copy_from_user(current->thread.vr, v_regs,
@@ -213,7 +215,7 @@ static inline void __user * get_sigframe(struct k_sigaction *ka, struct pt_regs 
         /* Default to using normal stack */
         newsp = regs->gpr[1];
 
-	if (ka->sa.sa_flags & SA_ONSTACK) {
+	if ((ka->sa.sa_flags & SA_ONSTACK) && current->sas_ss_size) {
 		if (! on_sig_stack(regs->gpr[1]))
 			newsp = (current->sas_ss_sp + current->sas_ss_size);
 	}

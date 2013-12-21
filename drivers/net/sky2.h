@@ -1315,6 +1315,14 @@ enum {
 };
 
 /* for Yukon-2 Gigabit Ethernet PHY (88E1112 only) */
+/*****  PHY_MARV_PHY_CTRL (page 1)		16 bit r/w	Fiber Specific Ctrl *****/
+enum {
+	PHY_M_FIB_FORCE_LNK	= 1<<10,/* Force Link Good */
+	PHY_M_FIB_SIGD_POL	= 1<<9,	/* SIGDET Polarity */
+	PHY_M_FIB_TX_DIS	= 1<<3,	/* Transmitter Disable */
+};
+
+/* for Yukon-2 Gigabit Ethernet PHY (88E1112 only) */
 /*****  PHY_MARV_PHY_CTRL (page 2)		16 bit r/w	MAC Specific Ctrl *****/
 enum {
 	PHY_M_MAC_MD_MSK	= 7<<7, /* Bit  9.. 7: Mode Select Mask */
@@ -1380,6 +1388,7 @@ enum {
 /* MIB Counters */
 #define GM_MIB_CNT_BASE	0x0100		/* Base Address of MIB Counters */
 #define GM_MIB_CNT_SIZE	44		/* Number of MIB Counters */
+#define GM_MIB_CNT_END	0x025C		/* Last MIB counter */
 
 /*
  * MIB Counters base address definitions (low word) -
@@ -1564,7 +1573,7 @@ enum {
 
 	GMR_FS_ANY_ERR	= GMR_FS_RX_FF_OV | GMR_FS_CRC_ERR |
 			  GMR_FS_FRAGMENT | GMR_FS_LONG_ERR |
-		  	  GMR_FS_MII_ERR | GMR_FS_BAD_FC | GMR_FS_GOOD_FC |
+		  	  GMR_FS_MII_ERR | GMR_FS_BAD_FC |
 			  GMR_FS_UN_SIZE | GMR_FS_JABBER,
 };
 
@@ -1883,13 +1892,18 @@ struct sky2_hw {
 	int		     pm_cap;
 	u8	     	     chip_id;
 	u8		     chip_rev;
-	u8		     copper;
+	u8		     pmd_type;
 	u8		     ports;
 
 	struct sky2_status_le *st_le;
 	u32		     st_idx;
 	dma_addr_t   	     st_dma;
 };
+
+static inline int sky2_is_copper(const struct sky2_hw *hw)
+{
+	return !(hw->pmd_type == 'L' || hw->pmd_type == 'S' || hw->pmd_type == 'P');
+}
 
 /* Register accessor for memory mapped device */
 static inline u32 sky2_read32(const struct sky2_hw *hw, unsigned reg)

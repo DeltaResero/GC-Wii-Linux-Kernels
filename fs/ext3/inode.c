@@ -516,6 +516,7 @@ static int ext3_alloc_branch(handle_t *handle, struct inode *inode,
 
 	branch[0].key = cpu_to_le32(parent);
 	if (parent) {
+		keys = 1;
 		for (n = 1; n < num; n++) {
 			struct buffer_head *bh;
 			/* Allocate the next block */
@@ -1005,7 +1006,7 @@ retry:
 		ret = PTR_ERR(handle);
 		goto out;
 	}
-	if (test_opt(inode->i_sb, NOBH))
+	if (test_opt(inode->i_sb, NOBH) && ext3_should_writeback_data(inode))
 		ret = nobh_prepare_write(page, from, to, ext3_get_block);
 	else
 		ret = block_prepare_write(page, from, to, ext3_get_block);
@@ -1093,7 +1094,7 @@ static int ext3_writeback_commit_write(struct file *file, struct page *page,
 	if (new_i_size > EXT3_I(inode)->i_disksize)
 		EXT3_I(inode)->i_disksize = new_i_size;
 
-	if (test_opt(inode->i_sb, NOBH))
+	if (test_opt(inode->i_sb, NOBH) && ext3_should_writeback_data(inode))
 		ret = nobh_commit_write(file, page, from, to);
 	else
 		ret = generic_commit_write(file, page, from, to);
@@ -1343,7 +1344,7 @@ static int ext3_writeback_writepage(struct page *page,
 		goto out_fail;
 	}
 
-	if (test_opt(inode->i_sb, NOBH))
+	if (test_opt(inode->i_sb, NOBH) && ext3_should_writeback_data(inode))
 		ret = nobh_writepage(page, ext3_get_block, wbc);
 	else
 		ret = block_write_full_page(page, ext3_get_block, wbc);
@@ -2259,16 +2260,15 @@ static unsigned long ext3_get_inode_block(struct super_block *sb,
 	struct ext3_group_desc * gdp;
 
 
-	if ((ino != EXT3_ROOT_INO &&
-		ino != EXT3_JOURNAL_INO &&
-		ino != EXT3_RESIZE_INO &&
-		ino < EXT3_FIRST_INO(sb)) ||
-		ino > le32_to_cpu(
-			EXT3_SB(sb)->s_es->s_inodes_count)) {
-		ext3_error (sb, "ext3_get_inode_block",
-			    "bad inode number: %lu", ino);
+	if (!ext3_valid_inum(sb, ino)) {
+		/*
+		 * This error is already checked for in namei.c unless we are
+		 * looking at an NFS filehandle, in which case no error
+		 * report is needed
+		 */
 		return 0;
 	}
+
 	block_group = (ino - 1) / EXT3_INODES_PER_GROUP(sb);
 	if (block_group >= EXT3_SB(sb)->s_groups_count) {
 		ext3_error (sb, "ext3_get_inode_block",

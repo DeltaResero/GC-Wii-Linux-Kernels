@@ -637,7 +637,7 @@ void blk_queue_bounce_limit(request_queue_t *q, u64 dma_addr)
 	/* Assume anything <= 4GB can be handled by IOMMU.
 	   Actually some IOMMUs can handle everything, but I don't
 	   know of a way to test this here. */
-	if (bounce_pfn < (0xffffffff>>PAGE_SHIFT))
+	if (bounce_pfn < (min_t(u64,0xffffffff,BLK_BOUNCE_HIGH) >> PAGE_SHIFT))
 		dma = 1;
 	q->bounce_pfn = max_low_pfn;
 #else
@@ -1719,8 +1719,21 @@ void blk_run_queue(struct request_queue *q)
 
 	spin_lock_irqsave(q->queue_lock, flags);
 	blk_remove_plug(q);
-	if (!elv_queue_empty(q))
-		q->request_fn(q);
+
+	/*
+	 * Only recurse once to avoid overrunning the stack, let the unplug
+	 * handling reinvoke the handler shortly if we already got there.
+	 */
+	if (!elv_queue_empty(q)) {
+		if (!test_and_set_bit(QUEUE_FLAG_REENTER, &q->queue_flags)) {
+			q->request_fn(q);
+			clear_bit(QUEUE_FLAG_REENTER, &q->queue_flags);
+		} else {
+			blk_plug_device(q);
+			kblockd_schedule_work(&q->unplug_work);
+		}
+	}
+
 	spin_unlock_irqrestore(q->queue_lock, flags);
 }
 EXPORT_SYMBOL(blk_run_queue);

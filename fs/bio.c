@@ -655,9 +655,10 @@ static struct bio *__bio_map_user_iov(request_queue_t *q,
 				     write_to_vm, 0, &pages[cur_page], NULL);
 		up_read(&current->mm->mmap_sem);
 
-		if (ret < local_nr_pages)
+		if (ret < local_nr_pages) {
+			ret = -EFAULT;
 			goto out_unmap;
-
+		}
 
 		offset = uaddr & ~PAGE_MASK;
 		for (j = cur_page; j < page_limit; j++) {
@@ -1113,6 +1114,9 @@ struct bio_pair *bio_split(struct bio *bi, mempool_t *pool, int first_sectors)
 
 	bp->bio1.bi_io_vec = &bp->bv1;
 	bp->bio2.bi_io_vec = &bp->bv2;
+
+	bp->bio1.bi_max_vecs = 1;
+	bp->bio2.bi_max_vecs = 1;
 
 	bp->bio1.bi_end_io = bio_pair_end_1;
 	bp->bio2.bi_end_io = bio_pair_end_2;

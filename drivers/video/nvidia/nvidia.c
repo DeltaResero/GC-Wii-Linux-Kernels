@@ -31,6 +31,9 @@
 #ifdef CONFIG_PMAC_BACKLIGHT
 #include <asm/backlight.h>
 #endif
+#ifdef CONFIG_BOOTX_TEXT
+#include <asm/btext.h>
+#endif
 
 #include "nv_local.h"
 #include "nv_type.h"
@@ -295,6 +298,8 @@ static struct pci_device_id nvidiafb_pci_tbl[] = {
 	{PCI_VENDOR_ID_NVIDIA, PCIE_DEVICE_ID_NVIDIA_GEFORCE_6200_ALT1,
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{PCI_VENDOR_ID_NVIDIA, PCIE_DEVICE_ID_NVIDIA_GEFORCE_6800_GT,
+	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+	{PCI_VENDOR_ID_NVIDIA, PCIE_DEVICE_ID_NVIDIA_QUADRO_NVS280,
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{PCI_VENDOR_ID_NVIDIA, 0x0252,
 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
@@ -1105,6 +1110,13 @@ static int nvidiafb_set_par(struct fb_info *info)
 
 	nvidia_vga_protect(par, 0);
 
+#ifdef CONFIG_BOOTX_TEXT
+	/* Update debug text engine */
+	btext_update_display(info->fix.smem_start,
+			     info->var.xres, info->var.yres,
+			     info->var.bits_per_pixel, info->fix.line_length);
+#endif
+
 	NVTRACE_LEAVE();
 	return 0;
 }
@@ -1522,19 +1534,20 @@ static u32 __devinit nvidia_get_arch(struct fb_info *info)
 	case 0x0340:		/* GeForceFX 5700 */
 		arch = NV_ARCH_30;
 		break;
-	case 0x0040:
-	case 0x00C0:
-	case 0x0120:
+	case 0x0040:		/* GeForce 6800 */
+	case 0x00C0:		/* GeForce 6800 */
+	case 0x0120:		/* GeForce 6800 */
 	case 0x0130:
-	case 0x0140:
-	case 0x0160:
-	case 0x01D0:
-	case 0x0090:
-	case 0x0210:
-	case 0x0220:
+	case 0x0140:		/* GeForce 6600 */
+	case 0x0160:		/* GeForce 6200 */
+	case 0x01D0:		/* GeForce 7200, 7300, 7400 */
+	case 0x0090:		/* GeForce 7800 */
+	case 0x0210:		/* GeForce 6800 */
+	case 0x0220:		/* GeForce 6200 */
 	case 0x0230:
-	case 0x0290:
-	case 0x0390:
+	case 0x0240:		/* GeForce 6100 */
+	case 0x0290:		/* GeForce 7900 */
+	case 0x0390:		/* GeForce 7600 */
 		arch = NV_ARCH_40;
 		break;
 	case 0x0020:		/* TNT, TNT2 */

@@ -1173,6 +1173,7 @@ int __skb_linearize(struct sk_buff *skb, gfp_t gfp_mask)
 	atomic_set(&ninfo->dataref, 1);
 	ninfo->tso_size = skb_shinfo(skb)->tso_size;
 	ninfo->tso_segs = skb_shinfo(skb)->tso_segs;
+	ninfo->ufo_size = skb_shinfo(skb)->ufo_size;
 	ninfo->nr_frags = 0;
 	ninfo->frag_list = NULL;
 
@@ -1296,14 +1297,16 @@ int dev_queue_xmit(struct sk_buff *skb)
 	if (q->enqueue) {
 		/* Grab device queue */
 		spin_lock(&dev->queue_lock);
+		q = dev->qdisc;
+		if (q->enqueue) {
+			rc = q->enqueue(skb, q);
+			qdisc_run(dev);
+			spin_unlock(&dev->queue_lock);
 
-		rc = q->enqueue(skb, q);
-
-		qdisc_run(dev);
-
+			rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
+			goto out;
+		}
 		spin_unlock(&dev->queue_lock);
-		rc = rc == NET_XMIT_BYPASS ? NET_XMIT_SUCCESS : rc;
-		goto out;
 	}
 
 	/* The device has no queue. Common case for software devices:
@@ -1554,8 +1557,8 @@ static int ing_filter(struct sk_buff *skb)
 	if (dev->qdisc_ingress) {
 		__u32 ttl = (__u32) G_TC_RTTL(skb->tc_verd);
 		if (MAX_RED_LOOP < ttl++) {
-			printk("Redir loop detected Dropping packet (%s->%s)\n",
-				skb->input_dev->name, skb->dev->name);
+			printk("Redir loop detected Dropping packet (%d->%d)\n",
+				skb->iif, skb->dev->ifindex);
 			return TC_ACT_SHOT;
 		}
 
@@ -1563,10 +1566,10 @@ static int ing_filter(struct sk_buff *skb)
 
 		skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_INGRESS);
 
-		spin_lock(&dev->ingress_lock);
+		spin_lock(&dev->queue_lock);
 		if ((q = dev->qdisc_ingress) != NULL)
 			result = q->enqueue(skb, q);
-		spin_unlock(&dev->ingress_lock);
+		spin_unlock(&dev->queue_lock);
 
 	}
 
@@ -1588,8 +1591,8 @@ int netif_receive_skb(struct sk_buff *skb)
 	if (!skb->tstamp.off_sec)
 		net_timestamp(skb);
 
-	if (!skb->input_dev)
-		skb->input_dev = skb->dev;
+	if (!skb->iif)
+		skb->iif = skb->dev->ifindex;
 
 	orig_dev = skb_bond(skb);
 
@@ -2932,11 +2935,11 @@ void netdev_run_todo(void)
 
 		switch(dev->reg_state) {
 		case NETREG_REGISTERING:
+			dev->reg_state = NETREG_REGISTERED;
 			err = netdev_register_sysfs(dev);
 			if (err)
 				printk(KERN_ERR "%s: failed sysfs registration (%d)\n",
 				       dev->name, err);
-			dev->reg_state = NETREG_REGISTERED;
 			break;
 
 		case NETREG_UNREGISTERING:

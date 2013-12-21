@@ -1260,7 +1260,7 @@ static int __devinit snd_ca0106_create(struct snd_card *card,
 
 	pci_set_master(pci);
 	/* read revision & serial */
-	pci_read_config_byte(pci, PCI_REVISION_ID, (char *)&chip->revision);
+	pci_read_config_byte(pci, PCI_REVISION_ID, &chip->revision);
 	pci_read_config_dword(pci, PCI_SUBSYSTEM_VENDOR_ID, &chip->serial);
 	pci_read_config_word(pci, PCI_SUBSYSTEM_ID, &chip->model);
 #if 1
@@ -1543,6 +1543,8 @@ static int __devinit snd_ca0106_probe(struct pci_dev *pci,
 #ifdef CONFIG_PROC_FS
 	snd_ca0106_proc_init(chip);
 #endif
+
+	snd_card_set_dev(card, &pci->dev);
 
 	if ((err = snd_card_register(card)) < 0) {
 		snd_card_free(card);

@@ -337,7 +337,8 @@ static int rfcomm_sock_create(struct socket *sock, int protocol)
 
 	sock->ops = &rfcomm_sock_ops;
 
-	if (!(sk = rfcomm_sock_alloc(sock, protocol, GFP_KERNEL)))
+	sk = rfcomm_sock_alloc(sock, protocol, GFP_ATOMIC);
+	if (!sk)
 		return -ENOMEM;
 
 	rfcomm_sock_init(sk, NULL);
@@ -557,7 +558,6 @@ static int rfcomm_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 	struct sock *sk = sock->sk;
 	struct rfcomm_dlc *d = rfcomm_pi(sk)->dlc;
 	struct sk_buff *skb;
-	int err;
 	int sent = 0;
 
 	if (msg->msg_flags & MSG_OOB)
@@ -572,6 +572,7 @@ static int rfcomm_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	while (len) {
 		size_t size = min_t(size_t, len, d->mtu);
+		int err;
 		
 		skb = sock_alloc_send_skb(sk, size + RFCOMM_SKB_RESERVE,
 				msg->msg_flags & MSG_DONTWAIT, &err);
@@ -582,13 +583,16 @@ static int rfcomm_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 		err = memcpy_fromiovec(skb_put(skb, size), msg->msg_iov, size);
 		if (err) {
 			kfree_skb(skb);
-			sent = err;
+			if (sent == 0)
+				sent = err;
 			break;
 		}
 
 		err = rfcomm_dlc_send(d, skb);
 		if (err < 0) {
 			kfree_skb(skb);
+			if (sent == 0)
+				sent = err;
 			break;
 		}
 
@@ -598,7 +602,7 @@ static int rfcomm_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	release_sock(sk);
 
-	return sent ? sent : err;
+	return sent;
 }
 
 static long rfcomm_sock_data_wait(struct sock *sk, long timeo)

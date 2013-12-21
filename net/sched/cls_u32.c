@@ -108,7 +108,7 @@ static struct tc_u_common *u32_list;
 
 static __inline__ unsigned u32_hash_fold(u32 key, struct tc_u32_sel *sel, u8 fshift)
 {
-	unsigned h = (key & sel->hmask)>>fshift;
+	unsigned h = ntohl(key & sel->hmask)>>fshift;
 
 	return h;
 }
@@ -522,7 +522,7 @@ static int u32_set_parms(struct tcf_proto *tp, unsigned long base,
 
 #ifdef CONFIG_NET_CLS_IND
 	if (tb[TCA_U32_INDEV-1]) {
-		int err = tcf_change_indev(tp, n->indev, tb[TCA_U32_INDEV-1]);
+		err = tcf_change_indev(tp, n->indev, tb[TCA_U32_INDEV-1]);
 		if (err < 0)
 			goto errout;
 	}
@@ -638,7 +638,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
 	n->handle = handle;
 {
 	u8 i = 0;
-	u32 mask = s->hmask;
+	u32 mask = ntohl(s->hmask);
 	if (mask) {
 		while (!(mask & 1)) {
 			i++;

@@ -78,6 +78,18 @@ config SENSORS_ADM9240
 	  This driver can also be built as a module.  If so, the module
 	  will be called adm9240.
 
+config SENSORS_K8TEMP
+	tristate "AMD Athlon64/FX or Opteron temperature sensor"
+	depends on HWMON && X86 && PCI && EXPERIMENTAL
+	help
+	  If you say yes here you get support for the temperature
+	  sensor(s) inside your CPU. Supported is whole AMD K8
+	  microarchitecture. Please note that you will need at least
+	  lm-sensors 2.10.1 for proper userspace support.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called k8temp.
+
 config SENSORS_ASB100
 	tristate "Asus ASB100 Bach"
 	depends on HWMON && I2C && EXPERIMENTAL
@@ -236,11 +248,11 @@ config SENSORS_LM80
 	  will be called lm80.
 
 config SENSORS_LM83
-	tristate "National Semiconductor LM83"
+	tristate "National Semiconductor LM83 and compatibles"
 	depends on HWMON && I2C
 	help
 	  If you say yes here you get support for National Semiconductor
-	  LM83 sensor chips.
+	  LM82 and LM83 sensor chips.
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called lm83.
@@ -315,6 +327,19 @@ config SENSORS_PC87360
 	  This driver can also be built as a module.  If so, the module
 	  will be called pc87360.
 
+config SENSORS_PC87427
+	tristate "National Semiconductor PC87427"
+	depends on HWMON && EXPERIMENTAL
+	help
+	  If you say yes here you get access to the hardware monitoring
+	  functions of the National Semiconductor PC87427 Super-I/O chip.
+	  The chip has two distinct logical devices, one for fan speed
+	  monitoring and control, and one for voltage and temperature
+	  monitoring. Only fan speed monitoring is supported right now.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called pc87427.
+
 config SENSORS_SIS5595
 	tristate "Silicon Integrated Systems Corp. SiS5595"
 	depends on HWMON && I2C && PCI && EXPERIMENTAL
@@ -333,10 +358,31 @@ config SENSORS_SMSC47M1
 	help
 	  If you say yes here you get support for the integrated fan
 	  monitoring and control capabilities of the SMSC LPC47B27x,
-	  LPC47M10x, LPC47M13x, LPC47M14x, LPC47M15x and LPC47M192 chips.
+	  LPC47M10x, LPC47M13x, LPC47M14x, LPC47M15x, LPC47M192 and
+	  LPC47M997 chips.
+
+	  The temperature and voltage sensor features of the LPC47M192
+	  and LPC47M997 are supported by another driver, select also
+	  "SMSC LPC47M192 and compatibles" below for those.
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called smsc47m1.
+
+config SENSORS_SMSC47M192
+	tristate "SMSC LPC47M192 and compatibles"
+	depends on HWMON && I2C && EXPERIMENTAL
+	select HWMON_VID
+	help
+	  If you say yes here you get support for the temperature and
+	  voltage sensors of the SMSC LPC47M192 and LPC47M997 chips.
+
+	  The fan monitoring and control capabilities of these chips
+	  are supported by another driver, select
+	  "SMSC LPC47M10x and compatibles" above. You need both drivers
+	  if you want fan control and voltage/temperature sensor support.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called smsc47m192.
 
 config SENSORS_SMSC47B397
 	tristate "SMSC LPC47B397-NC"
@@ -385,6 +431,16 @@ config SENSORS_W83781D
 	  This driver can also be built as a module.  If so, the module
 	  will be called w83781d.
 
+config SENSORS_W83791D
+	tristate "Winbond W83791D"
+	depends on HWMON && I2C && EXPERIMENTAL
+	select HWMON_VID
+	help
+	  If you say yes here you get support for the Winbond W83791D chip.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called w83791d.
+
 config SENSORS_W83792D
 	tristate "Winbond W83792D"
 	depends on HWMON && I2C && EXPERIMENTAL
@@ -406,13 +462,14 @@ config SENSORS_W83L785TS
 	  will be called w83l785ts.
 
 config SENSORS_W83627HF
-	tristate "Winbond W83627HF, W83627THF, W83637HF, W83697HF"
-	depends on HWMON && I2C && EXPERIMENTAL
+	tristate "Winbond W83627HF, W83627THF, W83637HF, W83687THF, W83697HF"
+	depends on HWMON && I2C
 	select I2C_ISA
 	select HWMON_VID
 	help
 	  If you say yes here you get support for the Winbond W836X7 series
-	  of sensor chips: the W83627HF, W83627THF, W83637HF, and the W83697HF
+	  of sensor chips: the W83627HF, W83627THF, W83637HF, W83687THF and
+	  W83697HF.
 
 	  This driver can also be built as a module.  If so, the module
 	  will be called w83627hf.

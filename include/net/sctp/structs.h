@@ -545,7 +545,8 @@ struct sctp_af {
 	int		(*to_addr_param) (const union sctp_addr *,
 					  union sctp_addr_param *); 
 	int		(*addr_valid)	(union sctp_addr *,
-					 struct sctp_sock *);
+					 struct sctp_sock *,
+					 const struct sk_buff *);
 	sctp_scope_t	(*scope) (union sctp_addr *);
 	void		(*inaddr_any)	(union sctp_addr *, unsigned short);
 	int		(*is_any)	(const union sctp_addr *);
@@ -702,6 +703,7 @@ struct sctp_chunk {
 	__u8 tsn_gap_acked;	/* Is this chunk acked by a GAP ACK? */
 	__s8 fast_retransmit;	 /* Is this chunk fast retransmitted? */
 	__u8 tsn_missing_report; /* Data chunk missing counter. */
+	__u8 data_accepted; 	/* At least 1 chunk in this packet accepted */
 };
 
 void sctp_chunk_hold(struct sctp_chunk *);

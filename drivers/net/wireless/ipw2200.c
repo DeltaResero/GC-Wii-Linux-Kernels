@@ -8391,20 +8391,28 @@ static int ipw_wx_get_range(struct net_device *dev,
 
 	i = 0;
 	if (priv->ieee->mode & (IEEE_B | IEEE_G)) {
-		for (j = 0; j < geo->bg_channels && i < IW_MAX_FREQUENCIES;
-		     i++, j++) {
+		for (j = 0; j < geo->bg_channels && i < IW_MAX_FREQUENCIES; j++) {
+			if ((priv->ieee->iw_mode == IW_MODE_ADHOC) &&
+			    (geo->bg[j].flags & IEEE80211_CH_PASSIVE_ONLY))
+				continue;
+
 			range->freq[i].i = geo->bg[j].channel;
 			range->freq[i].m = geo->bg[j].freq * 100000;
 			range->freq[i].e = 1;
+			i++;
 		}
 	}
 
 	if (priv->ieee->mode & IEEE_A) {
-		for (j = 0; j < geo->a_channels && i < IW_MAX_FREQUENCIES;
-		     i++, j++) {
+		for (j = 0; j < geo->a_channels && i < IW_MAX_FREQUENCIES; j++) {
+			if ((priv->ieee->iw_mode == IW_MODE_ADHOC) &&
+			    (geo->a[j].flags & IEEE80211_CH_PASSIVE_ONLY))
+				continue;
+
 			range->freq[i].i = geo->a[j].channel;
 			range->freq[i].m = geo->a[j].freq * 100000;
 			range->freq[i].e = 1;
+			i++;
 		}
 	}
 
@@ -9956,9 +9964,8 @@ static int ipw_ethtool_set_eeprom(struct net_device *dev,
 		return -EINVAL;
 	down(&p->sem);
 	memcpy(&p->eeprom[eeprom->offset], bytes, eeprom->len);
-	for (i = IPW_EEPROM_DATA;
-	     i < IPW_EEPROM_DATA + IPW_EEPROM_IMAGE_SIZE; i++)
-		ipw_write8(p, i, p->eeprom[i]);
+	for (i = 0; i < IPW_EEPROM_IMAGE_SIZE; i++)
+		ipw_write8(p, i + IPW_EEPROM_DATA, p->eeprom[i]);
 	up(&p->sem);
 	return 0;
 }

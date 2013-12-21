@@ -857,7 +857,7 @@ asmlinkage long compat_sys_mount(char __user * dev_name, char __user * dir_name,
 
 	retval = -EINVAL;
 
-	if (type_page) {
+	if (type_page && data_page) {
 		if (!strcmp((char *)type_page, SMBFS_NAME)) {
 			do_smb_super_data_conv((void *)data_page);
 		} else if (!strcmp((char *)type_page, NCPFS_NAME)) {
@@ -1213,6 +1213,10 @@ static ssize_t compat_do_readv_writev(int type, struct file *file,
 
 	ret = rw_verify_area(type, file, pos, tot_len);
 	if (ret < 0)
+		goto out;
+
+	ret = security_file_permission(file, type == READ ? MAY_READ:MAY_WRITE);
+	if (ret)
 		goto out;
 
 	fnv = NULL;
@@ -1897,7 +1901,7 @@ asmlinkage long compat_sys_ppoll(struct pollfd __user *ufds,
 	}
 
 	if (sigmask) {
-		if (sigsetsize |= sizeof(compat_sigset_t))
+		if (sigsetsize != sizeof(compat_sigset_t))
 			return -EINVAL;
 		if (copy_from_user(&ss32, sigmask, sizeof(ss32)))
 			return -EFAULT;

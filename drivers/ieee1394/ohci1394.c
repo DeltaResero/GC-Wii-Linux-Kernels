@@ -2525,7 +2525,7 @@ static irqreturn_t ohci_irq_handler(int irq, void *dev_id,
 			if (phys_dma) {
 				reg_write(ohci,OHCI1394_PhyReqFilterHiSet, 0xffffffff);
 				reg_write(ohci,OHCI1394_PhyReqFilterLoSet, 0xffffffff);
-				reg_write(ohci,OHCI1394_PhyUpperBound, 0xffff0000);
+				reg_write(ohci,OHCI1394_PhyUpperBound, 0x01000000);
 			} else {
 				reg_write(ohci,OHCI1394_PhyReqFilterHiSet, 0x00000000);
 				reg_write(ohci,OHCI1394_PhyReqFilterLoSet, 0x00000000);
@@ -3536,6 +3536,7 @@ static int ohci1394_pci_resume (struct pci_dev *pdev)
 	}
 #endif /* CONFIG_PPC_PMAC */
 
+	pci_restore_state(pdev);
 	pci_enable_device(pdev);
 
 	return 0;
@@ -3544,6 +3545,8 @@ static int ohci1394_pci_resume (struct pci_dev *pdev)
 
 static int ohci1394_pci_suspend (struct pci_dev *pdev, pm_message_t state)
 {
+	pci_save_state(pdev);
+
 #ifdef CONFIG_PPC_PMAC
 	if (_machine == _MACH_Pmac) {
 		struct device_node *of_node;

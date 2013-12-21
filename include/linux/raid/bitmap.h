@@ -253,6 +253,8 @@ struct bitmap {
 	wait_queue_head_t write_wait;
 	struct list_head complete_pages;
 	mempool_t *write_pool;
+
+	wait_queue_head_t overflow_wait;
 };
 
 /* the bitmap API */
@@ -261,7 +263,6 @@ struct bitmap {
 int  bitmap_create(mddev_t *mddev);
 void bitmap_flush(mddev_t *mddev);
 void bitmap_destroy(mddev_t *mddev);
-int  bitmap_active(struct bitmap *bitmap);
 
 char *file_path(struct file *file, char *buf, int count);
 void bitmap_print_sb(struct bitmap *bitmap);

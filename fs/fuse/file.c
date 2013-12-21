@@ -397,8 +397,12 @@ static int fuse_readpages(struct file *file, struct address_space *mapping,
 		return -EINTR;
 
 	err = read_cache_pages(mapping, pages, fuse_readpages_fill, &data);
-	if (!err)
-		fuse_send_readpages(data.req, file, inode);
+	if (!err) {
+		if (data.req->num_pages)
+			fuse_send_readpages(data.req, file, inode);
+		else
+			fuse_put_request(fc, data.req);
+	}
 	return err;
 }
 
@@ -465,8 +469,10 @@ static int fuse_commit_write(struct file *file, struct page *page,
 		err = -EIO;
 	if (!err) {
 		pos += count;
-		if (pos > i_size_read(inode))
+		spin_lock(&fuse_lock);
+		if (pos > inode->i_size)
 			i_size_write(inode, pos);
+		spin_unlock(&fuse_lock);
 
 		if (offset == 0 && to == PAGE_CACHE_SIZE) {
 			clear_page_dirty(page);
@@ -566,8 +572,12 @@ static ssize_t fuse_direct_io(struct file *file, const char __user *buf,
 	}
 	fuse_put_request(fc, req);
 	if (res > 0) {
-		if (write && pos > i_size_read(inode))
-			i_size_write(inode, pos);
+		if (write) {
+			spin_lock(&fuse_lock);
+			if (pos > inode->i_size)
+				i_size_write(inode, pos);
+			spin_unlock(&fuse_lock);
+		}
 		*ppos = pos;
 	}
 	fuse_invalidate_attr(inode);

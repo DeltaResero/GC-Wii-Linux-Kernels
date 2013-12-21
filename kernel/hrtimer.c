@@ -68,8 +68,6 @@ static ktime_t ktime_get_real(void)
 	return timespec_to_ktime(now);
 }
 
-EXPORT_SYMBOL_GPL(ktime_get_real);
-
 /*
  * The timer bases:
  *
@@ -316,6 +314,12 @@ hrtimer_forward(struct hrtimer *timer, ktime_t interval)
 		orun++;
 	}
 	timer->expires = ktime_add(timer->expires, interval);
+	/*
+	 * Make sure, that the result did not wrap with a very large
+	 * interval.
+	 */
+	if (timer->expires.tv64 < 0)
+		timer->expires = ktime_set(KTIME_SEC_MAX, 0);
 
 	return orun;
 }

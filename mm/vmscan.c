@@ -672,7 +672,6 @@ unlock_retry:
 retry:
 	return -EAGAIN;
 }
-EXPORT_SYMBOL(swap_page);
 
 /*
  * Page migration was first developed in the context of the memory hotplug
@@ -948,6 +947,17 @@ redo:
 			rc = mapping->a_ops->migratepage(newpage, page);
 			goto unlock_both;
                 }
+
+		/* Make sure the dirty bit is up to date */
+		if (try_to_unmap(page, 1) == SWAP_FAIL) {
+			rc = -EPERM;
+			goto unlock_both;
+		}
+
+		if (page_mapcount(page)) {
+			rc = -EAGAIN;
+			goto unlock_both;
+		}
 
 		/*
 		 * Default handling if a filesystem does not provide
