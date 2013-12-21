@@ -91,6 +91,7 @@ obj-$(CONFIG_FB_MAXINE)		  += maxinefb.o
 obj-$(CONFIG_FB_TX3912)		  += tx3912fb.o
 obj-$(CONFIG_FB_S1D13XXX)	  += s1d13xxxfb.o
 obj-$(CONFIG_FB_IMX)              += imxfb.o
+obj-$(CONFIG_FB_GAMECUBE)	  += gcnfb.o gcngx.o
 
 # Platform or fallback drivers go here
 obj-$(CONFIG_FB_VESA)             += vesafb.o

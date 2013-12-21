@@ -181,6 +181,7 @@ obj-$(CONFIG_IBMVETH) += ibmveth.o
 obj-$(CONFIG_S2IO) += s2io.o
 obj-$(CONFIG_SMC91X) += smc91x.o
 obj-$(CONFIG_FEC_8XX) += fec_8xx/
+obj-$(CONFIG_GAMECUBE_BBA) += gcn-bba.o
 
 obj-$(CONFIG_ARM) += arm/
 obj-$(CONFIG_DEV_APPLETALK) += appletalk/

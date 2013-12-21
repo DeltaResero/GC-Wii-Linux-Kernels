@@ -1199,6 +1199,16 @@ config FB_PM3
 	  similar boards, 3DLabs Permedia3 Create!, Appian Jeronimo 2000
 	  and maybe other boards.
 
+config FB_GAMECUBE
+	bool "Nintendo GameCube frame buffer"
+	depends on FB && GAMECUBE
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	select FB_SOFT_CURSOR
+	help
+	  This is the frame buffer device driver for the Nintendo GameCube.
+
 config FB_E1356
 	tristate "Epson SED1356 framebuffer support"
 	depends on FB && EXPERIMENTAL && PCI && MIPS

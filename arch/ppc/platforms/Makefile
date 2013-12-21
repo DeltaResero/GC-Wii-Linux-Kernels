@@ -46,6 +46,11 @@ obj-$(CONFIG_SANDPOINT)		+= sandpoint.o
 obj-$(CONFIG_SBC82xx)		+= sbc82xx.o
 obj-$(CONFIG_SPRUCE)		+= spruce.o
 obj-$(CONFIG_LITE5200)		+= lite5200.o
+obj-$(CONFIG_GAMECUBE)		+= gamecube.o
+obj-$(CONFIG_GAMECUBE_RTC)	+= gcn-rtc.o
+obj-$(CONFIG_GAMECUBE_CONSOLE)	+= gcn-con.o
+obj-$(CONFIG_GAMECUBE_RESET)	+= gcn-rsw.o
+obj-$(CONFIG_GAMECUBE_DVDCOVER)	+= gcn-dvdcover.o
 
 ifeq ($(CONFIG_SMP),y)
 obj-$(CONFIG_PPC_PMAC)		+= pmac_smp.o
