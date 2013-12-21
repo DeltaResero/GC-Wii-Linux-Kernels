@@ -1673,6 +1673,8 @@ void __meminit memmap_init_zone(unsigned long size, int nid, unsigned long zone,
 	for (pfn = start_pfn; pfn < end_pfn; pfn++) {
 		if (!early_pfn_valid(pfn))
 			continue;
+		if (!early_pfn_in_nid(pfn, nid))
+			continue;
 		page = pfn_to_page(pfn);
 		set_page_links(page, zone, nid, pfn);
 		init_page_count(page);
@@ -1845,8 +1847,10 @@ static inline void free_zone_pagesets(int cpu)
 	for_each_zone(zone) {
 		struct per_cpu_pageset *pset = zone_pcp(zone, cpu);
 
+		/* Free per_cpu_pageset if it is slab allocated */
+		if (pset != &boot_pageset[cpu])
+			kfree(pset);
 		zone_pcp(zone, cpu) = NULL;
-		kfree(pset);
 	}
 }
 
@@ -2008,6 +2012,7 @@ static void __meminit free_area_init_core(struct pglist_data *pgdat,
 #ifdef CONFIG_NUMA
 		zone->min_unmapped_ratio = (realsize*sysctl_min_unmapped_ratio)
 						/ 100;
+		zone->min_slab_pages = (realsize * sysctl_min_slab_ratio) / 100;
 #endif
 		zone->name = zone_names[j];
 		spin_lock_init(&zone->lock);
@@ -2016,7 +2021,7 @@ static void __meminit free_area_init_core(struct pglist_data *pgdat,
 		zone->zone_pgdat = pgdat;
 		zone->free_pages = 0;
 
-		zone->temp_priority = zone->prev_priority = DEF_PRIORITY;
+		zone->prev_priority = DEF_PRIORITY;
 
 		zone_pcp_init(zone);
 		INIT_LIST_HEAD(&zone->active_list);
@@ -2316,6 +2321,22 @@ int sysctl_min_unmapped_ratio_sysctl_handler(ctl_table *table, int write,
 	for_each_zone(zone)
 		zone->min_unmapped_ratio = (zone->present_pages *
 				sysctl_min_unmapped_ratio) / 100;
+	return 0;
+}
+
+int sysctl_min_slab_ratio_sysctl_handler(ctl_table *table, int write,
+	struct file *file, void __user *buffer, size_t *length, loff_t *ppos)
+{
+	struct zone *zone;
+	int rc;
+
+	rc = proc_dointvec_minmax(table, write, file, buffer, length, ppos);
+	if (rc)
+		return rc;
+
+	for_each_zone(zone)
+		zone->min_slab_pages = (zone->present_pages *
+				sysctl_min_slab_ratio) / 100;
 	return 0;
 }
 #endif
