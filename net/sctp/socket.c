@@ -172,7 +172,7 @@ static inline int sctp_verify_addr(struct sock *sk, union sctp_addr *addr,
 		return -EINVAL;
 
 	/* Is this a valid SCTP address?  */
-	if (!af->addr_valid(addr, sctp_sk(sk)))
+	if (!af->addr_valid(addr, sctp_sk(sk), NULL))
 		return -EINVAL;
 
 	if (!sctp_sk(sk)->pf->send_verify(sctp_sk(sk), (addr)))
@@ -1246,9 +1246,13 @@ SCTP_STATIC void sctp_close(struct sock *sk, long timeout)
 			}
 		}
 
-		if (sock_flag(sk, SOCK_LINGER) && !sk->sk_lingertime)
-			sctp_primitive_ABORT(asoc, NULL);
-		else
+		if (sock_flag(sk, SOCK_LINGER) && !sk->sk_lingertime) {
+			struct sctp_chunk *chunk;
+
+			chunk = sctp_make_abort_user(asoc, NULL, 0);
+			if (chunk)
+				sctp_primitive_ABORT(asoc, chunk);
+		} else
 			sctp_primitive_SHUTDOWN(asoc, NULL);
 	}
 
@@ -1477,8 +1481,16 @@ SCTP_STATIC int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
 			goto out_unlock;
 		}
 		if (sinfo_flags & SCTP_ABORT) {
+			struct sctp_chunk *chunk;
+
+			chunk = sctp_make_abort_user(asoc, msg, msg_len);
+			if (!chunk) {
+				err = -ENOMEM;
+				goto out_unlock;
+			}
+
 			SCTP_DEBUG_PRINTK("Aborting association: %p\n", asoc);
-			sctp_primitive_ABORT(asoc, msg);
+			sctp_primitive_ABORT(asoc, chunk);
 			err = 0;
 			goto out_unlock;
 		}
@@ -2530,8 +2542,32 @@ static int sctp_setsockopt_associnfo(struct sock *sk, char __user *optval, int o
 
 	/* Set the values to the specific association */
 	if (asoc) {
-		if (assocparams.sasoc_asocmaxrxt != 0)
+		if (assocparams.sasoc_asocmaxrxt != 0) {
+			__u32 path_sum = 0;
+			int   paths = 0;
+			struct list_head *pos;
+			struct sctp_transport *peer_addr;
+
+			list_for_each(pos, &asoc->peer.transport_addr_list) {
+				peer_addr = list_entry(pos,
+						struct sctp_transport,
+						transports);
+				path_sum += peer_addr->pathmaxrxt;
+				paths++;
+			}
+
+			/* Only validate asocmaxrxt if we have more then
+			 * one path/transport.  We do this because path
+			 * retransmissions are only counted when we have more
+			 * then one path.
+			 */
+			if (paths > 1 &&
+			    assocparams.sasoc_asocmaxrxt > path_sum)
+				return -EINVAL;
+
 			asoc->max_retrans = assocparams.sasoc_asocmaxrxt;
+		}
+
 		if (assocparams.sasoc_cookie_life != 0) {
 			asoc->cookie_life.tv_sec =
 					assocparams.sasoc_cookie_life / 1000;

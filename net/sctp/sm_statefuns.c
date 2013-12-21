@@ -4026,18 +4026,12 @@ sctp_disposition_t sctp_sf_do_9_1_prm_abort(
 	 * from its upper layer, but retransmits data to the far end
 	 * if necessary to fill gaps.
 	 */
-	struct msghdr *msg = arg;
-	struct sctp_chunk *abort;
+	struct sctp_chunk *abort = arg;
 	sctp_disposition_t retval;
 
 	retval = SCTP_DISPOSITION_CONSUME;
 
-	/* Generate ABORT chunk to send the peer.  */
-	abort = sctp_make_abort_user(asoc, NULL, msg);
-	if (!abort)
-		retval = SCTP_DISPOSITION_NOMEM;
-	else
-		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
+	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
 
 	/* Even if we can't send the ABORT due to low memory delete the
 	 * TCB.  This is a departure from our typical NOMEM handling.
@@ -4161,8 +4155,7 @@ sctp_disposition_t sctp_sf_cookie_wait_prm_abort(
 	void *arg,
 	sctp_cmd_seq_t *commands)
 {
-	struct msghdr *msg = arg;
-	struct sctp_chunk *abort;
+	struct sctp_chunk *abort = arg;
 	sctp_disposition_t retval;
 
 	/* Stop T1-init timer */
@@ -4170,12 +4163,7 @@ sctp_disposition_t sctp_sf_cookie_wait_prm_abort(
 			SCTP_TO(SCTP_EVENT_TIMEOUT_T1_INIT));
 	retval = SCTP_DISPOSITION_CONSUME;
 
-	/* Generate ABORT chunk to send the peer */
-	abort = sctp_make_abort_user(asoc, NULL, msg);
-	if (!abort)
-		retval = SCTP_DISPOSITION_NOMEM;
-	else
-		sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
+	sctp_add_cmd_sf(commands, SCTP_CMD_REPLY, SCTP_CHUNK(abort));
 
 	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
 			SCTP_STATE(SCTP_STATE_CLOSED));
@@ -5293,10 +5281,18 @@ static int sctp_eat_data(const struct sctp_association *asoc,
 	 * seems a bit troublesome in that frag_point varies based on
 	 * PMTU.  In cases, such as loopback, this might be a rather
 	 * large spill over.
+	 * NOTE: If we have a full receive buffer here, we only renege if
+	 * our receiver can still make progress without the tsn being
+	 * received. We do this because in the event that the associations
+	 * receive queue is empty we are filling a leading gap, and since
+	 * reneging moves the gap to the end of the tsn stream, we are likely
+	 * to stall again very shortly. Avoiding the renege when we fill a
+	 * leading gap is a good heuristic for avoiding such steady state
+	 * stalls.
 	 */
 	if (!asoc->rwnd || asoc->rwnd_over ||
 	    (datalen > asoc->rwnd + asoc->frag_point) ||
-	    rcvbuf_over) {
+	    (rcvbuf_over && (!skb_queue_len(&sk->sk_receive_queue)))) {
 
 		/* If this is the next TSN, consider reneging to make
 		 * room.   Note: Playing nice with a confused sender.  A
