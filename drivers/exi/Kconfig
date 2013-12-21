@@ -1,0 +1,31 @@
+#
+# Nintendo GameCube EXI (Expansion Interface) support.
+#
+
+if GAMECUBE
+
+menu "EXI (Expansion Interface) support"
+
+config GAMECUBE_EXI
+	bool "EXI (Expansion Interface) support (EXPERIMENTAL)"
+	depends on EXPERIMENTAL
+	default y
+	help
+	  On the Expansion Interface sit the memory card slots,
+	  serial ports I & II, the Mask ROM, RTC, SRAM and UART.
+
+	  If in doubt, say Y here.
+
+config GAMECUBE_RTC
+	bool "Real Time Clock and SRAM support"
+	depends on GAMECUBE_EXI
+	default y
+	help
+	  If you say yes to this option, support will be included for the
+	  Real Time Clock and SRAM of the Nintendo GameCube.
+	  
+	  If in doubt, say Y here.
+
+endmenu
+
+endif

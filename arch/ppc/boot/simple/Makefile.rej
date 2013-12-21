@@ -1,0 +1,10 @@
+--- arch/ppc/boot/simple/Makefile	2006-02-13 11:10:12.000000000 -0500
++++ arch/ppc/boot/simple/Makefile	2006-01-28 22:31:28.000000000 -0500
+@@ -190,7 +187,6 @@
+ boot-$(CONFIG_REDWOOD_6)	+= embed_config.o
+ boot-$(CONFIG_8xx)		+= embed_config.o
+ boot-$(CONFIG_8260)		+= embed_config.o
+-boot-$(CONFIG_GAMECUBE)		+= embed_config.o
+ boot-$(CONFIG_BSEIP)		+= iic.o
+ boot-$(CONFIG_MBX)		+= iic.o pci.o qspan_pci.o
+ boot-$(CONFIG_MV64X60)		+= misc-mv64x60.o

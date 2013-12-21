@@ -1211,6 +1211,15 @@ config FB_PM3
 	  similar boards, 3DLabs Permedia3 Create!, Appian Jeronimo 2000
 	  and maybe other boards.
 
+config FB_GAMECUBE
+	bool "Nintendo GameCube frame buffer"
+	depends on FB && GAMECUBE
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  This is the frame buffer device driver for the Nintendo GameCube.
+
 config FB_AU1100
 	bool "Au1100 LCD Driver"
 	depends on (FB = y) && EXPERIMENTAL && PCI && MIPS && MIPS_PB1100=y

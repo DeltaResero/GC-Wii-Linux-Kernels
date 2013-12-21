@@ -70,3 +70,5 @@ obj-$(CONFIG_SGI_IOC4)		+= sn/
 obj-y				+= firmware/
 obj-$(CONFIG_CRYPTO)		+= crypto/
 obj-$(CONFIG_SUPERH)		+= sh/
+obj-$(CONFIG_GAMECUBE_SI)	+= input/si/
+obj-$(CONFIG_GAMECUBE_EXI)	+= exi/

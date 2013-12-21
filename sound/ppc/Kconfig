@@ -33,4 +33,15 @@ config SND_POWERMAC_AUTO_DRC
 	  Note that you can turn on/off DRC manually even without this
 	  option.
 
+config SND_GAMECUBE
+	tristate "Nintendo GameCube (Flipper)"
+	depends on SND && GAMECUBE
+#	select SND_GENERIC_DRIVER
+	help
+	  Say Y here to add audio support for the "Flipper" Graphics
+	  and Sound processor as found in the GameCube from Nintendo.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called snd-gcn.
+
 endmenu
