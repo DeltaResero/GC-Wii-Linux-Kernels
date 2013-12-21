@@ -18,6 +18,9 @@
 #include <asm/mpc8260.h>
 #include <asm/immap_cpm2.h>
 #endif
+#ifdef CONFIG_6xx
+#include <asm/ppc6xx.h>
+#endif
 #ifdef CONFIG_40x
 #include <asm/io.h>
 #endif
@@ -929,3 +932,32 @@ embed_config(bd_t **bdp)
 #endif
 }
 #endif
+
+#ifdef CONFIG_GAMECUBE
+/*
+ * We're the only 7xx board without a rom monitor, yet. This
+ * should suffice until we have one (uBoot, here we come ...)
+ */
+void
+embed_config(bd_t **bdp)
+{
+	u_char  *cp;
+	int	i;
+	bd_t  *bd;
+
+	bd = &bdinfo;
+	*bdp = bd;
+
+	bd->bi_memsize = GCN_MEM_SIZE;
+	bd->bi_tbfreq = 200 * 1000 * 1000;
+	bd->bi_intfreq = 200000000;
+	bd->bi_busfreq = 100000000;
+	timebase_period_ns = 1000000000 / bd->bi_tbfreq;
+
+	/* this is mainly to shut up compiler, we won't use this */
+	cp = (u_char *)def_enet_addr;
+	for (i=0; i<6; i++) {
+		bd->bi_enetaddr[i] = *cp++;
+	}
+}
+#endif /* CONFIG_GAMECUBE */ 

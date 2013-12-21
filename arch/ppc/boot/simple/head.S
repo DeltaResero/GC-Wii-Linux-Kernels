@@ -105,9 +105,16 @@ haveOF:
 #else
 	bl	disable_6xx_mmu
 #endif
+
+#ifndef CONFIG_GAMECUBE
 	bl	disable_6xx_l1cache
 
 	CLEAR_CACHES
+#else
+	/* convert our starting address to physical layout format */
+	clrlwi r3, r3, 3
+#endif /* !CONFIG_GAMECUBE */
+
 #endif
 
 #ifdef CONFIG_8xx

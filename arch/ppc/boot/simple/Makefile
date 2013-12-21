@@ -169,6 +169,9 @@ zimageinitrd-$(CONFIG_LITE5200)		:= zImage.initrd-STRIPELF
          end-$(CONFIG_LITE5200)		:= lite5200
    cacheflag-$(CONFIG_LITE5200)		:= -include $(clear_L2_L3)
 
+      zimage-$(CONFIG_GAMECUBE)		:= zImage-DOL
+zimageinitrd-$(CONFIG_GAMECUBE)		:= zImage.initrd-DOL
+         end-$(CONFIG_GAMECUBE)		:= dol
 
 # SMP images should have a '.smp' suffix.
          end-$(CONFIG_SMP)             := $(end-y).smp
@@ -190,6 +193,7 @@ boot-$(CONFIG_REDWOOD_5)	+= embed_config.o
 boot-$(CONFIG_REDWOOD_6)	+= embed_config.o
 boot-$(CONFIG_8xx)		+= embed_config.o
 boot-$(CONFIG_8260)		+= embed_config.o
+boot-$(CONFIG_GAMECUBE)		+= embed_config.o
 boot-$(CONFIG_EP405)		+= embed_config.o
 boot-$(CONFIG_XILINX_ML300)	+= embed_config.o
 boot-$(CONFIG_XILINX_ML403)	+= embed_config.o
@@ -278,3 +282,16 @@ $(images)/zImage-PPLUS: $(obj)/zvmlinux $(MKPREP) $(MKBUGBOOT)
 $(images)/zImage.initrd-PPLUS: $(obj)/zvmlinux.initrd $(MKPREP) $(MKBUGBOOT)
 	$(MKPREP) -pbp $(obj)/zvmlinux.initrd $(images)/zImage.initrd.$(end-y)
 	$(MKBUGBOOT) $(obj)/zvmlinux.initrd $(images)/zImage.initrd.bugboot
+
+#
+# FIXME Must generate actual .dol's. All we're doing ATM is just adjusting
+# VMA/LMA addresses of all sections in the respective images so we can just
+# feed the result into `doltool'. Ick.
+#
+$(images)/zImage-DOL: $(obj)/zvmlinux
+	$(OBJCOPY) $(OBJCOPY_ARGS) $(obj)/zvmlinux $(obj)/zvmlinux \
+		--change-addresses=0x80000000
+
+$(images)/zImage.initrd-DOL: $(obj)/zvmlinux.initrd
+	$(OBJCOPY) $(OBJCOPY_ARGS) $(obj)/zvmlinux.initrd \
+		$(obj)/zvmlinux.initrd --change-addresses=0x80000000
