@@ -49,6 +49,9 @@ typedef struct bd_info {
 	unsigned long	bi_ip_addr;	/* IP Address */
 	unsigned char	bi_enetaddr[6];	/* Ethernet address */
 	unsigned short	bi_ethspeed;	/* Ethernet speed in Mbps */
+#if defined(CONFIG_GAMECUBE)	/* XXX sure no one else needs this? */
+	unsigned int	bi_tbfreq;	/* Software timebase freq */
+#endif
 	unsigned long	bi_intfreq;	/* Internal Freq, in MHz */
 	unsigned long	bi_busfreq;	/* Bus Freq, in MHz */
 #if defined(CONFIG_CPM2)
