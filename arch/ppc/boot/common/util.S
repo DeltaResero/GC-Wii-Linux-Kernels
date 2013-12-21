@@ -33,6 +33,7 @@ disable_6xx_mmu:
 	 * return to a different address space once the MMU is
 	 * disabled.
 	 */
+#ifndef CONFIG_GAMECUBE
 	li	r8,MSR_IP|MSR_FP
 	mtmsr	r8
 	isync
@@ -42,6 +43,32 @@ disable_6xx_mmu:
 	srwi	r10,r10,16
 	cmpwi	0,r10,1		/* 601 ? */
 	beq	.clearbats_601
+#else
+	/* save the Link Register for later... */
+	mflr    r8
+
+	/* load in r11 the MSR with address translation bits off */
+	li	r10, MSR_IR|MSR_DR
+	mfmsr	r11
+	andc	r11, r11, r10
+
+	/* load in r10 the address of label 2: in physical layout */
+	bl      1f
+1:
+	mflr    r10
+	addi    r10, r10, 2f - 1b
+	clrlwi  r10, r10, 3 /* virt to phys in our current address space */
+
+	/* this will disable the MMU and jump to 2: */
+	mtspr	SPRN_SRR1, r11
+	mtspr	SPRN_SRR0, r10
+	sync
+	rfi
+2:
+	/* restore, and fix up, the Link Register */
+	clrlwi r8, r8, 3
+	mtlr r8
+#endif /* !CONFIG_GAMECUBE */
 
 	/* Clear BATs */
 	li	r8,0

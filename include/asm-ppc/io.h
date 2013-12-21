@@ -36,7 +36,7 @@
 #include <asm/mpc83xx.h>
 #elif defined(CONFIG_85xx)
 #include <asm/mpc85xx.h>
-#elif defined(CONFIG_APUS)
+#elif defined(CONFIG_APUS) || defined(CONFIG_GAMECUBE)
 #define _IO_BASE	0
 #define _ISA_MEM_BASE	0
 #define PCI_DRAM_OFFSET 0
@@ -151,7 +151,7 @@ static inline void writeb(__u8 b, volatile void __iomem *addr)
 }
 #endif
 
-#if defined(CONFIG_APUS)
+#if defined(CONFIG_APUS) || defined(CONFIG_GAMECUBE)
 static inline __u16 readw(const volatile void __iomem *addr)
 {
 	return *(__force volatile __u16 *)(addr);
@@ -191,7 +191,7 @@ static inline void writel(__u32 b, volatile void __iomem *addr)
 {
 	out_le32(addr, b);
 }
-#endif /* CONFIG_APUS */
+#endif /* CONFIG_APUS || CONFIG_GAMECUBE */
 
 #define readb_relaxed(addr) readb(addr)
 #define readw_relaxed(addr) readw(addr)
@@ -483,9 +483,19 @@ static inline unsigned int ioread16(void __iomem *addr)
 	return readw(addr);
 }
 
+static inline unsigned int ioread16be(void __iomem *addr)
+{
+	return in_be16(addr);
+}
+
 static inline unsigned int ioread32(void __iomem *addr)
 {
 	return readl(addr);
+}
+
+static inline unsigned int ioread32be(void __iomem *addr)
+{
+	return in_be32(addr);
 }
 
 static inline void iowrite8(u8 val, void __iomem *addr)
@@ -498,9 +508,19 @@ static inline void iowrite16(u16 val, void __iomem *addr)
 	writew(val, addr);
 }
 
+static inline void iowrite16be(u16 val, void __iomem *addr)
+{
+	out_be16(addr, val);
+}
+
 static inline void iowrite32(u32 val, void __iomem *addr)
 {
 	writel(val, addr);
+}
+
+static inline void iowrite32be(u32 val, void __iomem *addr)
+{
+	out_be32(addr, val);
 }
 
 static inline void ioread8_rep(void __iomem *addr, void *dst, unsigned long count)
