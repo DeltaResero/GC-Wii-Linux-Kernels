@@ -14,6 +14,8 @@
 #include <asm/residual.h>
 #if defined(CONFIG_4xx)
 #include <asm/ibm4xx.h>
+#elif defined(CONFIG_6xx)
+#include <asm/ppc6xx.h>
 #elif defined(CONFIG_8xx)
 #include <asm/mpc8xx.h>
 #elif defined(CONFIG_8260)
@@ -186,6 +188,7 @@ load_kernel(unsigned long load_addr, int num_words, unsigned long cksum, bd_t *b
 #endif
 	while ( *cp )
 		putc(*cp++);
+#ifndef CONFIG_GAMECUBE
 	while (timer++ < 5*1000) {
 		if (tstc()) {
 			while ((ch = getc()) != '\n' && ch != '\r') {
@@ -209,6 +212,11 @@ load_kernel(unsigned long load_addr, int num_words, unsigned long cksum, bd_t *b
 		}
 		udelay(1000);  /* 1 msec */
 	}
+#else
+	/* shut up compiler */
+	timer = 0;
+	ch = 0;
+#endif
 	*cp = 0;
 	puts("\nUncompressing Linux...");
 

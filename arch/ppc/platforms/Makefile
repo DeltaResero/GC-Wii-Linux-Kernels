@@ -31,3 +31,8 @@ obj-$(CONFIG_EV64360)		+= ev64360.o
 obj-$(CONFIG_MPC86XADS)		+= mpc866ads_setup.o
 obj-$(CONFIG_MPC885ADS)		+= mpc885ads_setup.o
 obj-$(CONFIG_ADS8272)		+= mpc8272ads_setup.o
+obj-$(CONFIG_GAMECUBE)		+= gamecube.o
+obj-$(CONFIG_GAMECUBE_RTC)	+= gcn-rtc.o
+obj-$(CONFIG_GAMECUBE_CONSOLE)	+= gcn-con.o
+obj-$(CONFIG_GAMECUBE_RESET)	+= gcn-rsw.o
+

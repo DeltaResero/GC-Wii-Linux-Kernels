@@ -15,3 +15,6 @@ obj-$(CONFIG_SGI_IOC4)		+= ioc4.o
 obj-$(CONFIG_SONY_LAPTOP)	+= sony-laptop.o
 obj-$(CONFIG_THINKPAD_ACPI)	+= thinkpad_acpi.o
 obj-$(CONFIG_EEPROM_93CX6)	+= eeprom_93cx6.o
+obj-$(CONFIG_GAMECUBE_GQR)	+= gcn-gqr.o
+obj-$(CONFIG_GAMECUBE_MI)	+= gcn-mi.o
+
