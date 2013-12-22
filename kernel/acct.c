@@ -215,6 +215,7 @@ static void acct_file_reopen(struct bsd_acct_struct *acct, struct file *file,
 static int acct_on(char *name)
 {
 	struct file *file;
+	struct vfsmount *mnt;
 	int error;
 	struct pid_namespace *ns;
 	struct bsd_acct_struct *acct = NULL;
@@ -256,11 +257,12 @@ static int acct_on(char *name)
 		acct = NULL;
 	}
 
-	mnt_pin(file->f_path.mnt);
+	mnt = file->f_path.mnt;
+	mnt_pin(mnt);
 	acct_file_reopen(ns->bacct, file, ns);
 	spin_unlock(&acct_lock);
 
-	mntput(file->f_path.mnt); /* it's pinned, now give up active reference */
+	mntput(mnt); /* it's pinned, now give up active reference */
 	kfree(acct);
 
 	return 0;
@@ -277,7 +279,7 @@ static int acct_on(char *name)
  * should be written. If the filename is NULL, accounting will be
  * shutdown.
  */
-asmlinkage long sys_acct(const char __user *name)
+SYSCALL_DEFINE1(acct, const char __user *, name)
 {
 	int error;
 

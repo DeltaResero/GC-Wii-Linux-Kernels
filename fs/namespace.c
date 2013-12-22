@@ -1128,12 +1128,19 @@ static int do_umount(struct vfsmount *mnt, int flags)
  * unixes. Our API is identical to OSF/1 to avoid making a mess of AMD
  */
 
-asmlinkage long sys_umount(char __user * name, int flags)
+SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 {
 	struct path path;
 	int retval;
+	int lookup_flags = 0;
 
-	retval = user_path(name, &path);
+	if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
+		return -EINVAL;
+
+	if (!(flags & UMOUNT_NOFOLLOW))
+		lookup_flags |= LOOKUP_FOLLOW;
+
+	retval = user_path_at(AT_FDCWD, name, lookup_flags, &path);
 	if (retval)
 		goto out;
 	retval = -EINVAL;
@@ -1160,7 +1167,7 @@ out:
 /*
  *	The 2.0 compatible umount. No flags.
  */
-asmlinkage long sys_oldumount(char __user * name)
+SYSCALL_DEFINE1(oldumount, char __user *, name)
 {
 	return sys_umount(name, 0);
 }
@@ -1553,8 +1560,13 @@ static noinline int do_remount(struct nameidata *nd, int flags, int mnt_flags,
 	if (!err)
 		nd->path.mnt->mnt_flags = mnt_flags;
 	up_write(&sb->s_umount);
-	if (!err)
+	if (!err) {
 		security_sb_post_remount(nd->path.mnt, flags, data);
+
+		spin_lock(&vfsmount_lock);
+		touch_mnt_namespace(nd->path.mnt->mnt_ns);
+		spin_unlock(&vfsmount_lock);
+	}
 	return err;
 }
 
@@ -2048,9 +2060,8 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
 	return new_ns;
 }
 
-asmlinkage long sys_mount(char __user * dev_name, char __user * dir_name,
-			  char __user * type, unsigned long flags,
-			  void __user * data)
+SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
+		char __user *, type, unsigned long, flags, void __user *, data)
 {
 	int retval;
 	unsigned long data_page;
@@ -2175,8 +2186,8 @@ static void chroot_fs_refs(struct path *old_root, struct path *new_root)
  *    though, so you may need to say mount --bind /nfs/my_root /nfs/my_root
  *    first.
  */
-asmlinkage long sys_pivot_root(const char __user * new_root,
-			       const char __user * put_old)
+SYSCALL_DEFINE2(pivot_root, const char __user *, new_root,
+		const char __user *, put_old)
 {
 	struct vfsmount *tmp;
 	struct path new, old, parent_path, root_parent, root;

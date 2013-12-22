@@ -727,9 +727,6 @@ static void fail_mirror(struct mirror *m, enum dm_raid1_error error_type)
 	struct mirror_set *ms = m->ms;
 	struct mirror *new;
 
-	if (!errors_handled(ms))
-		return;
-
 	/*
 	 * error_count is used for nothing more than a
 	 * simple way to tell if a device has encountered
@@ -738,6 +735,9 @@ static void fail_mirror(struct mirror *m, enum dm_raid1_error error_type)
 	atomic_inc(&m->error_count);
 
 	if (test_and_set_bit(error_type, &m->error_type))
+		return;
+
+	if (!errors_handled(ms))
 		return;
 
 	if (m != get_default_mirror(ms))
@@ -1598,6 +1598,7 @@ static void mirror_dtr(struct dm_target *ti)
 
 	del_timer_sync(&ms->timer);
 	flush_workqueue(ms->kmirrord_wq);
+	flush_scheduled_work();
 	dm_kcopyd_client_destroy(ms->kcopyd_client);
 	destroy_workqueue(ms->kmirrord_wq);
 	free_context(ms, ti, ms->nr_mirrors);

@@ -229,7 +229,7 @@ EXPORT_SYMBOL_GPL(is_dock_device);
  */
 static int dock_present(struct dock_station *ds)
 {
-	unsigned long sta;
+	unsigned long long sta;
 	acpi_status status;
 
 	if (ds) {
@@ -604,14 +604,17 @@ static int handle_eject_request(struct dock_station *ds, u32 event)
 static void dock_notify(acpi_handle handle, u32 event, void *data)
 {
 	struct dock_station *ds = data;
+	struct acpi_device *tmp;
 
 	switch (event) {
 	case ACPI_NOTIFY_BUS_CHECK:
-		if (!dock_in_progress(ds) && dock_present(ds)) {
+		if (!dock_in_progress(ds) && acpi_bus_get_device(ds->handle,
+		   &tmp)) {
 			begin_dock(ds);
 			dock(ds);
 			if (!dock_present(ds)) {
 				printk(KERN_ERR PREFIX "Unable to dock!\n");
+				complete_dock(ds);
 				break;
 			}
 			atomic_notifier_call_chain(&dock_notifier_list,
@@ -727,13 +730,13 @@ static DEVICE_ATTR(undock, S_IWUSR, NULL, write_undock);
 static ssize_t show_dock_uid(struct device *dev,
 			     struct device_attribute *attr, char *buf)
 {
-	unsigned long lbuf;
+	unsigned long long lbuf;
 	acpi_status status = acpi_evaluate_integer(dock_station->handle,
 					"_UID", NULL, &lbuf);
 	if (ACPI_FAILURE(status))
 	    return 0;
 
-	return snprintf(buf, PAGE_SIZE, "%lx\n", lbuf);
+	return snprintf(buf, PAGE_SIZE, "%llx\n", lbuf);
 }
 static DEVICE_ATTR(uid, S_IRUGO, show_dock_uid, NULL);
 

@@ -219,7 +219,7 @@ static inline enum pci_bar_type decode_bar(struct resource *res, u32 bar)
 
 	res->flags = bar & ~PCI_BASE_ADDRESS_MEM_MASK;
 
-	if (res->flags == PCI_BASE_ADDRESS_MEM_TYPE_64)
+	if (res->flags & PCI_BASE_ADDRESS_MEM_TYPE_64)
 		return pci_bar_mem64;
 	return pci_bar_mem32;
 }
@@ -1027,6 +1027,9 @@ void pci_device_add(struct pci_dev *dev, struct pci_bus *bus)
 
 	/* Fix up broken headers */
 	pci_fixup_device(pci_fixup_header, dev);
+
+	/* Buffers for saving PCIe and PCI-X capabilities */
+	pci_allocate_cap_save_buffers(dev);
 
 	/* Initialize power management of the device */
 	pci_pm_init(dev);

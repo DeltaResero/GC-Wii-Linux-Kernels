@@ -58,17 +58,15 @@ struct nfs_read_data *nfs_readdata_alloc(unsigned int pagecount)
 	return p;
 }
 
-static void nfs_readdata_free(struct nfs_read_data *p)
+void nfs_readdata_free(struct nfs_read_data *p)
 {
 	if (p && (p->pagevec != &p->page_array[0]))
 		kfree(p->pagevec);
 	mempool_free(p, nfs_rdata_mempool);
 }
 
-void nfs_readdata_release(void *data)
+static void nfs_readdata_release(struct nfs_read_data *rdata)
 {
-	struct nfs_read_data *rdata = data;
-
 	put_nfs_open_context(rdata->args.context);
 	nfs_readdata_free(rdata);
 }
@@ -532,12 +530,6 @@ readpage_async_filler(void *data, struct page *page)
 	struct nfs_page *new;
 	unsigned int len;
 	int error;
-
-	error = nfs_wb_page(inode, page);
-	if (error)
-		goto out_unlock;
-	if (PageUptodate(page))
-		goto out_unlock;
 
 	len = nfs_page_length(page);
 	if (len == 0)

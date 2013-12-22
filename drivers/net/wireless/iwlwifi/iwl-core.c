@@ -290,6 +290,9 @@ void iwl_clear_stations_table(struct iwl_priv *priv)
 	priv->num_stations = 0;
 	memset(priv->stations, 0, sizeof(priv->stations));
 
+	/* clean ucode key table bit map */
+	priv->ucode_key_table = 0;
+
 	spin_unlock_irqrestore(&priv->sta_lock, flags);
 }
 EXPORT_SYMBOL(iwl_clear_stations_table);
@@ -646,8 +649,14 @@ void iwl_set_rxon_ht(struct iwl_priv *priv, struct iwl_ht_info *ht_info)
 	struct iwl_rxon_cmd *rxon = &priv->staging_rxon;
 	u32 val;
 
-	if (!ht_info->is_ht)
+	if (!ht_info->is_ht) {
+		rxon->flags &= ~(RXON_FLG_CHANNEL_MODE_MIXED_MSK |
+			RXON_FLG_CHANNEL_MODE_PURE_40_MSK |
+			RXON_FLG_CTRL_CHANNEL_LOC_HI_MSK |
+			RXON_FLG_FAT_PROT_MSK |
+			RXON_FLG_HT_PROT_MSK);
 		return;
+	}
 
 	/* Set up channel bandwidth:  20 MHz only, or 20/40 mixed if fat ok */
 	if (iwl_is_fat_tx_allowed(priv, NULL))
@@ -950,22 +959,6 @@ err:
 }
 EXPORT_SYMBOL(iwl_init_drv);
 
-void iwl_free_calib_results(struct iwl_priv *priv)
-{
-	kfree(priv->calib_results.lo_res);
-	priv->calib_results.lo_res = NULL;
-	priv->calib_results.lo_res_len = 0;
-
-	kfree(priv->calib_results.tx_iq_res);
-	priv->calib_results.tx_iq_res = NULL;
-	priv->calib_results.tx_iq_res_len = 0;
-
-	kfree(priv->calib_results.tx_iq_perd_res);
-	priv->calib_results.tx_iq_perd_res = NULL;
-	priv->calib_results.tx_iq_perd_res_len = 0;
-}
-EXPORT_SYMBOL(iwl_free_calib_results);
-
 int iwl_set_tx_power(struct iwl_priv *priv, s8 tx_power, bool force)
 {
 	int ret = 0;
@@ -993,10 +986,9 @@ int iwl_set_tx_power(struct iwl_priv *priv, s8 tx_power, bool force)
 }
 EXPORT_SYMBOL(iwl_set_tx_power);
 
-
 void iwl_uninit_drv(struct iwl_priv *priv)
 {
-	iwl_free_calib_results(priv);
+	iwl_calib_free_results(priv);
 	iwlcore_free_geos(priv);
 	iwl_free_channel_map(priv);
 	kfree(priv->scan);

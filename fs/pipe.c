@@ -742,36 +742,55 @@ pipe_rdwr_release(struct inode *inode, struct file *filp)
 static int
 pipe_read_open(struct inode *inode, struct file *filp)
 {
-	/* We could have perhaps used atomic_t, but this and friends
-	   below are the only places.  So it doesn't seem worthwhile.  */
+	int ret = -ENOENT;
+
 	mutex_lock(&inode->i_mutex);
-	inode->i_pipe->readers++;
+
+	if (inode->i_pipe) {
+		ret = 0;
+		inode->i_pipe->readers++;
+	}
+
 	mutex_unlock(&inode->i_mutex);
 
-	return 0;
+	return ret;
 }
 
 static int
 pipe_write_open(struct inode *inode, struct file *filp)
 {
+	int ret = -ENOENT;
+
 	mutex_lock(&inode->i_mutex);
-	inode->i_pipe->writers++;
+
+	if (inode->i_pipe) {
+		ret = 0;
+		inode->i_pipe->writers++;
+	}
+
 	mutex_unlock(&inode->i_mutex);
 
-	return 0;
+	return ret;
 }
 
 static int
 pipe_rdwr_open(struct inode *inode, struct file *filp)
 {
+	int ret = -ENOENT;
+
 	mutex_lock(&inode->i_mutex);
-	if (filp->f_mode & FMODE_READ)
-		inode->i_pipe->readers++;
-	if (filp->f_mode & FMODE_WRITE)
-		inode->i_pipe->writers++;
+
+	if (inode->i_pipe) {
+		ret = 0;
+		if (filp->f_mode & FMODE_READ)
+			inode->i_pipe->readers++;
+		if (filp->f_mode & FMODE_WRITE)
+			inode->i_pipe->writers++;
+	}
+
 	mutex_unlock(&inode->i_mutex);
 
-	return 0;
+	return ret;
 }
 
 /*
@@ -1051,7 +1070,7 @@ int do_pipe(int *fd)
  * sys_pipe() is the normal C calling standard for creating
  * a pipe. It's not the way Unix traditionally does this, though.
  */
-asmlinkage long __weak sys_pipe2(int __user *fildes, int flags)
+SYSCALL_DEFINE2(pipe2, int __user *, fildes, int, flags)
 {
 	int fd[2];
 	int error;
@@ -1067,7 +1086,7 @@ asmlinkage long __weak sys_pipe2(int __user *fildes, int flags)
 	return error;
 }
 
-asmlinkage long __weak sys_pipe(int __user *fildes)
+SYSCALL_DEFINE1(pipe, int __user *, fildes)
 {
 	return sys_pipe2(fildes, 0);
 }

@@ -80,6 +80,41 @@ struct compat_x25_subscrip_struct {
 };
 #endif
 
+
+int x25_parse_address_block(struct sk_buff *skb,
+		struct x25_address *called_addr,
+		struct x25_address *calling_addr)
+{
+	unsigned char len;
+	int needed;
+	int rc;
+
+	if (skb->len < 1) {
+		/* packet has no address block */
+		rc = 0;
+		goto empty;
+	}
+
+	len = *skb->data;
+	needed = 1 + (len >> 4) + (len & 0x0f);
+
+	if (skb->len < needed) {
+		/* packet is too short to hold the addresses it claims
+		   to hold */
+		rc = -1;
+		goto empty;
+	}
+
+	return x25_addr_ntoa(skb->data, called_addr, calling_addr);
+
+empty:
+	*called_addr->x25_addr = 0;
+	*calling_addr->x25_addr = 0;
+
+	return rc;
+}
+
+
 int x25_addr_ntoa(unsigned char *p, struct x25_address *called_addr,
 		  struct x25_address *calling_addr)
 {
@@ -332,14 +367,14 @@ static unsigned int x25_new_lci(struct x25_neigh *nb)
 /*
  *	Deferred destroy.
  */
-void x25_destroy_socket(struct sock *);
+static void __x25_destroy_socket(struct sock *);
 
 /*
  *	handler for deferred kills.
  */
 static void x25_destroy_timer(unsigned long data)
 {
-	x25_destroy_socket((struct sock *)data);
+	x25_destroy_socket_from_timer((struct sock *)data);
 }
 
 /*
@@ -349,12 +384,10 @@ static void x25_destroy_timer(unsigned long data)
  *	will touch it and we are (fairly 8-) ) safe.
  *	Not static as it's used by the timer
  */
-void x25_destroy_socket(struct sock *sk)
+static void __x25_destroy_socket(struct sock *sk)
 {
 	struct sk_buff *skb;
 
-	sock_hold(sk);
-	lock_sock(sk);
 	x25_stop_heartbeat(sk);
 	x25_stop_timer(sk);
 
@@ -385,7 +418,22 @@ void x25_destroy_socket(struct sock *sk)
 		/* drop last reference so sock_put will free */
 		__sock_put(sk);
 	}
+}
 
+void x25_destroy_socket_from_timer(struct sock *sk)
+{
+	sock_hold(sk);
+	bh_lock_sock(sk);
+	__x25_destroy_socket(sk);
+	bh_unlock_sock(sk);
+	sock_put(sk);
+}
+
+static void x25_destroy_socket(struct sock *sk)
+{
+	sock_hold(sk);
+	lock_sock(sk);
+	__x25_destroy_socket(sk);
 	release_sock(sk);
 	sock_put(sk);
 }
@@ -858,16 +906,26 @@ int x25_rx_call_request(struct sk_buff *skb, struct x25_neigh *nb,
 	/*
 	 *	Extract the X.25 addresses and convert them to ASCII strings,
 	 *	and remove them.
+	 *
+	 *	Address block is mandatory in call request packets
 	 */
-	addr_len = x25_addr_ntoa(skb->data, &source_addr, &dest_addr);
+	addr_len = x25_parse_address_block(skb, &source_addr, &dest_addr);
+	if (addr_len <= 0)
+		goto out_clear_request;
 	skb_pull(skb, addr_len);
 
 	/*
 	 *	Get the length of the facilities, skip past them for the moment
 	 *	get the call user data because this is needed to determine
 	 *	the correct listener
+	 *
+	 *	Facilities length is mandatory in call request packets
 	 */
+	if (skb->len < 1)
+		goto out_clear_request;
 	len = skb->data[0] + 1;
+	if (skb->len < len)
+		goto out_clear_request;
 	skb_pull(skb,len);
 
 	/*
@@ -1035,6 +1093,12 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 		sx25.sx25_family = AF_X25;
 		sx25.sx25_addr   = x25->dest_addr;
+	}
+
+	/* Sanity check the packet size */
+	if (len > 65535) {
+		rc = -EMSGSIZE;
+		goto out;
 	}
 
 	SOCK_DEBUG(sk, "x25_sendmsg: sendto: Addresses built.\n");

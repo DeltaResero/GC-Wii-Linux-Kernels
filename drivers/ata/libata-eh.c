@@ -604,9 +604,6 @@ void ata_scsi_error(struct Scsi_Host *host)
 				if (ata_ncq_enabled(dev))
 					ehc->saved_ncq_enabled |= 1 << devno;
 			}
-
-			/* set last reset timestamp to some time in the past */
-			ehc->last_reset = jiffies - 60 * HZ;
 		}
 
 		ap->pflags |= ATA_PFLAG_EH_IN_PROGRESS;
@@ -1500,6 +1497,7 @@ void ata_eh_analyze_ncq_error(struct ata_link *link)
 	}
 
 	/* okay, this error is ours */
+	memset(&tf, 0, sizeof(tf));
 	rc = ata_eh_read_log_10h(dev, &tag, &tf);
 	if (rc) {
 		ata_link_printk(link, KERN_ERR, "failed to read log page 10h "
@@ -1903,8 +1901,9 @@ static void ata_eh_link_autopsy(struct ata_link *link)
 			qc->err_mask &= ~(AC_ERR_DEV | AC_ERR_OTHER);
 
 		/* determine whether the command is worth retrying */
-		if (!(qc->err_mask & AC_ERR_INVALID) &&
-		    ((qc->flags & ATA_QCFLAG_IO) || qc->err_mask != AC_ERR_DEV))
+		if (qc->flags & ATA_QCFLAG_IO ||
+		    (!(qc->err_mask & AC_ERR_INVALID) &&
+		     qc->err_mask != AC_ERR_DEV))
 			qc->flags |= ATA_QCFLAG_RETRY;
 
 		/* accumulate error info */
@@ -2209,17 +2208,21 @@ int ata_eh_reset(struct ata_link *link, int classify,
 	if (link->flags & ATA_LFLAG_NO_SRST)
 		softreset = NULL;
 
-	now = jiffies;
-	deadline = ata_deadline(ehc->last_reset, ATA_EH_RESET_COOL_DOWN);
-	if (time_before(now, deadline))
-		schedule_timeout_uninterruptible(deadline - now);
+	/* make sure each reset attemp is at least COOL_DOWN apart */
+	if (ehc->i.flags & ATA_EHI_DID_RESET) {
+		now = jiffies;
+		WARN_ON(time_after(ehc->last_reset, now));
+		deadline = ata_deadline(ehc->last_reset,
+					ATA_EH_RESET_COOL_DOWN);
+		if (time_before(now, deadline))
+			schedule_timeout_uninterruptible(deadline - now);
+	}
 
 	spin_lock_irqsave(ap->lock, flags);
 	ap->pflags |= ATA_PFLAG_RESETTING;
 	spin_unlock_irqrestore(ap->lock, flags);
 
 	ata_eh_about_to_do(link, NULL, ATA_EH_RESET);
-	ehc->last_reset = jiffies;
 
 	ata_link_for_each_dev(dev, link) {
 		/* If we issue an SRST then an ATA drive (not ATAPI)
@@ -2271,11 +2274,14 @@ int ata_eh_reset(struct ata_link *link, int classify,
 		}
 
 		/* prereset() might have cleared ATA_EH_RESET.  If so,
-		 * bang classes and return.
+		 * bang classes, thaw and return.
 		 */
 		if (reset && !(ehc->i.action & ATA_EH_RESET)) {
 			ata_link_for_each_dev(dev, link)
 				classes[dev->devno] = ATA_DEV_NONE;
+			if ((ap->pflags & ATA_PFLAG_FROZEN) &&
+			    ata_is_host_link(link))
+				ata_eh_thaw_port(ap);
 			rc = 0;
 			goto out;
 		}
@@ -2285,7 +2291,6 @@ int ata_eh_reset(struct ata_link *link, int classify,
 	/*
 	 * Perform reset
 	 */
-	ehc->last_reset = jiffies;
 	if (ata_is_host_link(link))
 		ata_eh_freeze_port(ap);
 
@@ -2297,6 +2302,7 @@ int ata_eh_reset(struct ata_link *link, int classify,
 					reset == softreset ? "soft" : "hard");
 
 		/* mark that this EH session started with reset */
+		ehc->last_reset = jiffies;
 		if (reset == hardreset)
 			ehc->i.flags |= ATA_EHI_DID_HARDRESET;
 		else
@@ -2404,7 +2410,7 @@ int ata_eh_reset(struct ata_link *link, int classify,
 
 	/* reset successful, schedule revalidation */
 	ata_eh_done(link, NULL, ATA_EH_RESET);
-	ehc->last_reset = jiffies;
+	ehc->last_reset = jiffies;	/* update to completion time */
 	ehc->i.action |= ATA_EH_REVALIDATE;
 
 	rc = 0;
@@ -2693,12 +2699,13 @@ static int ata_eh_handle_dev_fail(struct ata_device *dev, int err)
 		/* give it just one more chance */
 		ehc->tries[dev->devno] = min(ehc->tries[dev->devno], 1);
 	case -EIO:
-		if (ehc->tries[dev->devno] == 1 && dev->pio_mode > XFER_PIO_0) {
+		if (ehc->tries[dev->devno] == 1) {
 			/* This is the last chance, better to slow
 			 * down than lose it.
 			 */
 			sata_down_spd_limit(dev->link);
-			ata_down_xfermask_limit(dev, ATA_DNXFER_PIO);
+			if (dev->pio_mode > XFER_PIO_0)
+				ata_down_xfermask_limit(dev, ATA_DNXFER_PIO);
 		}
 	}
 

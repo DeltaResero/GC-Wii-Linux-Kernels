@@ -40,12 +40,14 @@
 #include <linux/bootmem.h>
 #include <linux/slab.h>
 #include <asm/desc.h>
+#include <asm/cacheflush.h>
 
 #define PCI_BIOS32_SD_VALUE		0x5F32335F	/* "_32_" */
 #define CRU_BIOS_SIGNATURE_VALUE	0x55524324
 #define PCI_BIOS32_PARAGRAPH_LEN	16
 #define PCI_ROM_BASE1			0x000F0000
 #define ROM_SIZE			0x10000
+#define HPWDT_VERSION			"1.01"
 
 struct bios32_service_dir {
 	u32 signature;
@@ -129,12 +131,8 @@ static void *cru_rom_addr;
 static struct cmn_registers cmn_regs;
 
 static struct pci_device_id hpwdt_devices[] = {
-	{
-	 .vendor = PCI_VENDOR_ID_COMPAQ,
-	 .device = 0xB203,
-	 .subvendor = PCI_ANY_ID,
-	 .subdevice = PCI_ANY_ID,
-	},
+	{ PCI_DEVICE(PCI_VENDOR_ID_COMPAQ, 0xB203) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_HP, 0x3306) },
 	{0},			/* terminate list */
 };
 MODULE_DEVICE_TABLE(pci, hpwdt_devices);
@@ -394,6 +392,8 @@ static void __devinit dmi_find_cru(const struct dmi_header *dm)
 				smbios_cru64_ptr->double_offset;
 			cru_rom_addr = ioremap(cru_physical_address,
 				smbios_cru64_ptr->double_length);
+			set_memory_x((unsigned long)cru_rom_addr & PAGE_MASK,
+				smbios_cru64_ptr->double_length >> PAGE_SHIFT);
 		}
 	}
 }
@@ -482,7 +482,7 @@ static int hpwdt_pretimeout(struct notifier_block *nb, unsigned long ulReason,
 			"Management Log for details.\n");
 	}
 
-	return NOTIFY_STOP;
+	return NOTIFY_OK;
 }
 
 /*
@@ -701,10 +701,11 @@ static int __devinit hpwdt_init_one(struct pci_dev *dev,
 	}
 
 	printk(KERN_INFO
-		"hp Watchdog Timer Driver: 1.00"
+		"hp Watchdog Timer Driver: %s"
 		", timer margin: %d seconds (nowayout=%d)"
 		", allow kernel dump: %s (default = 0/OFF).\n",
-		soft_margin, nowayout, (allow_kdump == 0) ? "OFF" : "ON");
+		HPWDT_VERSION, soft_margin, nowayout,
+		(allow_kdump == 0) ? "OFF" : "ON");
 
 	return 0;
 
@@ -754,6 +755,7 @@ static int __init hpwdt_init(void)
 MODULE_AUTHOR("Tom Mingarelli");
 MODULE_DESCRIPTION("hp watchdog driver");
 MODULE_LICENSE("GPL");
+MODULE_VERSION(HPWDT_VERSION);
 MODULE_ALIAS_MISCDEV(WATCHDOG_MINOR);
 
 module_param(soft_margin, int, 0);

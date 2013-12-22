@@ -20,6 +20,7 @@
 #include "ext4.h"
 #include "ext4_jbd2.h"
 #include "group.h"
+#include "mballoc.h"
 
 /*
  * balloc.c contains the blocks allocation and deallocation routines
@@ -318,18 +319,41 @@ ext4_read_block_bitmap(struct super_block *sb, ext4_group_t block_group)
 			    block_group, bitmap_blk);
 		return NULL;
 	}
-	if (bh_uptodate_or_lock(bh))
+
+	if (bitmap_uptodate(bh))
 		return bh;
 
+	lock_buffer(bh);
+	if (bitmap_uptodate(bh)) {
+		unlock_buffer(bh);
+		return bh;
+	}
 	spin_lock(sb_bgl_lock(EXT4_SB(sb), block_group));
 	if (desc->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT)) {
 		ext4_init_block_bitmap(sb, bh, block_group, desc);
+		set_bitmap_uptodate(bh);
 		set_buffer_uptodate(bh);
 		unlock_buffer(bh);
 		spin_unlock(sb_bgl_lock(EXT4_SB(sb), block_group));
 		return bh;
 	}
 	spin_unlock(sb_bgl_lock(EXT4_SB(sb), block_group));
+	if (buffer_uptodate(bh)) {
+		/*
+		 * if not uninit if bh is uptodate,
+		 * bitmap is also uptodate
+		 */
+		set_bitmap_uptodate(bh);
+		unlock_buffer(bh);
+		return bh;
+	}
+	/*
+	 * submit the buffer_head for read. We can
+	 * safely mark the bitmap as uptodate now.
+	 * We do it here so the bitmap uptodate bit
+	 * get set with buffer lock held.
+	 */
+	set_bitmap_uptodate(bh);
 	if (bh_submit_read(bh) < 0) {
 		put_bh(bh);
 		ext4_error(sb, __func__,
@@ -830,6 +854,136 @@ do_more:
 		goto do_more;
 	}
 	sb->s_dirt = 1;
+error_return:
+	brelse(bitmap_bh);
+	ext4_std_error(sb, err);
+	return;
+}
+
+/**
+ * ext4_add_groupblocks() -- Add given blocks to an existing group
+ * @handle:			handle to this transaction
+ * @sb:				super block
+ * @block:			start physcial block to add to the block group
+ * @count:			number of blocks to free
+ *
+ * This marks the blocks as free in the bitmap. We ask the
+ * mballoc to reload the buddy after this by setting group
+ * EXT4_GROUP_INFO_NEED_INIT_BIT flag
+ */
+void ext4_add_groupblocks(handle_t *handle, struct super_block *sb,
+			 ext4_fsblk_t block, unsigned long count)
+{
+	struct buffer_head *bitmap_bh = NULL;
+	struct buffer_head *gd_bh;
+	ext4_group_t block_group;
+	ext4_grpblk_t bit;
+	unsigned long i;
+	struct ext4_group_desc *desc;
+	struct ext4_super_block *es;
+	struct ext4_sb_info *sbi;
+	int err = 0, ret;
+	ext4_grpblk_t blocks_freed;
+	struct ext4_group_info *grp;
+
+	sbi = EXT4_SB(sb);
+	es = sbi->s_es;
+	ext4_debug("Adding block(s) %llu-%llu\n", block, block + count - 1);
+
+	ext4_get_group_no_and_offset(sb, block, &block_group, &bit);
+	grp = ext4_get_group_info(sb, block_group);
+	/*
+	 * Check to see if we are freeing blocks across a group
+	 * boundary.
+	 */
+	if (bit + count > EXT4_BLOCKS_PER_GROUP(sb))
+		goto error_return;
+
+	bitmap_bh = ext4_read_block_bitmap(sb, block_group);
+	if (!bitmap_bh)
+		goto error_return;
+	desc = ext4_get_group_desc(sb, block_group, &gd_bh);
+	if (!desc)
+		goto error_return;
+
+	if (in_range(ext4_block_bitmap(sb, desc), block, count) ||
+	    in_range(ext4_inode_bitmap(sb, desc), block, count) ||
+	    in_range(block, ext4_inode_table(sb, desc), sbi->s_itb_per_group) ||
+	    in_range(block + count - 1, ext4_inode_table(sb, desc),
+		     sbi->s_itb_per_group)) {
+		ext4_error(sb, __func__,
+			   "Adding blocks in system zones - "
+			    "Block = %llu, count = %lu",
+			    block, count);
+		goto error_return;
+	}
+
+	/*
+	 * We are about to add blocks to the bitmap,
+	 * so we need undo access.
+	 */
+	BUFFER_TRACE(bitmap_bh, "getting undo access");
+	err = ext4_journal_get_undo_access(handle, bitmap_bh);
+	if (err)
+		goto error_return;
+
+	/*
+	 * We are about to modify some metadata.  Call the journal APIs
+	 * to unshare ->b_data if a currently-committing transaction is
+	 * using it
+	 */
+	BUFFER_TRACE(gd_bh, "get_write_access");
+	err = ext4_journal_get_write_access(handle, gd_bh);
+	if (err)
+		goto error_return;
+	/*
+	 * make sure we don't allow a parallel init on other groups in the
+	 * same buddy cache
+	 */
+	down_write(&grp->alloc_sem);
+	for (i = 0, blocks_freed = 0; i < count; i++) {
+		BUFFER_TRACE(bitmap_bh, "clear bit");
+		if (!ext4_clear_bit_atomic(sb_bgl_lock(sbi, block_group),
+						bit + i, bitmap_bh->b_data)) {
+			ext4_error(sb, __func__,
+				   "bit already cleared for block %llu",
+				   (ext4_fsblk_t)(block + i));
+			BUFFER_TRACE(bitmap_bh, "bit already cleared");
+		} else {
+			blocks_freed++;
+		}
+	}
+	spin_lock(sb_bgl_lock(sbi, block_group));
+	le16_add_cpu(&desc->bg_free_blocks_count, blocks_freed);
+	desc->bg_checksum = ext4_group_desc_csum(sbi, block_group, desc);
+	spin_unlock(sb_bgl_lock(sbi, block_group));
+	percpu_counter_add(&sbi->s_freeblocks_counter, blocks_freed);
+
+	if (sbi->s_log_groups_per_flex) {
+		ext4_group_t flex_group = ext4_flex_group(sbi, block_group);
+		spin_lock(sb_bgl_lock(sbi, flex_group));
+		sbi->s_flex_groups[flex_group].free_blocks += blocks_freed;
+		spin_unlock(sb_bgl_lock(sbi, flex_group));
+	}
+	/*
+	 * request to reload the buddy with the
+	 * new bitmap information
+	 */
+	set_bit(EXT4_GROUP_INFO_NEED_INIT_BIT, &(grp->bb_state));
+	ext4_mb_update_group_info(grp, blocks_freed);
+	up_write(&grp->alloc_sem);
+
+	/* We dirtied the bitmap block */
+	BUFFER_TRACE(bitmap_bh, "dirtied bitmap block");
+	err = ext4_journal_dirty_metadata(handle, bitmap_bh);
+
+	/* And the group descriptor block */
+	BUFFER_TRACE(gd_bh, "dirtied group descriptor block");
+	ret = ext4_journal_dirty_metadata(handle, gd_bh);
+	if (!err)
+		err = ret;
+	sb->s_dirt = 1;
+
 error_return:
 	brelse(bitmap_bh);
 	ext4_std_error(sb, err);
@@ -1600,6 +1754,44 @@ out:
 	return ret;
 }
 
+int ext4_claim_free_blocks(struct ext4_sb_info *sbi,
+						ext4_fsblk_t nblocks)
+{
+	s64 free_blocks, dirty_blocks;
+	ext4_fsblk_t root_blocks = 0;
+	struct percpu_counter *fbc = &sbi->s_freeblocks_counter;
+	struct percpu_counter *dbc = &sbi->s_dirtyblocks_counter;
+
+	free_blocks  = percpu_counter_read_positive(fbc);
+	dirty_blocks = percpu_counter_read_positive(dbc);
+
+	if (!capable(CAP_SYS_RESOURCE) &&
+		sbi->s_resuid != current->fsuid &&
+		(sbi->s_resgid == 0 || !in_group_p(sbi->s_resgid)))
+		root_blocks = ext4_r_blocks_count(sbi->s_es);
+
+	if (free_blocks - (nblocks + root_blocks + dirty_blocks) <
+						EXT4_FREEBLOCKS_WATERMARK) {
+		free_blocks  = percpu_counter_sum(fbc);
+		dirty_blocks = percpu_counter_sum(dbc);
+		if (dirty_blocks < 0) {
+			printk(KERN_CRIT "Dirty block accounting "
+					"went wrong %lld\n",
+					dirty_blocks);
+		}
+	}
+	/* Check whether we have space after
+	 * accounting for current dirty blocks
+	 */
+	if (free_blocks < ((s64)(root_blocks + nblocks) + dirty_blocks))
+		/* we don't have free space */
+		return -ENOSPC;
+
+	/* Add the blocks to nblocks */
+	percpu_counter_add(dbc, nblocks);
+	return 0;
+}
+
 /**
  * ext4_has_free_blocks()
  * @sbi:	in-core super block structure.
@@ -1612,27 +1804,31 @@ out:
 ext4_fsblk_t ext4_has_free_blocks(struct ext4_sb_info *sbi,
 						ext4_fsblk_t nblocks)
 {
-	ext4_fsblk_t free_blocks;
+	ext4_fsblk_t free_blocks, dirty_blocks;
 	ext4_fsblk_t root_blocks = 0;
+	struct percpu_counter *fbc = &sbi->s_freeblocks_counter;
+	struct percpu_counter *dbc = &sbi->s_dirtyblocks_counter;
 
-	free_blocks = percpu_counter_read_positive(&sbi->s_freeblocks_counter);
+	free_blocks  = percpu_counter_read_positive(fbc);
+	dirty_blocks = percpu_counter_read_positive(dbc);
 
 	if (!capable(CAP_SYS_RESOURCE) &&
 		sbi->s_resuid != current->fsuid &&
 		(sbi->s_resgid == 0 || !in_group_p(sbi->s_resgid)))
 		root_blocks = ext4_r_blocks_count(sbi->s_es);
-#ifdef CONFIG_SMP
-	if (free_blocks - root_blocks < FBC_BATCH)
-		free_blocks =
-			percpu_counter_sum_and_set(&sbi->s_freeblocks_counter);
-#endif
-	if (free_blocks <= root_blocks)
+
+	if (free_blocks - (nblocks + root_blocks + dirty_blocks) <
+						EXT4_FREEBLOCKS_WATERMARK) {
+		free_blocks  = percpu_counter_sum_positive(fbc);
+		dirty_blocks = percpu_counter_sum_positive(dbc);
+	}
+	if (free_blocks <= (root_blocks + dirty_blocks))
 		/* we don't have free space */
 		return 0;
-	if (free_blocks - root_blocks < nblocks)
+	if (free_blocks - (root_blocks + dirty_blocks) < nblocks)
 		return free_blocks - root_blocks;
 	return nblocks;
- }
+}
 
 
 /**
@@ -1711,14 +1907,17 @@ ext4_fsblk_t ext4_old_new_blocks(handle_t *handle, struct inode *inode,
 		/*
 		 * With delalloc we already reserved the blocks
 		 */
-		*count = ext4_has_free_blocks(sbi, *count);
+		while (*count && ext4_claim_free_blocks(sbi, *count)) {
+			/* let others to free the space */
+			yield();
+			*count = *count >> 1;
+		}
+		if (!*count) {
+			*errp = -ENOSPC;
+			return 0;	/*return with ENOSPC error */
+		}
+		num = *count;
 	}
-	if (*count == 0) {
-		*errp = -ENOSPC;
-		return 0;	/*return with ENOSPC error */
-	}
-	num = *count;
-
 	/*
 	 * Check quota for allocation of this block.
 	 */
@@ -1913,9 +2112,14 @@ allocated:
 	le16_add_cpu(&gdp->bg_free_blocks_count, -num);
 	gdp->bg_checksum = ext4_group_desc_csum(sbi, group_no, gdp);
 	spin_unlock(sb_bgl_lock(sbi, group_no));
+	percpu_counter_sub(&sbi->s_freeblocks_counter, num);
+	/*
+	 * Now reduce the dirty block count also. Should not go negative
+	 */
 	if (!EXT4_I(inode)->i_delalloc_reserved_flag)
-		percpu_counter_sub(&sbi->s_freeblocks_counter, num);
-
+		percpu_counter_sub(&sbi->s_dirtyblocks_counter, *count);
+	else
+		percpu_counter_sub(&sbi->s_dirtyblocks_counter, num);
 	if (sbi->s_log_groups_per_flex) {
 		ext4_group_t flex_group = ext4_flex_group(sbi, group_no);
 		spin_lock(sb_bgl_lock(sbi, flex_group));

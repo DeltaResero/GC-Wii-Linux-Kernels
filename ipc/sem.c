@@ -129,6 +129,7 @@ void sem_init_ns(struct ipc_namespace *ns)
 void sem_exit_ns(struct ipc_namespace *ns)
 {
 	free_ipcs(ns, &sem_ids(ns), freeary);
+	idr_destroy(&ns->ids[IPC_SEM_IDS].ipcs_idr);
 }
 #endif
 
@@ -308,7 +309,7 @@ static inline int sem_more_checks(struct kern_ipc_perm *ipcp,
 	return 0;
 }
 
-asmlinkage long sys_semget(key_t key, int nsems, int semflg)
+SYSCALL_DEFINE3(semget, key_t, key, int, nsems, int, semflg)
 {
 	struct ipc_namespace *ns;
 	struct ipc_ops sem_ops;
@@ -558,6 +559,8 @@ static unsigned long copy_semid_to_user(void __user *buf, struct semid64_ds *in,
 	case IPC_OLD:
 	    {
 		struct semid_ds out;
+
+		memset(&out, 0, sizeof(out));
 
 		ipc64_perm_to_ipc_perm(&in->sem_perm, &out.sem_perm);
 
@@ -887,7 +890,7 @@ out_up:
 	return err;
 }
 
-asmlinkage long sys_semctl (int semid, int semnum, int cmd, union semun arg)
+SYSCALL_DEFINE(semctl)(int semid, int semnum, int cmd, union semun arg)
 {
 	int err = -EINVAL;
 	int version;
@@ -923,6 +926,13 @@ asmlinkage long sys_semctl (int semid, int semnum, int cmd, union semun arg)
 		return -EINVAL;
 	}
 }
+#ifdef CONFIG_HAVE_SYSCALL_WRAPPERS
+asmlinkage long SyS_semctl(int semid, int semnum, int cmd, union semun arg)
+{
+	return SYSC_semctl((int) semid, (int) semnum, (int) cmd, arg);
+}
+SYSCALL_ALIAS(sys_semctl, SyS_semctl);
+#endif
 
 /* If the task doesn't already have a undo_list, then allocate one
  * here.  We guarantee there is only one thread using this undo list,
@@ -1048,8 +1058,8 @@ out:
 	return un;
 }
 
-asmlinkage long sys_semtimedop(int semid, struct sembuf __user *tsops,
-			unsigned nsops, const struct timespec __user *timeout)
+SYSCALL_DEFINE4(semtimedop, int, semid, struct sembuf __user *, tsops,
+		unsigned, nsops, const struct timespec __user *, timeout)
 {
 	int error = -EINVAL;
 	struct sem_array *sma;
@@ -1226,7 +1236,8 @@ out_free:
 	return error;
 }
 
-asmlinkage long sys_semop (int semid, struct sembuf __user *tsops, unsigned nsops)
+SYSCALL_DEFINE3(semop, int, semid, struct sembuf __user *, tsops,
+		unsigned, nsops)
 {
 	return sys_semtimedop(semid, tsops, nsops, NULL);
 }

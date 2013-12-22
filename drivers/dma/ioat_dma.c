@@ -519,7 +519,7 @@ static dma_cookie_t ioat1_tx_submit(struct dma_async_tx_descriptor *tx)
 	}
 
 	hw->ctl = IOAT_DMA_DESCRIPTOR_CTL_CP_STS;
-	if (new->async_tx.callback) {
+	if (first->async_tx.callback) {
 		hw->ctl |= IOAT_DMA_DESCRIPTOR_CTL_INT_GN;
 		if (first != new) {
 			/* move callback into to last desc */
@@ -611,7 +611,7 @@ static dma_cookie_t ioat2_tx_submit(struct dma_async_tx_descriptor *tx)
 	}
 
 	hw->ctl |= IOAT_DMA_DESCRIPTOR_CTL_CP_STS;
-	if (new->async_tx.callback) {
+	if (first->async_tx.callback) {
 		hw->ctl |= IOAT_DMA_DESCRIPTOR_CTL_INT_GN;
 		if (first != new) {
 			/* move callback into to last desc */
@@ -801,6 +801,12 @@ static void ioat_dma_free_chan_resources(struct dma_chan *chan)
 	struct ioat_desc_sw *desc, *_desc;
 	int in_use_descs = 0;
 
+	/* Before freeing channel resources first check
+	 * if they have been previously allocated for this channel.
+	 */
+	if (ioat_chan->desccount == 0)
+		return;
+
 	tasklet_disable(&ioat_chan->cleanup_task);
 	ioat_dma_memcpy_cleanup(ioat_chan);
 
@@ -863,6 +869,7 @@ static void ioat_dma_free_chan_resources(struct dma_chan *chan)
 	ioat_chan->last_completion = ioat_chan->completion_addr = 0;
 	ioat_chan->pending = 0;
 	ioat_chan->dmacount = 0;
+	ioat_chan->desccount = 0;
 	ioat_chan->watchdog_completion = 0;
 	ioat_chan->last_compl_desc_addr_hw = 0;
 	ioat_chan->watchdog_tcp_cookie =
@@ -1332,8 +1339,9 @@ static void ioat_dma_start_null_desc(struct ioat_dma_chan *ioat_chan)
 
 static void ioat_dma_test_callback(void *dma_async_param)
 {
-	printk(KERN_ERR "ioatdma: ioat_dma_test_callback(%p)\n",
-		dma_async_param);
+	struct completion *cmp = dma_async_param;
+
+	complete(cmp);
 }
 
 /**
@@ -1350,6 +1358,7 @@ static int ioat_dma_self_test(struct ioatdma_device *device)
 	dma_addr_t dma_dest, dma_src;
 	dma_cookie_t cookie;
 	int err = 0;
+	struct completion cmp;
 
 	src = kzalloc(sizeof(u8) * IOAT_TEST_SIZE, GFP_KERNEL);
 	if (!src)
@@ -1389,8 +1398,9 @@ static int ioat_dma_self_test(struct ioatdma_device *device)
 	}
 
 	async_tx_ack(tx);
+	init_completion(&cmp);
 	tx->callback = ioat_dma_test_callback;
-	tx->callback_param = (void *)0x8086;
+	tx->callback_param = &cmp;
 	cookie = tx->tx_submit(tx);
 	if (cookie < 0) {
 		dev_err(&device->pdev->dev,
@@ -1399,7 +1409,8 @@ static int ioat_dma_self_test(struct ioatdma_device *device)
 		goto free_resources;
 	}
 	device->common.device_issue_pending(dma_chan);
-	msleep(1);
+
+	wait_for_completion_timeout(&cmp, msecs_to_jiffies(3000));
 
 	if (device->common.device_is_tx_complete(dma_chan, cookie, NULL, NULL)
 					!= DMA_SUCCESS) {

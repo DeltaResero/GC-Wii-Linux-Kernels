@@ -750,7 +750,20 @@ static int uhci_rh_suspend(struct usb_hcd *hcd)
 	spin_lock_irq(&uhci->lock);
 	if (!test_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags))
 		rc = -ESHUTDOWN;
-	else if (!uhci->dead)
+	else if (uhci->dead)
+		;		/* Dead controllers tell no tales */
+
+	/* Once the controller is stopped, port resumes that are already
+	 * in progress won't complete.  Hence if remote wakeup is enabled
+	 * for the root hub and any ports are in the middle of a resume or
+	 * remote wakeup, we must fail the suspend.
+	 */
+	else if (hcd->self.root_hub->do_remote_wakeup &&
+			uhci->resuming_ports) {
+		dev_dbg(uhci_dev(uhci), "suspend failed because a port "
+				"is resuming\n");
+		rc = -EBUSY;
+	} else
 		suspend_rh(uhci, UHCI_RH_SUSPENDED);
 	spin_unlock_irq(&uhci->lock);
 	return rc;
@@ -953,6 +966,7 @@ static int __init uhci_hcd_init(void)
 
 	printk(KERN_INFO DRIVER_DESC " " DRIVER_VERSION "%s\n",
 			ignore_oc ? ", overcurrent ignored" : "");
+	set_bit(USB_UHCI_LOADED, &usb_hcds_loaded);
 
 	if (usb_disabled())
 		return -ENODEV;
@@ -988,6 +1002,7 @@ debug_failed:
 
 errbuf_failed:
 
+	clear_bit(USB_UHCI_LOADED, &usb_hcds_loaded);
 	return retval;
 }
 
@@ -997,6 +1012,7 @@ static void __exit uhci_hcd_cleanup(void)
 	kmem_cache_destroy(uhci_up_cachep);
 	debugfs_remove(uhci_debugfs_root);
 	kfree(errbuf);
+	clear_bit(USB_UHCI_LOADED, &usb_hcds_loaded);
 }
 
 module_init(uhci_hcd_init);

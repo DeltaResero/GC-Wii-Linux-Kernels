@@ -84,7 +84,6 @@ static int pnpacpi_set_resources(struct pnp_dev *dev)
 	acpi_handle handle = dev->data;
 	struct acpi_buffer buffer;
 	int ret;
-	acpi_status status;
 
 	dev_dbg(&dev->dev, "set resources\n");
 	ret = pnpacpi_build_resource_template(dev, &buffer);
@@ -95,21 +94,29 @@ static int pnpacpi_set_resources(struct pnp_dev *dev)
 		kfree(buffer.pointer);
 		return ret;
 	}
-	status = acpi_set_current_resources(handle, &buffer);
-	if (ACPI_FAILURE(status))
+	if (ACPI_FAILURE(acpi_set_current_resources(handle, &buffer)))
 		ret = -EINVAL;
+	else if (acpi_bus_power_manageable(handle))
+		ret = acpi_bus_set_power(handle, ACPI_STATE_D0);
 	kfree(buffer.pointer);
 	return ret;
 }
 
 static int pnpacpi_disable_resources(struct pnp_dev *dev)
 {
-	acpi_status status;
+	acpi_handle handle = dev->data;
+	int ret;
+
+	dev_dbg(&dev->dev, "disable resources\n");
 
 	/* acpi_unregister_gsi(pnp_irq(dev, 0)); */
-	status = acpi_evaluate_object((acpi_handle) dev->data,
-				      "_DIS", NULL, NULL);
-	return ACPI_FAILURE(status) ? -ENODEV : 0;
+	ret = 0;
+	if (acpi_bus_power_manageable(handle))
+		acpi_bus_set_power(handle, ACPI_STATE_D3);
+		/* continue even if acpi_bus_set_power() fails */
+	if (ACPI_FAILURE(acpi_evaluate_object(handle, "_DIS", NULL, NULL)))
+		ret = -ENODEV;
+	return ret;
 }
 
 #ifdef CONFIG_ACPI_SLEEP
@@ -148,9 +155,13 @@ static int __init pnpacpi_add_device(struct acpi_device *device)
 	acpi_status status;
 	struct pnp_dev *dev;
 
+	/*
+	 * If a PnPacpi device is not present , the device
+	 * driver should not be loaded.
+	 */
 	status = acpi_get_handle(device->handle, "_CRS", &temp);
 	if (ACPI_FAILURE(status) || !ispnpidacpi(acpi_device_hid(device)) ||
-	    is_exclusive_device(device))
+	    is_exclusive_device(device) || (!device->status.present))
 		return 0;
 
 	dev = pnp_alloc_dev(&pnpacpi_protocol, num, acpi_device_hid(device));

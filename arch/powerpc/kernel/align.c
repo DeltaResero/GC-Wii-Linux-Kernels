@@ -367,27 +367,24 @@ static int emulate_multiple(struct pt_regs *regs, unsigned char __user *addr,
 static int emulate_fp_pair(unsigned char __user *addr, unsigned int reg,
 			   unsigned int flags)
 {
-	char *ptr = (char *) &current->thread.TS_FPR(reg);
-	int i, ret;
+	char *ptr0 = (char *) &current->thread.TS_FPR(reg);
+	char *ptr1 = (char *) &current->thread.TS_FPR(reg+1);
+	int i, ret, sw = 0;
 
 	if (!(flags & F))
 		return 0;
 	if (reg & 1)
 		return 0;	/* invalid form: FRS/FRT must be even */
-	if (!(flags & SW)) {
-		/* not byte-swapped - easy */
-		if (!(flags & ST))
-			ret = __copy_from_user(ptr, addr, 16);
-		else
-			ret = __copy_to_user(addr, ptr, 16);
-	} else {
-		/* each FPR value is byte-swapped separately */
-		ret = 0;
-		for (i = 0; i < 16; ++i) {
-			if (!(flags & ST))
-				ret |= __get_user(ptr[i^7], addr + i);
-			else
-				ret |= __put_user(ptr[i^7], addr + i);
+	if (flags & SW)
+		sw = 7;
+	ret = 0;
+	for (i = 0; i < 8; ++i) {
+		if (!(flags & ST)) {
+			ret |= __get_user(ptr0[i^sw], addr + i);
+			ret |= __get_user(ptr1[i^sw], addr + i + 8);
+		} else {
+			ret |= __put_user(ptr0[i^sw], addr + i);
+			ret |= __put_user(ptr1[i^sw], addr + i + 8);
 		}
 	}
 	if (ret)
@@ -644,26 +641,51 @@ static int emulate_spe(struct pt_regs *regs, unsigned int reg,
  */
 static int emulate_vsx(unsigned char __user *addr, unsigned int reg,
 		       unsigned int areg, struct pt_regs *regs,
-		       unsigned int flags, unsigned int length)
+		       unsigned int flags, unsigned int length,
+		       unsigned int elsize)
 {
-	char *ptr = (char *) &current->thread.TS_FPR(reg);
+	char *ptr;
+	unsigned long *lptr;
 	int ret = 0;
+	int sw = 0;
+	int i, j;
 
 	flush_vsx_to_thread(current);
 
-	if (flags & ST)
-		ret = __copy_to_user(addr, ptr, length);
-        else {
-		if (flags & SPLT){
-			ret = __copy_from_user(ptr, addr, length);
-			ptr += length;
+	if (reg < 32)
+		ptr = (char *) &current->thread.TS_FPR(reg);
+	else
+		ptr = (char *) &current->thread.vr[reg - 32];
+
+	lptr = (unsigned long *) ptr;
+
+	if (flags & SW)
+		sw = elsize-1;
+
+	for (j = 0; j < length; j += elsize) {
+		for (i = 0; i < elsize; ++i) {
+			if (flags & ST)
+				ret |= __put_user(ptr[i^sw], addr + i);
+			else
+				ret |= __get_user(ptr[i^sw], addr + i);
 		}
-		ret |= __copy_from_user(ptr, addr, length);
+		ptr  += elsize;
+		addr += elsize;
 	}
-	if (flags & U)
-		regs->gpr[areg] = regs->dar;
-	if (ret)
+
+	if (!ret) {
+		if (flags & U)
+			regs->gpr[areg] = regs->dar;
+
+		/* Splat load copies the same data to top and bottom 8 bytes */
+		if (flags & SPLT)
+			lptr[1] = lptr[0];
+		/* For 8 byte loads, zero the top 8 bytes */
+		else if (!(flags & ST) && (8 == length))
+			lptr[1] = 0;
+	} else
 		return -EFAULT;
+
 	return 1;
 }
 #endif
@@ -762,16 +784,25 @@ int fix_alignment(struct pt_regs *regs)
 
 #ifdef CONFIG_VSX
 	if ((instruction & 0xfc00003e) == 0x7c000018) {
-		/* Additional register addressing bit (64 VSX vs 32 FPR/GPR */
+		unsigned int elsize;
+
+		/* Additional register addressing bit (64 VSX vs 32 FPR/GPR) */
 		reg |= (instruction & 0x1) << 5;
 		/* Simple inline decoder instead of a table */
+		/* VSX has only 8 and 16 byte memory accesses */
+		nb = 8;
 		if (instruction & 0x200)
 			nb = 16;
-		else if (instruction & 0x080)
-			nb = 8;
-		else
-			nb = 4;
+
+		/* Vector stores in little-endian mode swap individual
+		   elements, so process them separately */
+		elsize = 4;
+		if (instruction & 0x80)
+			elsize = 8;
+
 		flags = 0;
+		if (regs->msr & MSR_LE)
+			flags |= SW;
 		if (instruction & 0x100)
 			flags |= ST;
 		if (instruction & 0x040)
@@ -781,7 +812,7 @@ int fix_alignment(struct pt_regs *regs)
 			flags |= SPLT;
 			nb = 8;
 		}
-		return emulate_vsx(addr, reg, areg, regs, flags, nb);
+		return emulate_vsx(addr, reg, areg, regs, flags, nb, elsize);
 	}
 #endif
 	/* A size of 0 indicates an instruction we don't support, with

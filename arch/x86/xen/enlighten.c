@@ -1179,7 +1179,7 @@ static const struct pv_time_ops xen_time_ops __initdata = {
 	.set_wallclock = xen_set_wallclock,
 	.get_wallclock = xen_get_wallclock,
 	.get_tsc_khz = xen_tsc_khz,
-	.sched_clock = xen_sched_clock,
+	.sched_clock = xen_clocksource_read,
 };
 
 static const struct pv_cpu_ops xen_cpu_ops __initdata = {
@@ -1413,7 +1413,7 @@ static void __init xen_reserve_top(void)
 	if (HYPERVISOR_xen_version(XENVER_platform_parameters, &pp) == 0)
 		top = pp.virt_start;
 
-	reserve_top_address(-top + 2 * PAGE_SIZE);
+	reserve_top_address(-top);
 #endif	/* CONFIG_X86_32 */
 }
 
@@ -1706,6 +1706,9 @@ asmlinkage void __init xen_start_kernel(void)
 	/* Don't do the full vcpu_info placement stuff until we have a
 	   possible map and a non-dummy shared_info. */
 	per_cpu(xen_vcpu, 0) = &HYPERVISOR_shared_info->vcpu_info[0];
+
+	local_irq_disable();
+	early_boot_irqs_off();
 
 	xen_raw_console_write("mapping kernel into physical memory\n");
 	pgd = xen_setup_kernel_pagetable(pgd, xen_start_info->nr_pages);

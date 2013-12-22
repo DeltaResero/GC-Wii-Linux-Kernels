@@ -748,6 +748,9 @@ out_release:
  *
  * This is used when all requests are complete; ie, no DRC state remains
  * on the server we want to save.
+ *
+ * The caller _must_ be holding XPRT_LOCKED in order to avoid issues with
+ * xs_reset_transport() zeroing the socket from underneath a writer.
  */
 static void xs_close(struct rpc_xprt *xprt)
 {
@@ -779,6 +782,14 @@ clear_close_wait:
 	clear_bit(XPRT_CLOSING, &xprt->state);
 	smp_mb__after_clear_bit();
 	xprt_disconnect_done(xprt);
+}
+
+static void xs_tcp_close(struct rpc_xprt *xprt)
+{
+	if (test_and_clear_bit(XPRT_CONNECTION_CLOSE, &xprt->state))
+		xs_close(xprt);
+	else
+		xs_tcp_shutdown(xprt);
 }
 
 /**
@@ -1150,7 +1161,6 @@ static void xs_tcp_state_change(struct sock *sk)
 		break;
 	case TCP_CLOSE_WAIT:
 		/* The server initiated a shutdown of the socket */
-		set_bit(XPRT_CLOSING, &xprt->state);
 		xprt_force_disconnect(xprt);
 	case TCP_SYN_SENT:
 		xprt->connect_cookie++;
@@ -1163,6 +1173,7 @@ static void xs_tcp_state_change(struct sock *sk)
 			xprt->reestablish_timeout = XS_TCP_INIT_REEST_TO;
 		break;
 	case TCP_LAST_ACK:
+		set_bit(XPRT_CLOSING, &xprt->state);
 		smp_mb__before_clear_bit();
 		clear_bit(XPRT_CONNECTED, &xprt->state);
 		smp_mb__after_clear_bit();
@@ -1560,10 +1571,9 @@ out:
  * We need to preserve the port number so the reply cache on the server can
  * find our cached RPC replies when we get around to reconnecting.
  */
-static void xs_tcp_reuse_connection(struct rpc_xprt *xprt)
+static void xs_abort_connection(struct rpc_xprt *xprt, struct sock_xprt *transport)
 {
 	int result;
-	struct sock_xprt *transport = container_of(xprt, struct sock_xprt, xprt);
 	struct sockaddr any;
 
 	dprintk("RPC:       disconnecting xprt %p to reuse port\n", xprt);
@@ -1578,6 +1588,17 @@ static void xs_tcp_reuse_connection(struct rpc_xprt *xprt)
 	if (result)
 		dprintk("RPC:       AF_UNSPEC connect return code %d\n",
 				result);
+}
+
+static void xs_tcp_reuse_connection(struct rpc_xprt *xprt, struct sock_xprt *transport)
+{
+	unsigned int state = transport->inet->sk_state;
+
+	if (state == TCP_CLOSE && transport->sock->state == SS_UNCONNECTED)
+		return;
+	if ((1 << state) & (TCPF_ESTABLISHED|TCPF_SYN_SENT))
+		return;
+	xs_abort_connection(xprt, transport);
 }
 
 static int xs_tcp_finish_connecting(struct rpc_xprt *xprt, struct socket *sock)
@@ -1650,7 +1671,7 @@ static void xs_tcp_connect_worker4(struct work_struct *work)
 		}
 	} else
 		/* "close" the socket, preserving the local port */
-		xs_tcp_reuse_connection(xprt);
+		xs_tcp_reuse_connection(xprt, transport);
 
 	dprintk("RPC:       worker connecting xprt %p to address: %s\n",
 			xprt, xprt->address_strings[RPC_DISPLAY_ALL]);
@@ -1666,11 +1687,21 @@ static void xs_tcp_connect_worker4(struct work_struct *work)
 				goto out_clear;
 			case -ECONNREFUSED:
 			case -ECONNRESET:
+			case -ENETUNREACH:
 				/* retry with existing socket, after a delay */
-				break;
+				goto out_clear;
 			default:
 				/* get rid of existing socket, and retry */
 				xs_tcp_shutdown(xprt);
+				printk("%s: connect returned unhandled error %d\n",
+						__func__, status);
+			case -EADDRNOTAVAIL:
+				/* We're probably in TIME_WAIT. Get rid of existing socket,
+				 * and retry
+				 */
+				set_bit(XPRT_CONNECTION_CLOSE, &xprt->state);
+				xprt_force_disconnect(xprt);
+				status = -EAGAIN;
 		}
 	}
 out:
@@ -1710,7 +1741,7 @@ static void xs_tcp_connect_worker6(struct work_struct *work)
 		}
 	} else
 		/* "close" the socket, preserving the local port */
-		xs_tcp_reuse_connection(xprt);
+		xs_tcp_reuse_connection(xprt, transport);
 
 	dprintk("RPC:       worker connecting xprt %p to address: %s\n",
 			xprt, xprt->address_strings[RPC_DISPLAY_ALL]);
@@ -1725,11 +1756,21 @@ static void xs_tcp_connect_worker6(struct work_struct *work)
 				goto out_clear;
 			case -ECONNREFUSED:
 			case -ECONNRESET:
+			case -ENETUNREACH:
 				/* retry with existing socket, after a delay */
-				break;
+				goto out_clear;
 			default:
 				/* get rid of existing socket, and retry */
 				xs_tcp_shutdown(xprt);
+				printk("%s: connect returned unhandled error %d\n",
+						__func__, status);
+			case -EADDRNOTAVAIL:
+				/* We're probably in TIME_WAIT. Get rid of existing socket,
+				 * and retry
+				 */
+				set_bit(XPRT_CONNECTION_CLOSE, &xprt->state);
+				xprt_force_disconnect(xprt);
+				status = -EAGAIN;
 		}
 	}
 out:
@@ -1780,9 +1821,6 @@ static void xs_tcp_connect(struct rpc_task *task)
 {
 	struct rpc_xprt *xprt = task->tk_xprt;
 
-	/* Initiate graceful shutdown of the socket if not already done */
-	if (test_bit(XPRT_CONNECTED, &xprt->state))
-		xs_tcp_shutdown(xprt);
 	/* Exit if we need to wait for socket shutdown to complete */
 	if (test_bit(XPRT_CLOSING, &xprt->state))
 		return;
@@ -1864,7 +1902,7 @@ static struct rpc_xprt_ops xs_tcp_ops = {
 	.buf_free		= rpc_free,
 	.send_request		= xs_tcp_send_request,
 	.set_retrans_timeout	= xprt_set_retrans_timeout_def,
-	.close			= xs_tcp_shutdown,
+	.close			= xs_tcp_close,
 	.destroy		= xs_destroy,
 	.print_stats		= xs_tcp_print_stats,
 };

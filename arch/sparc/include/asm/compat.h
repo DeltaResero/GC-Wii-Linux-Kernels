@@ -166,7 +166,7 @@ static inline compat_uptr_t ptr_to_compat(void __user *uptr)
 	return (u32)(unsigned long)uptr;
 }
 
-static inline void __user *compat_alloc_user_space(long len)
+static inline void __user *arch_compat_alloc_user_space(long len)
 {
 	struct pt_regs *regs = current_thread_info()->kregs;
 	unsigned long usp = regs->u_regs[UREG_I6];
@@ -239,5 +239,10 @@ struct compat_shmid64_ds {
 	unsigned int	__unused1;
 	unsigned int	__unused2;
 };
+
+static inline int is_compat_task(void)
+{
+	return test_thread_flag(TIF_32BIT);
+}
 
 #endif /* _ASM_SPARC64_COMPAT_H */

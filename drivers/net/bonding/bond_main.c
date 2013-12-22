@@ -686,7 +686,7 @@ static int bond_update_speed_duplex(struct slave *slave)
  */
 static int bond_check_dev_link(struct bonding *bond, struct net_device *slave_dev, int reporting)
 {
-	static int (* ioctl)(struct net_device *, struct ifreq *, int);
+	int (* ioctl)(struct net_device *, struct ifreq *, int);
 	struct ifreq ifr;
 	struct mii_ioctl_data *mii;
 
@@ -1705,6 +1705,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
 	case BOND_MODE_ALB:
 		new_slave->state = BOND_STATE_ACTIVE;
 		bond_set_slave_inactive_flags(new_slave);
+		bond_select_active_slave(bond);
 		break;
 	default:
 		dprintk("This slave is always active in trunk mode\n");
@@ -2228,6 +2229,9 @@ static int bond_miimon_inspect(struct bonding *bond)
 {
 	struct slave *slave;
 	int i, link_state, commit = 0;
+	bool ignore_updelay;
+
+	ignore_updelay = !bond->curr_active_slave ? true : false;
 
 	bond_for_each_slave(bond, slave, i) {
 		slave->new_link = BOND_LINK_NOCHANGE;
@@ -2292,6 +2296,7 @@ static int bond_miimon_inspect(struct bonding *bond)
 				       ": %s: link status up for "
 				       "interface %s, enabling it in %d ms.\n",
 				       bond->dev->name, slave->dev->name,
+				       ignore_updelay ? 0 :
 				       bond->params.updelay *
 				       bond->params.miimon);
 			}
@@ -2310,9 +2315,13 @@ static int bond_miimon_inspect(struct bonding *bond)
 				continue;
 			}
 
+			if (ignore_updelay)
+				slave->delay = 0;
+
 			if (slave->delay <= 0) {
 				slave->new_link = BOND_LINK_UP;
 				commit++;
+				ignore_updelay = false;
 				continue;
 			}
 
@@ -2370,6 +2379,9 @@ static void bond_miimon_commit(struct bonding *bond)
 			continue;
 
 		case BOND_LINK_DOWN:
+			if (slave->link_failure_count < UINT_MAX)
+				slave->link_failure_count++;
+
 			slave->link = BOND_LINK_DOWN;
 
 			if (bond->params.mode == BOND_MODE_ACTIVEBACKUP ||
@@ -3513,11 +3525,26 @@ static int bond_slave_netdev_event(unsigned long event, struct net_device *slave
 		}
 		break;
 	case NETDEV_CHANGE:
-		/*
-		 * TODO: is this what we get if somebody
-		 * sets up a hierarchical bond, then rmmod's
-		 * one of the slave bonding devices?
-		 */
+		if (bond->params.mode == BOND_MODE_8023AD || bond_is_lb(bond)) {
+			struct slave *slave;
+
+			slave = bond_get_slave_by_dev(bond, slave_dev);
+			if (slave) {
+				u16 old_speed = slave->speed;
+				u16 old_duplex = slave->duplex;
+
+				bond_update_speed_duplex(slave);
+
+				if (bond_is_lb(bond))
+					break;
+
+				if (old_speed != slave->speed)
+					bond_3ad_adapter_speed_changed(slave);
+				if (old_duplex != slave->duplex)
+					bond_3ad_adapter_duplex_changed(slave);
+			}
+		}
+
 		break;
 	case NETDEV_DOWN:
 		/*

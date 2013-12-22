@@ -71,12 +71,17 @@ static int _nfs4_proc_getattr(struct nfs_server *server, struct nfs_fh *fhandle,
 /* Prevent leaks of NFSv4 errors into userland */
 int nfs4_map_errors(int err)
 {
-	if (err < -1000) {
+	if (err >= -1000)
+		return err;
+	switch (err) {
+	case -NFS4ERR_RESOURCE:
+		return -EREMOTEIO;
+	default:
 		dprintk("%s could not handle NFSv4 error %d\n",
 				__func__, -err);
-		return -EIO;
+		break;
 	}
-	return err;
+	return -EIO;
 }
 
 /*
@@ -3550,15 +3555,23 @@ nfs4_proc_lock(struct file *filp, int cmd, struct file_lock *request)
 	if (request->fl_start < 0 || request->fl_end < 0)
 		return -EINVAL;
 
-	if (IS_GETLK(cmd))
-		return nfs4_proc_getlk(state, F_GETLK, request);
+	if (IS_GETLK(cmd)) {
+		if (state != NULL)
+			return nfs4_proc_getlk(state, F_GETLK, request);
+		return 0;
+	}
 
 	if (!(IS_SETLK(cmd) || IS_SETLKW(cmd)))
 		return -EINVAL;
 
-	if (request->fl_type == F_UNLCK)
-		return nfs4_proc_unlck(state, cmd, request);
+	if (request->fl_type == F_UNLCK) {
+		if (state != NULL)
+			return nfs4_proc_unlck(state, cmd, request);
+		return 0;
+	}
 
+	if (state == NULL)
+		return -ENOLCK;
 	do {
 		status = nfs4_proc_setlk(state, cmd, request);
 		if ((status != -EAGAIN) || IS_SETLK(cmd))

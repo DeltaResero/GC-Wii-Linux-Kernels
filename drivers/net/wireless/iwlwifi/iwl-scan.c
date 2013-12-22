@@ -464,11 +464,6 @@ void iwl_init_scan_params(struct iwl_priv *priv)
 
 int iwl_scan_initiate(struct iwl_priv *priv)
 {
-	if (priv->iw_mode == IEEE80211_IF_TYPE_AP) {
-		IWL_ERROR("APs don't scan.\n");
-		return 0;
-	}
-
 	if (!iwl_is_ready_rf(priv)) {
 		IWL_DEBUG_SCAN("Aborting scan due to not ready.\n");
 		return -EIO;
@@ -480,8 +475,7 @@ int iwl_scan_initiate(struct iwl_priv *priv)
 	}
 
 	if (test_bit(STATUS_SCAN_ABORTING, &priv->status)) {
-		IWL_DEBUG_SCAN("Scan request while abort pending.  "
-			       "Queuing.\n");
+		IWL_DEBUG_SCAN("Scan request while abort pending\n");
 		return -EAGAIN;
 	}
 
@@ -710,7 +704,7 @@ static void iwl_bg_request_scan(struct work_struct *data)
 	u16 cmd_len;
 	enum ieee80211_band band;
 	u8 n_probes = 2;
-	u8 rx_chain = 0x7; /* bitmap: ABC chains */
+	u8 rx_chain = priv->hw_params.valid_rx_ant;
 
 	conf = ieee80211_get_hw_conf(priv->hw);
 

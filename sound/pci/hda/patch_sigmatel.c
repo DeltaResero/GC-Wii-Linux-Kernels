@@ -67,6 +67,7 @@ enum {
 enum {
 	STAC_92HD73XX_REF,
 	STAC_DELL_M6,
+	STAC_DELL_EQ,
 	STAC_92HD73XX_MODELS
 };
 
@@ -104,6 +105,7 @@ enum {
 	STAC_MACBOOK_PRO_V2,
 	STAC_IMAC_INTEL,
 	STAC_IMAC_INTEL_20,
+	STAC_ECS_202,
 	STAC_922X_DELL_D81,
 	STAC_922X_DELL_D82,
 	STAC_922X_DELL_M81,
@@ -546,8 +548,8 @@ static struct hda_verb dell_eq_core_init[] = {
 	{ 0x1f, AC_VERB_SET_VOLUME_KNOB_CONTROL, 0xec},
 	/* setup audio connections */
 	{ 0x0d, AC_VERB_SET_CONNECT_SEL, 0x00},
-	{ 0x0a, AC_VERB_SET_CONNECT_SEL, 0x01},
-	{ 0x0f, AC_VERB_SET_CONNECT_SEL, 0x02},
+	{ 0x0a, AC_VERB_SET_CONNECT_SEL, 0x02},
+	{ 0x0f, AC_VERB_SET_CONNECT_SEL, 0x01},
 	/* setup adcs to point to mixer */
 	{ 0x20, AC_VERB_SET_CONNECT_SEL, 0x0b},
 	{ 0x21, AC_VERB_SET_CONNECT_SEL, 0x0b},
@@ -560,9 +562,7 @@ static struct hda_verb dell_eq_core_init[] = {
 };
 
 static struct hda_verb dell_m6_core_init[] = {
-	/* set master volume to max value without distortion
-	 * and direct control */
-	{ 0x1f, AC_VERB_SET_VOLUME_KNOB_CONTROL, 0xec},
+	{ 0x1f, AC_VERB_SET_VOLUME_KNOB_CONTROL, 0xff},
 	/* setup audio connections */
 	{ 0x0d, AC_VERB_SET_CONNECT_SEL, 0x00},
 	{ 0x0a, AC_VERB_SET_CONNECT_SEL, 0x01},
@@ -638,6 +638,7 @@ static struct hda_verb stac92hd71bxx_core_init[] = {
 	{ 0x0a, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_UNMUTE(0)},
 	{ 0x0d, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_UNMUTE(0)},
 	{ 0x0f, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_UNMUTE(0)},
+	{}
 };
 
 #define HD_DISABLE_PORTF 3
@@ -1297,11 +1298,13 @@ static unsigned int dell_m6_pin_configs[13] = {
 static unsigned int *stac92hd73xx_brd_tbl[STAC_92HD73XX_MODELS] = {
 	[STAC_92HD73XX_REF]	= ref92hd73xx_pin_configs,
 	[STAC_DELL_M6]	= dell_m6_pin_configs,
+	[STAC_DELL_EQ]	= dell_m6_pin_configs,
 };
 
 static const char *stac92hd73xx_models[STAC_92HD73XX_MODELS] = {
 	[STAC_92HD73XX_REF] = "ref",
 	[STAC_DELL_M6] = "dell-m6",
+	[STAC_DELL_EQ] = "dell-eq",
 };
 
 static struct snd_pci_quirk stac92hd73xx_cfg_tbl[] = {
@@ -1309,7 +1312,7 @@ static struct snd_pci_quirk stac92hd73xx_cfg_tbl[] = {
 	SND_PCI_QUIRK(PCI_VENDOR_ID_INTEL, 0x2668,
 				"DFI LanParty", STAC_92HD73XX_REF),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x0254,
-				"unknown Dell", STAC_DELL_M6),
+				"Dell Studio 1535", STAC_DELL_M6),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x0255,
 				"unknown Dell", STAC_DELL_M6),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x0256,
@@ -1322,6 +1325,8 @@ static struct snd_pci_quirk stac92hd73xx_cfg_tbl[] = {
 				"unknown Dell", STAC_DELL_M6),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x0271,
 				"unknown Dell", STAC_DELL_M6),
+	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x029f,
+				"Dell Studio 15", STAC_DELL_M6),
 	{} /* terminator */
 };
 
@@ -1477,6 +1482,11 @@ static unsigned int intel_mac_v5_pin_configs[10] = {
 	0x400000fc, 0x400000fb,
 };
 
+static unsigned int ecs202_pin_configs[10] = {
+	0x0221401f, 0x02a19020, 0x01a19020, 0x01114010,
+	0x408000f0, 0x01813022, 0x074510a0, 0x40c400f1,
+	0x9037012e, 0x40e000f2,
+};
 
 static unsigned int *stac922x_brd_tbl[STAC_922X_MODELS] = {
 	[STAC_D945_REF] = ref922x_pin_configs,
@@ -1495,6 +1505,7 @@ static unsigned int *stac922x_brd_tbl[STAC_922X_MODELS] = {
 	[STAC_MACBOOK_PRO_V2] = intel_mac_v3_pin_configs,
 	[STAC_IMAC_INTEL] = intel_mac_v2_pin_configs,
 	[STAC_IMAC_INTEL_20] = intel_mac_v3_pin_configs,
+	[STAC_ECS_202] = ecs202_pin_configs,
 	[STAC_922X_DELL_D81] = dell_922x_d81_pin_configs,
 	[STAC_922X_DELL_D82] = dell_922x_d82_pin_configs,	
 	[STAC_922X_DELL_M81] = dell_922x_m81_pin_configs,
@@ -1518,6 +1529,7 @@ static const char *stac922x_models[STAC_922X_MODELS] = {
 	[STAC_MACBOOK_PRO_V2]	= "macbook-pro",
 	[STAC_IMAC_INTEL] = "imac-intel",
 	[STAC_IMAC_INTEL_20] = "imac-intel-20",
+	[STAC_ECS_202] = "ecs202",
 	[STAC_922X_DELL_D81] = "dell-d81",
 	[STAC_922X_DELL_D82] = "dell-d82",
 	[STAC_922X_DELL_M81] = "dell-m81",
@@ -1604,6 +1616,33 @@ static struct snd_pci_quirk stac922x_cfg_tbl[] = {
 		      "unknown Dell", STAC_922X_DELL_D81),
 	SND_PCI_QUIRK(PCI_VENDOR_ID_DELL, 0x01d7,
 		      "Dell XPS M1210", STAC_922X_DELL_M82),
+	/* ECS/PC Chips boards */
+	SND_PCI_QUIRK(0x1019, 0x2144,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2608,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2633,
+		      "ECS/PC chips P17G/1333", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2811,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2812,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2813,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2814,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2815,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2816,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2817,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2818,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2819,
+		      "ECS/PC chips", STAC_ECS_202),
+	SND_PCI_QUIRK(0x1019, 0x2820,
+		      "ECS/PC chips", STAC_ECS_202),
 	{} /* terminator */
 };
 
@@ -2009,6 +2048,8 @@ static int stac92xx_build_pcms(struct hda_codec *codec)
 
 	info->name = "STAC92xx Analog";
 	info->stream[SNDRV_PCM_STREAM_PLAYBACK] = stac92xx_pcm_analog_playback;
+	info->stream[SNDRV_PCM_STREAM_PLAYBACK].nid =
+		spec->multiout.dac_nids[0];
 	info->stream[SNDRV_PCM_STREAM_CAPTURE] = stac92xx_pcm_analog_capture;
 	info->stream[SNDRV_PCM_STREAM_CAPTURE].nid = spec->adc_nids[0];
 	info->stream[SNDRV_PCM_STREAM_CAPTURE].substreams = spec->num_adcs;
@@ -2467,7 +2508,7 @@ static int stac92xx_auto_create_multi_out_ctls(struct hda_codec *codec,
 		}
 	}
 
-	if (cfg->hp_outs > 1) {
+	if (cfg->hp_outs > 1 && cfg->line_out_type == AUTO_PIN_LINE_OUT) {
 		err = stac92xx_add_control(spec,
 			STAC_CTL_WIDGET_HP_SWITCH,
 			"Headphone as Line Out Switch", 0);
@@ -3560,8 +3601,12 @@ again:
 	spec->gpio_data = 0x01;
 
 	switch (spec->board_config) {
-	case STAC_DELL_M6:
+	case STAC_DELL_EQ:
 		spec->init = dell_eq_core_init;
+		/* fallthru */
+	case STAC_DELL_M6:
+		if (!spec->init)
+			spec->init = dell_m6_core_init;
 		switch (codec->subsystem_id) {
 		case 0x1028025e: /* Analog Mics */
 		case 0x1028025f:
@@ -3570,8 +3615,6 @@ again:
 			break;
 		case 0x10280271: /* Digital Mics */
 		case 0x10280272:
-			spec->init = dell_m6_core_init;
-			/* fall-through */
 		case 0x10280254:
 		case 0x10280255:
 			stac92xx_set_config_reg(codec, 0x13, 0x90A60160);

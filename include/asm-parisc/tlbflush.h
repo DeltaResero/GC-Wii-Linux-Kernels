@@ -12,14 +12,12 @@
  * N class systems, only one PxTLB inter processor broadcast can be
  * active at any one time on the Merced bus.  This tlb purge
  * synchronisation is fairly lightweight and harmless so we activate
- * it on all SMP systems not just the N class.  We also need to have
- * preemption disabled on uniprocessor machines, and spin_lock does that
- * nicely.
+ * it on all systems not just the N class.
  */
 extern spinlock_t pa_tlb_lock;
 
-#define purge_tlb_start(x) spin_lock(&pa_tlb_lock)
-#define purge_tlb_end(x) spin_unlock(&pa_tlb_lock)
+#define purge_tlb_start(flags)	spin_lock_irqsave(&pa_tlb_lock, flags)
+#define purge_tlb_end(flags)	spin_unlock_irqrestore(&pa_tlb_lock, flags)
 
 extern void flush_tlb_all(void);
 extern void flush_tlb_all_local(void *);
@@ -44,9 +42,12 @@ static inline void flush_tlb_mm(struct mm_struct *mm)
 {
 	BUG_ON(mm == &init_mm); /* Should never happen */
 
-#ifdef CONFIG_SMP
+#if 1 || defined(CONFIG_SMP)
 	flush_tlb_all();
 #else
+	/* FIXME: currently broken, causing space id and protection ids
+	 *  to go out of sync, resulting in faults on userspace accesses.
+	 */
 	if (mm) {
 		if (mm->context != 0)
 			free_sid(mm->context);
@@ -60,14 +61,15 @@ static inline void flush_tlb_mm(struct mm_struct *mm)
 static inline void flush_tlb_page(struct vm_area_struct *vma,
 	unsigned long addr)
 {
+	unsigned long flags;
 	/* For one page, it's not worth testing the split_tlb variable */
 
 	mb();
 	mtsp(vma->vm_mm->context,1);
-	purge_tlb_start();
+	purge_tlb_start(flags);
 	pdtlb(addr);
 	pitlb(addr);
-	purge_tlb_end();
+	purge_tlb_end(flags);
 }
 
 void __flush_tlb_range(unsigned long sid,

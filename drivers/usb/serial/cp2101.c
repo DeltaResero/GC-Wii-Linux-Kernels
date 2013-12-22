@@ -50,7 +50,7 @@ static int cp2101_tiocmset(struct tty_struct *, struct file *,
 		unsigned int, unsigned int);
 static void cp2101_break_ctl(struct tty_struct *, int);
 static int cp2101_startup(struct usb_serial *);
-static void cp2101_shutdown(struct usb_serial *);
+static void cp2101_disconnect(struct usb_serial *);
 
 
 static int debug;
@@ -77,6 +77,7 @@ static struct usb_device_id id_table [] = {
 	{ USB_DEVICE(0x10C4, 0x814A) }, /* West Mountain Radio RIGblaster P&P */
 	{ USB_DEVICE(0x10C4, 0x814B) }, /* West Mountain Radio RIGtalk */
 	{ USB_DEVICE(0x10C4, 0x815E) }, /* Helicomm IP-Link 1220-DVM */
+	{ USB_DEVICE(0x10C4, 0x819F) }, /* MJS USB Toslink Switcher */
 	{ USB_DEVICE(0x10C4, 0x81A6) }, /* ThinkOptics WavIt */
 	{ USB_DEVICE(0x10C4, 0x81AC) }, /* MSD Dash Hawk */
 	{ USB_DEVICE(0x10C4, 0x81C8) }, /* Lipowsky Industrie Elektronik GmbH, Baby-JTAG */
@@ -124,7 +125,7 @@ static struct usb_serial_driver cp2101_device = {
 	.tiocmget 		= cp2101_tiocmget,
 	.tiocmset		= cp2101_tiocmset,
 	.attach			= cp2101_startup,
-	.shutdown		= cp2101_shutdown,
+	.disconnect		= cp2101_disconnect,
 };
 
 /* Config request types */
@@ -726,7 +727,7 @@ static int cp2101_startup(struct usb_serial *serial)
 	return 0;
 }
 
-static void cp2101_shutdown(struct usb_serial *serial)
+static void cp2101_disconnect(struct usb_serial *serial)
 {
 	int i;
 

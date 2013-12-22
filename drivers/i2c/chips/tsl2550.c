@@ -27,7 +27,7 @@
 #include <linux/delay.h>
 
 #define TSL2550_DRV_NAME	"tsl2550"
-#define DRIVER_VERSION		"1.1.1"
+#define DRIVER_VERSION		"1.1.2"
 
 /*
  * Defines
@@ -189,13 +189,16 @@ static int tsl2550_calculate_lux(u8 ch0, u8 ch1)
 	u8 r = 128;
 
 	/* Avoid division by 0 and count 1 cannot be greater than count 0 */
-	if (c0 && (c1 <= c0))
-		r = c1 * 128 / c0;
-	else
-		return -1;
+	if (c1 <= c0)
+		if (c0) {
+			r = c1 * 128 / c0;
 
-	/* Calculate LUX */
-	lux = ((c0 - c1) * ratio_lut[r]) / 256;
+			/* Calculate LUX */
+			lux = ((c0 - c1) * ratio_lut[r]) / 256;
+		} else
+			lux = 0;
+	else
+		return -EAGAIN;
 
 	/* LUX range check */
 	return lux > TSL2550_MAX_LUX ? TSL2550_MAX_LUX : lux;
@@ -274,6 +277,7 @@ static DEVICE_ATTR(operating_mode, S_IWUSR | S_IRUGO,
 
 static ssize_t __tsl2550_show_lux(struct i2c_client *client, char *buf)
 {
+	struct tsl2550_data *data = i2c_get_clientdata(client);
 	u8 ch0, ch1;
 	int ret;
 
@@ -293,6 +297,8 @@ static ssize_t __tsl2550_show_lux(struct i2c_client *client, char *buf)
 	ret = tsl2550_calculate_lux(ch0, ch1);
 	if (ret < 0)
 		return ret;
+	if (data->operating_mode == 1)
+		ret *= 5;
 
 	return sprintf(buf, "%d\n", ret);
 }

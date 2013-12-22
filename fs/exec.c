@@ -105,7 +105,7 @@ static inline void put_binfmt(struct linux_binfmt * fmt)
  *
  * Also note that we take the address to load from from the file itself.
  */
-asmlinkage long sys_uselib(const char __user * library)
+SYSCALL_DEFINE1(uselib, const char __user *, library)
 {
 	struct file *file;
 	struct nameidata nd;
@@ -393,6 +393,9 @@ static int count(char __user * __user * argv, int max)
 			argv++;
 			if(++i > max)
 				return -E2BIG;
+
+			if (fatal_signal_pending(current))
+				return -ERESTARTNOHAND;
 			cond_resched();
 		}
 	}
@@ -435,6 +438,12 @@ static int copy_strings(int argc, char __user * __user * argv,
 
 		while (len > 0) {
 			int offset, bytes_to_copy;
+
+			if (fatal_signal_pending(current)) {
+				ret = -ERESTARTNOHAND;
+				goto out;
+			}
+			cond_resched();
 
 			offset = pos % PAGE_SIZE;
 			if (offset == 0)
@@ -608,6 +617,11 @@ int setup_arg_pages(struct linux_binprm *bprm,
 #else
 	stack_top = arch_align_stack(stack_top);
 	stack_top = PAGE_ALIGN(stack_top);
+
+	if (unlikely(stack_top < mmap_min_addr) ||
+	    unlikely(vma->vm_end - vma->vm_start >= stack_top - mmap_min_addr))
+		return -ENOMEM;
+
 	stack_shift = vma->vm_end - stack_top;
 
 	bprm->p -= stack_shift;
@@ -1089,9 +1103,7 @@ static int unsafe_exec(struct task_struct *p)
 {
 	int unsafe = tracehook_unsafe_exec(p);
 
-	if (atomic_read(&p->fs->count) > 1 ||
-	    atomic_read(&p->files->count) > 1 ||
-	    atomic_read(&p->sighand->count) > 1)
+	if (atomic_read(&p->fs->count) > 1)
 		unsafe |= LSM_UNSAFE_SHARE;
 
 	return unsafe;
@@ -1164,6 +1176,7 @@ EXPORT_SYMBOL(remove_arg_zero);
  */
 int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 {
+	unsigned int depth = bprm->recursion_depth;
 	int try,retval;
 	struct linux_binfmt *fmt;
 #ifdef __alpha__
@@ -1224,8 +1237,15 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 				continue;
 			read_unlock(&binfmt_lock);
 			retval = fn(bprm, regs);
+			/*
+			 * Restore the depth counter to its starting value
+			 * in this call, so we don't have to rely on every
+			 * load_binary function to restore it on return.
+			 */
+			bprm->recursion_depth = depth;
 			if (retval >= 0) {
-				tracehook_report_exec(fmt, bprm, regs);
+				if (depth == 0)
+					tracehook_report_exec(fmt, bprm, regs);
 				put_binfmt(fmt);
 				allow_write_access(bprm->file);
 				if (bprm->file)
@@ -1820,8 +1840,9 @@ int do_coredump(long signr, int exit_code, struct pt_regs * regs)
 	/*
 	 * Dont allow local users get cute and trick others to coredump
 	 * into their pre-created files:
+	 * Note, this is not relevant for pipes
 	 */
-	if (inode->i_uid != current->fsuid)
+	if (!ispipe && (inode->i_uid != current->fsuid))
 		goto close_fail;
 	if (!file->f_op)
 		goto close_fail;

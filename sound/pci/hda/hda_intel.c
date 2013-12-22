@@ -45,6 +45,7 @@
 #include <linux/slab.h>
 #include <linux/pci.h>
 #include <linux/mutex.h>
+#include <linux/reboot.h>
 #include <sound/core.h>
 #include <sound/initval.h>
 #include "hda_codec.h"
@@ -385,6 +386,9 @@ struct azx {
 
 	/* for pending irqs */
 	struct work_struct irq_pending_work;
+
+	/* reboot notifier (for mysterious hangup problem at power-down) */
+	struct notifier_block reboot_notifier;
 };
 
 /* driver types */
@@ -1890,11 +1894,35 @@ static int azx_resume(struct pci_dev *pci)
 
 
 /*
+ * reboot notifier for hang-up problem at power-down
+ */
+static int azx_halt(struct notifier_block *nb, unsigned long event, void *buf)
+{
+	struct azx *chip = container_of(nb, struct azx, reboot_notifier);
+	azx_stop_chip(chip);
+	return NOTIFY_OK;
+}
+
+static void azx_notifier_register(struct azx *chip)
+{
+	chip->reboot_notifier.notifier_call = azx_halt;
+	register_reboot_notifier(&chip->reboot_notifier);
+}
+
+static void azx_notifier_unregister(struct azx *chip)
+{
+	if (chip->reboot_notifier.notifier_call)
+		unregister_reboot_notifier(&chip->reboot_notifier);
+}
+
+/*
  * destructor
  */
 static int azx_free(struct azx *chip)
 {
 	int i;
+
+	azx_notifier_unregister(chip);
 
 	if (chip->initialized) {
 		azx_clear_irq_pending(chip);
@@ -2082,9 +2110,17 @@ static int __devinit azx_create(struct snd_card *card, struct pci_dev *pci,
 	gcap = azx_readw(chip, GCAP);
 	snd_printdd("chipset global capabilities = 0x%x\n", gcap);
 
+	/* ATI chips seems buggy about 64bit DMA addresses */
+	if (chip->driver_type == AZX_DRIVER_ATI)
+		gcap &= ~0x01;
+
 	/* allow 64bit DMA address if supported by H/W */
 	if ((gcap & 0x01) && !pci_set_dma_mask(pci, DMA_64BIT_MASK))
 		pci_set_consistent_dma_mask(pci, DMA_64BIT_MASK);
+	else {
+		pci_set_dma_mask(pci, DMA_32BIT_MASK);
+		pci_set_consistent_dma_mask(pci, DMA_32BIT_MASK);
+	}
 
 	/* read number of streams from GCAP register instead of using
 	 * hardcoded value
@@ -2250,6 +2286,7 @@ static int __devinit azx_probe(struct pci_dev *pci,
 	pci_set_drvdata(pci, card);
 	chip->running = 1;
 	power_down_all_codecs(chip);
+	azx_notifier_register(chip);
 
 	dev++;
 	return err;

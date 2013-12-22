@@ -1290,7 +1290,7 @@ static int inode_doinit_with_dentry(struct inode *inode, struct dentry *opt_dent
 		/* Default to the fs superblock SID. */
 		isec->sid = sbsec->sid;
 
-		if (sbsec->proc) {
+		if (sbsec->proc && !S_ISLNK(inode->i_mode)) {
 			struct proc_inode *proci = PROC_I(inode);
 			if (proci->pde) {
 				isec->sclass = inode_mode_to_security_class(inode->i_mode);
@@ -4467,6 +4467,7 @@ static int selinux_ip_postroute_iptables_compat(struct sock *sk,
 	if (err)
 		return err;
 	err = avc_has_perm(sk_sid, if_sid, SECCLASS_NETIF, netif_perm, ad);
+	if (err)
 		return err;
 
 	err = sel_netnode_sid(addrp, family, &node_sid);
@@ -4476,7 +4477,7 @@ static int selinux_ip_postroute_iptables_compat(struct sock *sk,
 	if (err)
 		return err;
 
-	if (send_perm != 0)
+	if (!send_perm)
 		return 0;
 
 	err = sel_netport_sid(sk->sk_protocol,

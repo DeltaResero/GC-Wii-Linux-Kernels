@@ -1583,6 +1583,7 @@ static int snd_usbmidi_create_endpoints_midiman(struct snd_usb_midi* umidi,
 	}
 
 	ep_info.out_ep = get_endpoint(hostif, 2)->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
+	ep_info.out_interval = 0;
 	ep_info.out_cables = endpoint->out_cables & 0x5555;
 	err = snd_usbmidi_out_endpoint_create(umidi, &ep_info, &umidi->endpoints[0]);
 	if (err < 0)
@@ -1732,8 +1733,18 @@ int snd_usb_create_midi_interface(struct snd_usb_audio* chip,
 		umidi->usb_protocol_ops = &snd_usbmidi_novation_ops;
 		err = snd_usbmidi_detect_per_port_endpoints(umidi, endpoints);
 		break;
-	case QUIRK_MIDI_RAW:
+	case QUIRK_MIDI_FASTLANE:
 		umidi->usb_protocol_ops = &snd_usbmidi_raw_ops;
+		/*
+		 * Interface 1 contains isochronous endpoints, but with the same
+		 * numbers as in interface 0.  Since it is interface 1 that the
+		 * USB core has most recently seen, these descriptors are now
+		 * associated with the endpoint numbers.  This will foul up our
+		 * attempts to submit bulk/interrupt URBs to the endpoints in
+		 * interface 0, so we have to make sure that the USB core looks
+		 * again at interface 0 by calling usb_set_interface() on it.
+		 */
+		usb_set_interface(umidi->chip->dev, 0, 0);
 		err = snd_usbmidi_detect_per_port_endpoints(umidi, endpoints);
 		break;
 	case QUIRK_MIDI_EMAGIC:

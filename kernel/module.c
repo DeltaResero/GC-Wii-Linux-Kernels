@@ -715,8 +715,8 @@ static void wait_for_zero_refcount(struct module *mod)
 	mutex_lock(&module_mutex);
 }
 
-asmlinkage long
-sys_delete_module(const char __user *name_user, unsigned int flags)
+SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
+		unsigned int, flags)
 {
 	struct module *mod;
 	char name[MODULE_NAME_LEN];
@@ -1173,7 +1173,7 @@ static void free_notes_attrs(struct module_notes_attrs *notes_attrs,
 		while (i-- > 0)
 			sysfs_remove_bin_file(notes_attrs->dir,
 					      &notes_attrs->attrs[i]);
-		kobject_del(notes_attrs->dir);
+		kobject_put(notes_attrs->dir);
 	}
 	kfree(notes_attrs);
 }
@@ -2257,10 +2257,8 @@ static noinline struct module *load_module(void __user *umod,
 }
 
 /* This is where the real work happens */
-asmlinkage long
-sys_init_module(void __user *umod,
-		unsigned long len,
-		const char __user *uargs)
+SYSCALL_DEFINE3(init_module, void __user *, umod,
+		unsigned long, len, const char __user *, uargs)
 {
 	struct module *mod;
 	int ret = 0;

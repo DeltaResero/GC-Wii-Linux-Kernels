@@ -740,7 +740,7 @@ static int snd_pcm_alloc_vmalloc_buffer(struct snd_pcm_substream *subs, size_t s
 			return 0; /* already large enough */
 		vfree(runtime->dma_area);
 	}
-	runtime->dma_area = vmalloc(size);
+	runtime->dma_area = vmalloc_user(size);
 	if (!runtime->dma_area)
 		return -ENOMEM;
 	runtime->dma_bytes = size;
@@ -2516,7 +2516,6 @@ static int parse_audio_format_rates(struct snd_usb_audio *chip, struct audioform
 		 * build the rate table and bitmap flags
 		 */
 		int r, idx;
-		unsigned int nonzero_rates = 0;
 
 		fp->rate_table = kmalloc(sizeof(int) * nr_rates, GFP_KERNEL);
 		if (fp->rate_table == NULL) {
@@ -2524,24 +2523,27 @@ static int parse_audio_format_rates(struct snd_usb_audio *chip, struct audioform
 			return -1;
 		}
 
-		fp->nr_rates = nr_rates;
-		fp->rate_min = fp->rate_max = combine_triple(&fmt[8]);
+		fp->nr_rates = 0;
+		fp->rate_min = fp->rate_max = 0;
 		for (r = 0, idx = offset + 1; r < nr_rates; r++, idx += 3) {
 			unsigned int rate = combine_triple(&fmt[idx]);
+			if (!rate)
+				continue;
 			/* C-Media CM6501 mislabels its 96 kHz altsetting */
 			if (rate == 48000 && nr_rates == 1 &&
-			    chip->usb_id == USB_ID(0x0d8c, 0x0201) &&
+			    (chip->usb_id == USB_ID(0x0d8c, 0x0201) ||
+			     chip->usb_id == USB_ID(0x0d8c, 0x0102)) &&
 			    fp->altsetting == 5 && fp->maxpacksize == 392)
 				rate = 96000;
-			fp->rate_table[r] = rate;
-			nonzero_rates |= rate;
-			if (rate < fp->rate_min)
+			fp->rate_table[fp->nr_rates] = rate;
+			if (!fp->rate_min || rate < fp->rate_min)
 				fp->rate_min = rate;
-			else if (rate > fp->rate_max)
+			if (!fp->rate_max || rate > fp->rate_max)
 				fp->rate_max = rate;
 			fp->rates |= snd_pcm_rate_to_rate_bit(rate);
+			fp->nr_rates++;
 		}
-		if (!nonzero_rates) {
+		if (!fp->nr_rates) {
 			hwc_debug("All rates were zero. Skipping format!\n");
 			return -1;
 		}
@@ -2672,7 +2674,7 @@ static int parse_audio_endpoints(struct snd_usb_audio *chip, int iface_no)
 	struct usb_interface_descriptor *altsd;
 	int i, altno, err, stream;
 	int format;
-	struct audioformat *fp;
+	struct audioformat *fp = NULL;
 	unsigned char *fmt, *csep;
 	int num;
 
@@ -2744,6 +2746,18 @@ static int parse_audio_endpoints(struct snd_usb_audio *chip, int iface_no)
 				   dev->devnum, iface_no, altno);
 			continue;
 		}
+
+		/*
+		 * Blue Microphones workaround: The last altsetting is identical
+		 * with the previous one, except for a larger packet size, but
+		 * is actually a mislabeled two-channel setting; ignore it.
+		 */
+		if (fmt[4] == 1 && fmt[5] == 2 && altno == 2 && num == 3 &&
+		    fp && fp->altsetting == 1 && fp->channels == 1 &&
+		    fp->format == SNDRV_PCM_FORMAT_S16_LE &&
+		    le16_to_cpu(get_endpoint(alts, 0)->wMaxPacketSize) ==
+							fp->maxpacksize * 2)
+			continue;
 
 		csep = snd_usb_find_desc(alts->endpoint[0].extra, alts->endpoint[0].extralen, NULL, USB_DT_CS_ENDPOINT);
 		/* Creamware Noah has this descriptor after the 2nd endpoint */
@@ -2958,6 +2972,7 @@ static int create_fixed_stream_quirk(struct snd_usb_audio *chip,
 		return -EINVAL;
 	}
 	alts = &iface->altsetting[fp->altset_idx];
+	fp->maxpacksize = le16_to_cpu(get_endpoint(alts, 0)->wMaxPacketSize);
 	usb_set_interface(chip->dev, fp->iface, 0);
 	init_usb_pitch(chip->dev, fp->iface, alts, fp);
 	init_usb_sample_rate(chip->dev, fp->iface, alts, fp, fp->rate_max);
@@ -3364,7 +3379,7 @@ static int snd_usb_create_quirk(struct snd_usb_audio *chip,
 		[QUIRK_MIDI_YAMAHA] = snd_usb_create_midi_interface,
 		[QUIRK_MIDI_MIDIMAN] = snd_usb_create_midi_interface,
 		[QUIRK_MIDI_NOVATION] = snd_usb_create_midi_interface,
-		[QUIRK_MIDI_RAW] = snd_usb_create_midi_interface,
+		[QUIRK_MIDI_FASTLANE] = snd_usb_create_midi_interface,
 		[QUIRK_MIDI_EMAGIC] = snd_usb_create_midi_interface,
 		[QUIRK_MIDI_CME] = snd_usb_create_midi_interface,
 		[QUIRK_AUDIO_STANDARD_INTERFACE] = create_standard_audio_quirk,

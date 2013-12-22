@@ -167,11 +167,14 @@ static void tlb_clear_slave(struct bonding *bond, struct slave *slave, int save_
 	/* clear slave from tx_hashtbl */
 	tx_hash_table = BOND_ALB_INFO(bond).tx_hashtbl;
 
-	index = SLAVE_TLB_INFO(slave).head;
-	while (index != TLB_NULL_INDEX) {
-		u32 next_index = tx_hash_table[index].next;
-		tlb_init_table_entry(&tx_hash_table[index], save_load);
-		index = next_index;
+	/* skip this if we've already freed the tx hash table */
+	if (tx_hash_table) {
+		index = SLAVE_TLB_INFO(slave).head;
+		while (index != TLB_NULL_INDEX) {
+			u32 next_index = tx_hash_table[index].next;
+			tlb_init_table_entry(&tx_hash_table[index], save_load);
+			index = next_index;
+		}
 	}
 
 	tlb_init_slave(slave);
@@ -1713,9 +1716,6 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
 		}
 	}
 
-	write_unlock_bh(&bond->curr_slave_lock);
-	read_unlock(&bond->lock);
-
 	if (swap_slave) {
 		alb_swap_mac_addr(bond, swap_slave, bond->curr_active_slave);
 		alb_fasten_mac_swap(bond, swap_slave, bond->curr_active_slave);
@@ -1723,15 +1723,14 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
 		alb_set_slave_mac_addr(bond->curr_active_slave, bond_dev->dev_addr,
 				       bond->alb_info.rlb_enabled);
 
+		read_lock(&bond->lock);
 		alb_send_learning_packets(bond->curr_active_slave, bond_dev->dev_addr);
 		if (bond->alb_info.rlb_enabled) {
 			/* inform clients mac address has changed */
 			rlb_req_update_slave_clients(bond, bond->curr_active_slave);
 		}
+		read_unlock(&bond->lock);
 	}
-
-	read_lock(&bond->lock);
-	write_lock_bh(&bond->curr_slave_lock);
 
 	return 0;
 }

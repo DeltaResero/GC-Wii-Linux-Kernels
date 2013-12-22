@@ -447,8 +447,7 @@ static int free_ext_block(handle_t *handle, struct inode *inode)
 
 }
 
-int ext4_ext_migrate(struct inode *inode, struct file *filp,
-				unsigned int cmd, unsigned long arg)
+int ext4_ext_migrate(struct inode *inode)
 {
 	handle_t *handle;
 	int retval = 0, i;
@@ -481,7 +480,7 @@ int ext4_ext_migrate(struct inode *inode, struct file *filp,
 					+ 1);
 	if (IS_ERR(handle)) {
 		retval = PTR_ERR(handle);
-		goto err_out;
+		return retval;
 	}
 	tmp_inode = ext4_new_inode(handle,
 				inode->i_sb->s_root->d_inode,
@@ -489,8 +488,7 @@ int ext4_ext_migrate(struct inode *inode, struct file *filp,
 	if (IS_ERR(tmp_inode)) {
 		retval = -ENOMEM;
 		ext4_journal_stop(handle);
-		tmp_inode = NULL;
-		goto err_out;
+		return retval;
 	}
 	i_size_write(tmp_inode, i_size_read(inode));
 	/*
@@ -515,12 +513,6 @@ int ext4_ext_migrate(struct inode *inode, struct file *filp,
 	 * trascation that created the inode. Later as and
 	 * when we add extents we extent the journal
 	 */
-	/*
-	 * inode_mutex prevent write and truncate on the file. Read still goes
-	 * through. We take i_data_sem in ext4_ext_swap_inode_data before we
-	 * switch the inode format to prevent read.
-	 */
-	mutex_lock(&(inode->i_mutex));
 	/*
 	 * Even though we take i_mutex we can still cause block allocation
 	 * via mmap write to holes. If we have allocated new blocks we fail
@@ -623,10 +615,8 @@ err_out:
 	tmp_inode->i_nlink = 0;
 
 	ext4_journal_stop(handle);
-	mutex_unlock(&(inode->i_mutex));
 
-	if (tmp_inode)
-		iput(tmp_inode);
+	iput(tmp_inode);
 
 	return retval;
 }

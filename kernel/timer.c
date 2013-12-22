@@ -978,6 +978,7 @@ void update_process_times(int user_tick)
 	run_local_timers();
 	if (rcu_pending(cpu))
 		rcu_check_callbacks(cpu, user_tick);
+	printk_tick();
 	scheduler_tick();
 	run_posix_cpu_timers(p);
 }
@@ -1074,7 +1075,7 @@ void do_timer(unsigned long ticks)
  * For backwards compatibility?  This can be done in libc so Alpha
  * and all newer ports shouldn't need it.
  */
-asmlinkage unsigned long sys_alarm(unsigned int seconds)
+SYSCALL_DEFINE1(alarm, unsigned int, seconds)
 {
 	return alarm_setitimer(seconds);
 }
@@ -1097,7 +1098,7 @@ asmlinkage unsigned long sys_alarm(unsigned int seconds)
  *
  * This is SMP safe as current->tgid does not change.
  */
-asmlinkage long sys_getpid(void)
+SYSCALL_DEFINE0(getpid)
 {
 	return task_tgid_vnr(current);
 }
@@ -1108,7 +1109,7 @@ asmlinkage long sys_getpid(void)
  * value of ->real_parent under rcu_read_lock(), see
  * release_task()->call_rcu(delayed_put_task_struct).
  */
-asmlinkage long sys_getppid(void)
+SYSCALL_DEFINE0(getppid)
 {
 	int pid;
 
@@ -1119,25 +1120,25 @@ asmlinkage long sys_getppid(void)
 	return pid;
 }
 
-asmlinkage long sys_getuid(void)
+SYSCALL_DEFINE0(getuid)
 {
 	/* Only we change this so SMP safe */
 	return current->uid;
 }
 
-asmlinkage long sys_geteuid(void)
+SYSCALL_DEFINE0(geteuid)
 {
 	/* Only we change this so SMP safe */
 	return current->euid;
 }
 
-asmlinkage long sys_getgid(void)
+SYSCALL_DEFINE0(getgid)
 {
 	/* Only we change this so SMP safe */
 	return current->gid;
 }
 
-asmlinkage long sys_getegid(void)
+SYSCALL_DEFINE0(getegid)
 {
 	/* Only we change this so SMP safe */
 	return  current->egid;
@@ -1253,7 +1254,7 @@ signed long __sched schedule_timeout_uninterruptible(signed long timeout)
 EXPORT_SYMBOL(schedule_timeout_uninterruptible);
 
 /* Thread ID - the internal kernel "pid" */
-asmlinkage long sys_gettid(void)
+SYSCALL_DEFINE0(gettid)
 {
 	return task_pid_vnr(current);
 }
@@ -1345,7 +1346,7 @@ out:
 	return 0;
 }
 
-asmlinkage long sys_sysinfo(struct sysinfo __user *info)
+SYSCALL_DEFINE1(sysinfo, struct sysinfo __user *, info)
 {
 	struct sysinfo val;
 

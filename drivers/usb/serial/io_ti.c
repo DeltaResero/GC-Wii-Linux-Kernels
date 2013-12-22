@@ -76,7 +76,6 @@ struct edgeport_uart_buf_desc {
 #define EDGE_READ_URB_STOPPING	1
 #define EDGE_READ_URB_STOPPED	2
 
-#define EDGE_LOW_LATENCY	1
 #define EDGE_CLOSING_WAIT	4000	/* in .01 sec */
 
 #define EDGE_OUT_BUF_SIZE	1024
@@ -232,7 +231,6 @@ static unsigned short OperationalBuildNumber;
 
 static int debug;
 
-static int low_latency = EDGE_LOW_LATENCY;
 static int closing_wait = EDGE_CLOSING_WAIT;
 static int ignore_cpu_rev;
 static int default_uart_mode;		/* RS232 */
@@ -1158,7 +1156,7 @@ static int download_fw(struct edgeport_serial *serial)
 
 			/* Check if we have an old version in the I2C and
 			   update if necessary */
-			if (download_cur_ver != download_new_ver) {
+			if (download_cur_ver < download_new_ver) {
 				dbg("%s - Update I2C dld from %d.%d to %d.%d",
 				    __func__,
 				    firmware_version->Ver_Major,
@@ -1837,9 +1835,6 @@ static int edge_open(struct tty_struct *tty,
 
 	if (edge_port == NULL)
 		return -ENODEV;
-
-	if (tty)
-		tty->low_latency = low_latency;
 
 	port_number = port->number - port->serial->minor;
 	switch (port_number) {
@@ -2657,7 +2652,7 @@ cleanup:
 	return -ENOMEM;
 }
 
-static void edge_shutdown(struct usb_serial *serial)
+static void edge_disconnect(struct usb_serial *serial)
 {
 	int i;
 	struct edgeport_port *edge_port;
@@ -2667,12 +2662,22 @@ static void edge_shutdown(struct usb_serial *serial)
 	for (i = 0; i < serial->num_ports; ++i) {
 		edge_port = usb_get_serial_port_data(serial->port[i]);
 		edge_remove_sysfs_attrs(edge_port->port);
+	}
+}
+
+static void edge_release(struct usb_serial *serial)
+{
+	int i;
+	struct edgeport_port *edge_port;
+
+	dbg("%s", __func__);
+
+	for (i = 0; i < serial->num_ports; ++i) {
+		edge_port = usb_get_serial_port_data(serial->port[i]);
 		edge_buf_free(edge_port->ep_out_buf);
 		kfree(edge_port);
-		usb_set_serial_port_data(serial->port[i], NULL);
 	}
 	kfree(usb_get_serial_data(serial));
-	usb_set_serial_data(serial, NULL);
 }
 
 
@@ -2909,7 +2914,8 @@ static struct usb_serial_driver edgeport_1port_device = {
 	.throttle		= edge_throttle,
 	.unthrottle		= edge_unthrottle,
 	.attach			= edge_startup,
-	.shutdown		= edge_shutdown,
+	.disconnect		= edge_disconnect,
+	.release		= edge_release,
 	.port_probe		= edge_create_sysfs_attrs,
 	.ioctl			= edge_ioctl,
 	.set_termios		= edge_set_termios,
@@ -2938,7 +2944,8 @@ static struct usb_serial_driver edgeport_2port_device = {
 	.throttle		= edge_throttle,
 	.unthrottle		= edge_unthrottle,
 	.attach			= edge_startup,
-	.shutdown		= edge_shutdown,
+	.disconnect		= edge_disconnect,
+	.release		= edge_release,
 	.port_probe		= edge_create_sysfs_attrs,
 	.ioctl			= edge_ioctl,
 	.set_termios		= edge_set_termios,
@@ -2994,9 +3001,6 @@ MODULE_FIRMWARE("edgeport/down3.bin");
 
 module_param(debug, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "Debug enabled or not");
-
-module_param(low_latency, bool, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(low_latency, "Low latency enabled or not");
 
 module_param(closing_wait, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(closing_wait, "Maximum wait for data to drain, in .01 secs");

@@ -303,6 +303,9 @@ static void acpi_timer_check_state(int state, struct acpi_processor *pr,
 	struct acpi_processor_power *pwr = &pr->power;
 	u8 type = local_apic_timer_c2_ok ? ACPI_STATE_C3 : ACPI_STATE_C2;
 
+	if (boot_cpu_has(X86_FEATURE_AMDC1E))
+		type = ACPI_STATE_C1;
+
 	/*
 	 * Check, if one of the previous states already marked the lapic
 	 * unstable
@@ -314,14 +317,21 @@ static void acpi_timer_check_state(int state, struct acpi_processor *pr,
 		pr->power.timer_broadcast_on_state = state;
 }
 
-static void acpi_propagate_timer_broadcast(struct acpi_processor *pr)
+static void __lapic_timer_propagate_broadcast(void *arg)
 {
+	struct acpi_processor *pr = (struct acpi_processor *) arg;
 	unsigned long reason;
 
 	reason = pr->power.timer_broadcast_on_state < INT_MAX ?
 		CLOCK_EVT_NOTIFY_BROADCAST_ON : CLOCK_EVT_NOTIFY_BROADCAST_OFF;
 
 	clockevents_notify(reason, &pr->id);
+}
+
+static void lapic_timer_propagate_broadcast(struct acpi_processor *pr)
+{
+	smp_call_function_single(pr->id, __lapic_timer_propagate_broadcast,
+				 (void *)pr, 1);
 }
 
 /* Power(C) State timer broadcast control */
@@ -344,7 +354,7 @@ static void acpi_state_timer_broadcast(struct acpi_processor *pr,
 
 static void acpi_timer_check_state(int state, struct acpi_processor *pr,
 				   struct acpi_processor_cx *cstate) { }
-static void acpi_propagate_timer_broadcast(struct acpi_processor *pr) { }
+static void lapic_timer_propagate_broadcast(struct acpi_processor *pr) { }
 static void acpi_state_timer_broadcast(struct acpi_processor *pr,
 				       struct acpi_processor_cx *cx,
 				       int broadcast)
@@ -1154,6 +1164,7 @@ static int acpi_processor_power_verify(struct acpi_processor *pr)
 		switch (cx->type) {
 		case ACPI_STATE_C1:
 			cx->valid = 1;
+			acpi_timer_check_state(i, pr, cx);
 			break;
 
 		case ACPI_STATE_C2:
@@ -1173,7 +1184,7 @@ static int acpi_processor_power_verify(struct acpi_processor *pr)
 			working++;
 	}
 
-	acpi_propagate_timer_broadcast(pr);
+	lapic_timer_propagate_broadcast(pr);
 
 	return (working);
 }
@@ -1468,20 +1479,22 @@ static int acpi_idle_enter_c1(struct cpuidle_device *dev,
 
 	/* Do not access any ACPI IO ports in suspend path */
 	if (acpi_idle_suspend) {
-		acpi_safe_halt();
 		local_irq_enable();
+		cpu_relax();
 		return 0;
 	}
 
 	if (pr->flags.bm_check)
 		acpi_idle_update_bm_rld(pr, cx);
 
+	acpi_state_timer_broadcast(pr, cx, 1);
 	t1 = inl(acpi_gbl_FADT.xpm_timer_block.address);
 	acpi_idle_do_entry(cx);
 	t2 = inl(acpi_gbl_FADT.xpm_timer_block.address);
 
 	local_irq_enable();
 	cx->usage++;
+	acpi_state_timer_broadcast(pr, cx, 0);
 
 	return ticks_elapsed_in_us(t1, t2);
 }
@@ -1587,6 +1600,7 @@ static int acpi_idle_enter_bm(struct cpuidle_device *dev,
 
 	if (acpi_idle_bm_check()) {
 		if (dev->safe_state) {
+			dev->last_state = dev->safe_state;
 			return dev->safe_state->enter(dev, dev->safe_state);
 		} else {
 			local_irq_disable();

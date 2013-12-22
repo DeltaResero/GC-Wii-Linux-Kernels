@@ -133,7 +133,7 @@ static inline compat_uptr_t ptr_to_compat(void __user *uptr)
 	return (u32)(unsigned long)uptr;
 }
 
-static inline void __user *compat_alloc_user_space(long len)
+static inline void __user *arch_compat_alloc_user_space(long len)
 {
 	struct pt_regs *regs = current->thread.regs;
 	unsigned long usp = regs->gpr[1];
@@ -209,6 +209,11 @@ struct compat_shmid64_ds {
 	compat_ulong_t __unused5;
 	compat_ulong_t __unused6;
 };
+
+static inline int is_compat_task(void)
+{
+	return test_thread_flag(TIF_32BIT);
+}
 
 #endif /* __KERNEL__ */
 #endif /* _ASM_POWERPC_COMPAT_H */

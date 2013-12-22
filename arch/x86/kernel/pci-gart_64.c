@@ -658,8 +658,6 @@ static __init int init_k8_gatt(struct agp_kern_info *info)
 	memset(gatt, 0, gatt_size);
 	agp_gatt_table = gatt;
 
-	enable_gart_translations();
-
 	error = sysdev_class_register(&gart_sysdev_class);
 	if (!error)
 		error = sysdev_register(&device_gart);
@@ -828,6 +826,14 @@ void __init gart_iommu_init(void)
 	wbinvd();
 
 	/*
+	 * Now all caches are flushed and we can safely enable
+	 * GART hardware.  Doing it early leaves the possibility
+	 * of stale cache entries that can lead to GART PTE
+	 * errors.
+	 */
+	enable_gart_translations();
+
+	/*
 	 * Try to workaround a bug (thanks to BenH):
 	 * Set unmapped entries to a scratch page instead of 0.
 	 * Any prefetches that hit unmapped entries won't get an bus abort
@@ -859,7 +865,7 @@ void __init gart_parse_options(char *p)
 #endif
 	if (isdigit(*p) && get_option(&p, &arg))
 		iommu_size = arg;
-	if (!strncmp(p, "fullflush", 8))
+	if (!strncmp(p, "fullflush", 9))
 		iommu_fullflush = 1;
 	if (!strncmp(p, "nofullflush", 11))
 		iommu_fullflush = 0;

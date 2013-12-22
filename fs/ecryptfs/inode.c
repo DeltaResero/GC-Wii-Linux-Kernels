@@ -70,15 +70,19 @@ ecryptfs_create_underlying_file(struct inode *lower_dir_inode,
 	struct vfsmount *lower_mnt = ecryptfs_dentry_to_lower_mnt(dentry);
 	struct dentry *dentry_save;
 	struct vfsmount *vfsmount_save;
+	unsigned int flags_save;
 	int rc;
 
 	dentry_save = nd->path.dentry;
 	vfsmount_save = nd->path.mnt;
+	flags_save = nd->flags;
 	nd->path.dentry = lower_dentry;
 	nd->path.mnt = lower_mnt;
+	nd->flags &= ~LOOKUP_OPEN;
 	rc = vfs_create(lower_dir_inode, lower_dentry, mode, nd);
 	nd->path.dentry = dentry_save;
 	nd->path.mnt = vfsmount_save;
+	nd->flags = flags_save;
 	return rc;
 }
 
@@ -443,6 +447,7 @@ static int ecryptfs_unlink(struct inode *dir, struct dentry *dentry)
 	struct inode *lower_dir_inode = ecryptfs_inode_to_lower(dir);
 	struct dentry *lower_dir_dentry;
 
+	dget(lower_dentry);
 	lower_dir_dentry = lock_parent(lower_dentry);
 	rc = vfs_unlink(lower_dir_inode, lower_dentry);
 	if (rc) {
@@ -456,6 +461,7 @@ static int ecryptfs_unlink(struct inode *dir, struct dentry *dentry)
 	d_drop(dentry);
 out_unlock:
 	unlock_dir(lower_dir_dentry);
+	dput(lower_dentry);
 	return rc;
 }
 
@@ -673,10 +679,11 @@ static void *ecryptfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 	ecryptfs_printk(KERN_DEBUG, "Calling readlink w/ "
 			"dentry->d_name.name = [%s]\n", dentry->d_name.name);
 	rc = dentry->d_inode->i_op->readlink(dentry, (char __user *)buf, len);
-	buf[rc] = '\0';
 	set_fs(old_fs);
 	if (rc < 0)
 		goto out_free;
+	else
+		buf[rc] = '\0';
 	rc = 0;
 	nd_set_link(nd, buf);
 	goto out;

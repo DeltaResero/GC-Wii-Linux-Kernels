@@ -83,6 +83,7 @@
 #define USB_DEVICE_ID_APPLE_WELLSPRING2_JIS	0x0232
 #define USB_DEVICE_ID_APPLE_FOUNTAIN_TP_ONLY	0x030a
 #define USB_DEVICE_ID_APPLE_GEYSER1_TP_ONLY	0x030b
+#define USB_DEVICE_ID_APPLE_ATV_IRCONTROL	0x8241
 #define USB_DEVICE_ID_APPLE_IRCONTROL4	0x8242
 
 #define USB_VENDOR_ID_ASUS		0x0b05
@@ -247,8 +248,6 @@
 #define USB_DEVICE_ID_LD_MACHINETEST	0x2040
 
 #define USB_VENDOR_ID_LOGITECH		0x046d
-#define USB_DEVICE_ID_LOGITECH_LX3	0xc044
-#define USB_DEVICE_ID_LOGITECH_V150	0xc047
 #define USB_DEVICE_ID_LOGITECH_RECEIVER	0xc101
 #define USB_DEVICE_ID_LOGITECH_HARMONY  0xc110
 #define USB_DEVICE_ID_LOGITECH_HARMONY_2 0xc111
@@ -460,6 +459,7 @@ static const struct hid_blacklist {
 	{ USB_VENDOR_ID_AFATECH, USB_DEVICE_ID_AFATECH_AF9016, HID_QUIRK_FULLSPEED_INTERVAL },
 
 	{ USB_VENDOR_ID_BELKIN, USB_DEVICE_ID_FLIP_KVM, HID_QUIRK_HIDDEV },
+	{ USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_ATV_IRCONTROL, HID_QUIRK_HIDDEV | HID_QUIRK_IGNORE_HIDINPUT },
 	{ USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_IRCONTROL4, HID_QUIRK_HIDDEV | HID_QUIRK_IGNORE_HIDINPUT },
 	{ USB_VENDOR_ID_SAMSUNG, USB_DEVICE_ID_SAMSUNG_IR_REMOTE, HID_QUIRK_HIDDEV | HID_QUIRK_IGNORE_HIDINPUT },
 	{ USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_SIDEWINDER_GV, HID_QUIRK_HIDINPUT },
@@ -603,8 +603,6 @@ static const struct hid_blacklist {
 
 	{ USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_ELITE_KBD, HID_QUIRK_LOGITECH_IGNORE_DOUBLED_WHEEL | HID_QUIRK_LOGITECH_EXPANDED_KEYMAP },
 	{ USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_CORDLESS_DESKTOP_LX500, HID_QUIRK_LOGITECH_IGNORE_DOUBLED_WHEEL | HID_QUIRK_LOGITECH_EXPANDED_KEYMAP },
-	{ USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_LX3, HID_QUIRK_INVERT_HWHEEL },
-	{ USB_VENDOR_ID_LOGITECH, USB_DEVICE_ID_LOGITECH_V150, HID_QUIRK_INVERT_HWHEEL },
 
 	{ USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_NE4K, HID_QUIRK_MICROSOFT_KEYS },
 	{ USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_LK6K, HID_QUIRK_MICROSOFT_KEYS },
@@ -1132,24 +1130,16 @@ static void usbhid_fixup_button_consumer_descriptor(unsigned char *rdesc, int rs
 }
 
 /*
- * Microsoft Wireless Desktop Receiver (Model 1028) has several
+ * Microsoft Wireless Desktop Receiver (Model 1028) has
  * 'Usage Min/Max' where it ought to have 'Physical Min/Max'
  */
 static void usbhid_fixup_microsoft_descriptor(unsigned char *rdesc, int rsize)
 {
-	if (rsize == 571 && rdesc[284] == 0x19
-	                 && rdesc[286] == 0x2a
-	                 && rdesc[304] == 0x19
-	                 && rdesc[306] == 0x29
-	                 && rdesc[352] == 0x1a
-	                 && rdesc[355] == 0x2a
-			 && rdesc[557] == 0x19
+	if (rsize == 571 && rdesc[557] == 0x19
 			 && rdesc[559] == 0x29) {
 		printk(KERN_INFO "Fixing up Microsoft Wireless Receiver Model 1028 report descriptor\n");
-		rdesc[284] = rdesc[304] = rdesc[557] = 0x35;
-		rdesc[352] = 0x36;
-		rdesc[286] = rdesc[355] = 0x46;
-		rdesc[306] = rdesc[559] = 0x45;
+		rdesc[557] = 0x35;
+		rdesc[559] = 0x45;
 	}
 }
 

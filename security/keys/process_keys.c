@@ -40,7 +40,7 @@ struct key_user root_key_user = {
 /*
  * install user and user session keyrings for a particular UID
  */
-static int install_user_keyrings(struct task_struct *tsk)
+int install_user_keyrings(struct task_struct *tsk)
 {
 	struct user_struct *user = tsk->user;
 	struct key *uid_keyring, *session_keyring;
@@ -592,7 +592,7 @@ key_ref_t lookup_user_key(struct task_struct *context, key_serial_t id,
 
 			ret = install_thread_keyring(context);
 			if (ret < 0) {
-				key = ERR_PTR(ret);
+				key_ref = ERR_PTR(ret);
 				goto error;
 			}
 		}
@@ -609,7 +609,7 @@ key_ref_t lookup_user_key(struct task_struct *context, key_serial_t id,
 
 			ret = install_process_keyring(context);
 			if (ret < 0) {
-				key = ERR_PTR(ret);
+				key_ref = ERR_PTR(ret);
 				goto error;
 			}
 		}
@@ -665,7 +665,7 @@ key_ref_t lookup_user_key(struct task_struct *context, key_serial_t id,
 
 	case KEY_SPEC_GROUP_KEYRING:
 		/* group keyrings are not yet supported */
-		key = ERR_PTR(-EINVAL);
+		key_ref = ERR_PTR(-EINVAL);
 		goto error;
 
 	case KEY_SPEC_REQKEY_AUTH_KEY:

@@ -834,10 +834,10 @@ static void atkbd_disconnect(struct serio *serio)
 }
 
 /*
- * Most special keys (Fn+F?) on Dell Latitudes do not generate release
+ * Most special keys (Fn+F?) on Dell laptops do not generate release
  * events so we have to do it ourselves.
  */
-static void atkbd_latitude_keymap_fixup(struct atkbd *atkbd)
+static void atkbd_dell_laptop_keymap_fixup(struct atkbd *atkbd)
 {
 	const unsigned int forced_release_keys[] = {
 		0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8f, 0x93,
@@ -865,6 +865,38 @@ static void atkbd_hp_keymap_fixup(struct atkbd *atkbd)
 		for (i = 0; i < ARRAY_SIZE(forced_release_keys); i++)
 			__set_bit(forced_release_keys[i],
 					atkbd->force_release_mask);
+}
+
+/*
+ * Inventec system with broken key release on volume keys
+ */
+static void atkbd_inventec_keymap_fixup(struct atkbd *atkbd)
+{
+	const unsigned int forced_release_keys[] = {
+		0xae, 0xb0,
+	};
+	int i;
+
+	if (atkbd->set == 2)
+		for (i = 0; i < ARRAY_SIZE(forced_release_keys); i++)
+			__set_bit(forced_release_keys[i],
+				  atkbd->force_release_mask);
+}
+
+/*
+ * Samsung NC10 with Fn+F? key release not working
+ */
+static void atkbd_samsung_keymap_fixup(struct atkbd *atkbd)
+{
+	const unsigned int forced_release_keys[] = {
+		0x82, 0x83, 0x84, 0x86, 0x88, 0x89, 0xb3, 0xf7, 0xf9,
+	};
+	int i;
+
+	if (atkbd->set == 2)
+		for (i = 0; i < ARRAY_SIZE(forced_release_keys); i++)
+			__set_bit(forced_release_keys[i],
+				  atkbd->force_release_mask);
 }
 
 /*
@@ -1461,13 +1493,22 @@ static int __init atkbd_setup_fixup(const struct dmi_system_id *id)
 
 static struct dmi_system_id atkbd_dmi_quirk_table[] __initdata = {
 	{
-		.ident = "Dell Latitude series",
+		.ident = "Dell Laptop",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
-			DMI_MATCH(DMI_PRODUCT_NAME, "Latitude"),
+			DMI_MATCH(DMI_CHASSIS_TYPE, "8"), /* Portable */
 		},
 		.callback = atkbd_setup_fixup,
-		.driver_data = atkbd_latitude_keymap_fixup,
+		.driver_data = atkbd_dell_laptop_keymap_fixup,
+	},
+	{
+		.ident = "Dell Laptop",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Computer Corporation"),
+			DMI_MATCH(DMI_CHASSIS_TYPE, "8"), /* Portable */
+		},
+		.callback = atkbd_setup_fixup,
+		.driver_data = atkbd_dell_laptop_keymap_fixup,
 	},
 	{
 		.ident = "HP 2133",
@@ -1477,6 +1518,24 @@ static struct dmi_system_id atkbd_dmi_quirk_table[] __initdata = {
 		},
 		.callback = atkbd_setup_fixup,
 		.driver_data = atkbd_hp_keymap_fixup,
+	},
+	{
+		.ident = "Inventec Symphony",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "INVENTEC"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "SYMPHONY 6.0/7.0"),
+		},
+		.callback = atkbd_setup_fixup,
+		.driver_data = atkbd_inventec_keymap_fixup,
+	},
+	{
+		.ident = "Samsung NC10",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "SAMSUNG ELECTRONICS CO., LTD."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "NC10"),
+		},
+		.callback = atkbd_setup_fixup,
+		.driver_data = atkbd_samsung_keymap_fixup,
 	},
 	{ }
 };

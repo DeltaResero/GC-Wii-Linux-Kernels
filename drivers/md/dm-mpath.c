@@ -427,13 +427,13 @@ static void process_queued_ios(struct work_struct *work)
 		__choose_pgpath(m);
 
 	pgpath = m->current_pgpath;
-	m->pgpath_to_activate = m->current_pgpath;
 
 	if ((pgpath && !m->queue_io) ||
 	    (!pgpath && !m->queue_if_no_path))
 		must_queue = 0;
 
-	if (m->pg_init_required && !m->pg_init_in_progress) {
+	if (m->pg_init_required && !m->pg_init_in_progress && pgpath) {
+		m->pgpath_to_activate = pgpath;
 		m->pg_init_count++;
 		m->pg_init_required = 0;
 		m->pg_init_in_progress = 1;
@@ -537,6 +537,12 @@ static int parse_path_selector(struct arg_set *as, struct priority_group *pg,
 	r = read_param(_params, shift(as), &ps_argc, &ti->error);
 	if (r) {
 		dm_put_path_selector(pst);
+		return -EINVAL;
+	}
+
+	if (ps_argc > as->argc) {
+		dm_put_path_selector(pst);
+		ti->error = "not enough arguments for path selector";
 		return -EINVAL;
 	}
 
@@ -683,6 +689,11 @@ static int parse_hw_handler(struct arg_set *as, struct multipath *m)
 
 	if (!hw_argc)
 		return 0;
+
+	if (hw_argc > as->argc) {
+		ti->error = "not enough arguments for hardware handler";
+		return -EINVAL;
+	}
 
 	m->hw_handler_name = kstrdup(shift(as), GFP_KERNEL);
 	request_module("scsi_dh_%s", m->hw_handler_name);

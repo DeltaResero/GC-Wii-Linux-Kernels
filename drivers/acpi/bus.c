@@ -77,7 +77,7 @@ EXPORT_SYMBOL(acpi_bus_get_device);
 int acpi_bus_get_status(struct acpi_device *device)
 {
 	acpi_status status = AE_OK;
-	unsigned long sta = 0;
+	unsigned long long sta = 0;
 
 
 	if (!device)
@@ -95,21 +95,21 @@ int acpi_bus_get_status(struct acpi_device *device)
 	}
 
 	/*
-	 * Otherwise we assume the status of our parent (unless we don't
-	 * have one, in which case status is implied).
+	 * According to ACPI spec some device can be present and functional
+	 * even if the parent is not present but functional.
+	 * In such conditions the child device should not inherit the status
+	 * from the parent.
 	 */
-	else if (device->parent)
-		device->status = device->parent->status;
 	else
 		STRUCT_TO_INT(device->status) =
 		    ACPI_STA_DEVICE_PRESENT | ACPI_STA_DEVICE_ENABLED |
 		    ACPI_STA_DEVICE_UI      | ACPI_STA_DEVICE_FUNCTIONING;
 
 	if (device->status.functional && !device->status.present) {
-		printk(KERN_WARNING PREFIX "Device [%s] status [%08x]: "
-		       "functional but not present; setting present\n",
-		       device->pnp.bus_id, (u32) STRUCT_TO_INT(device->status));
-		device->status.present = 1;
+		ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Device [%s] status [%08x]: "
+		       "functional but not present;\n",
+			device->pnp.bus_id,
+			(u32) STRUCT_TO_INT(device->status)));
 	}
 
 	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Device [%s] status [%08x]\n",
@@ -155,7 +155,7 @@ int acpi_bus_get_power(acpi_handle handle, int *state)
 	int result = 0;
 	acpi_status status = 0;
 	struct acpi_device *device = NULL;
-	unsigned long psc = 0;
+	unsigned long long psc = 0;
 
 
 	result = acpi_bus_get_device(handle, &device);

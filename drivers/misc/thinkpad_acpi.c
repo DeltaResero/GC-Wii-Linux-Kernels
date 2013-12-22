@@ -282,11 +282,17 @@ static u32 dbg_level;
 
 static struct workqueue_struct *tpacpi_wq;
 
+enum led_status_t {
+	TPACPI_LED_OFF = 0,
+	TPACPI_LED_ON,
+	TPACPI_LED_BLINK,
+};
+
 /* Special LED class that can defer work */
 struct tpacpi_led_classdev {
 	struct led_classdev led_classdev;
 	struct work_struct work;
-	enum led_brightness new_brightness;
+	enum led_status_t new_state;
 	unsigned int led;
 };
 
@@ -3478,7 +3484,7 @@ static void light_set_status_worker(struct work_struct *work)
 			container_of(work, struct tpacpi_led_classdev, work);
 
 	if (likely(tpacpi_lifecycle == TPACPI_LIFE_RUNNING))
-		light_set_status((data->new_brightness != LED_OFF));
+		light_set_status((data->new_state != TPACPI_LED_OFF));
 }
 
 static void light_sysfs_set(struct led_classdev *led_cdev,
@@ -3488,7 +3494,8 @@ static void light_sysfs_set(struct led_classdev *led_cdev,
 		container_of(led_cdev,
 			     struct tpacpi_led_classdev,
 			     led_classdev);
-	data->new_brightness = brightness;
+	data->new_state = (brightness != LED_OFF) ?
+				TPACPI_LED_ON : TPACPI_LED_OFF;
 	queue_work(tpacpi_wq, &data->work);
 }
 
@@ -3995,12 +4002,6 @@ enum {	/* For TPACPI_LED_OLD */
 	TPACPI_LED_EC_HLMS = 0x0e,	/* EC reg to select led to command */
 };
 
-enum led_status_t {
-	TPACPI_LED_OFF = 0,
-	TPACPI_LED_ON,
-	TPACPI_LED_BLINK,
-};
-
 static enum led_access_mode led_supported;
 
 TPACPI_HANDLE(led, ec, "SLED",	/* 570 */
@@ -4094,23 +4095,13 @@ static int led_set_status(const unsigned int led,
 	return rc;
 }
 
-static void led_sysfs_set_status(unsigned int led,
-				 enum led_brightness brightness)
-{
-	led_set_status(led,
-			(brightness == LED_OFF) ?
-			TPACPI_LED_OFF :
-			(tpacpi_led_state_cache[led] == TPACPI_LED_BLINK) ?
-				TPACPI_LED_BLINK : TPACPI_LED_ON);
-}
-
 static void led_set_status_worker(struct work_struct *work)
 {
 	struct tpacpi_led_classdev *data =
 		container_of(work, struct tpacpi_led_classdev, work);
 
 	if (likely(tpacpi_lifecycle == TPACPI_LIFE_RUNNING))
-		led_sysfs_set_status(data->led, data->new_brightness);
+		led_set_status(data->led, data->new_state);
 }
 
 static void led_sysfs_set(struct led_classdev *led_cdev,
@@ -4119,7 +4110,13 @@ static void led_sysfs_set(struct led_classdev *led_cdev,
 	struct tpacpi_led_classdev *data = container_of(led_cdev,
 			     struct tpacpi_led_classdev, led_classdev);
 
-	data->new_brightness = brightness;
+	if (brightness == LED_OFF)
+		data->new_state = TPACPI_LED_OFF;
+	else if (tpacpi_led_state_cache[data->led] != TPACPI_LED_BLINK)
+		data->new_state = TPACPI_LED_ON;
+	else
+		data->new_state = TPACPI_LED_BLINK;
+
 	queue_work(tpacpi_wq, &data->work);
 }
 
@@ -4137,7 +4134,7 @@ static int led_sysfs_blink_set(struct led_classdev *led_cdev,
 	} else if ((*delay_on != 500) || (*delay_off != 500))
 		return -EINVAL;
 
-	data->new_brightness = TPACPI_LED_BLINK;
+	data->new_state = TPACPI_LED_BLINK;
 	queue_work(tpacpi_wq, &data->work);
 
 	return 0;
@@ -5045,7 +5042,7 @@ static int brightness_write(char *buf)
 	 * Doing it this way makes the syscall restartable in case of EINTR
 	 */
 	rc = brightness_set(level);
-	return (rc == -EINTR)? ERESTARTSYS : rc;
+	return (rc == -EINTR)? -ERESTARTSYS : rc;
 }
 
 static struct ibm_struct brightness_driver_data = {
@@ -6826,7 +6823,7 @@ MODULE_ALIAS(TPACPI_DRVR_SHORTNAME);
  * if it is not there yet.
  */
 #define IBM_BIOS_MODULE_ALIAS(__type) \
-	MODULE_ALIAS("dmi:bvnIBM:bvr" __type "ET??WW")
+	MODULE_ALIAS("dmi:bvnIBM:bvr" __type "ET??WW*")
 
 /* Non-ancient thinkpads */
 MODULE_ALIAS("dmi:bvnIBM:*:svnIBM:*:pvrThinkPad*:rvnIBM:*");
@@ -6835,9 +6832,9 @@ MODULE_ALIAS("dmi:bvnLENOVO:*:svnLENOVO:*:pvrThinkPad*:rvnLENOVO:*");
 /* Ancient thinkpad BIOSes have to be identified by
  * BIOS type or model number, and there are far less
  * BIOS types than model numbers... */
-IBM_BIOS_MODULE_ALIAS("I[B,D,H,I,M,N,O,T,W,V,Y,Z]");
-IBM_BIOS_MODULE_ALIAS("1[0,3,6,8,A-G,I,K,M-P,S,T]");
-IBM_BIOS_MODULE_ALIAS("K[U,X-Z]");
+IBM_BIOS_MODULE_ALIAS("I[BDHIMNOTWVYZ]");
+IBM_BIOS_MODULE_ALIAS("1[0368A-GIKM-PST]");
+IBM_BIOS_MODULE_ALIAS("K[UX-Z]");
 
 MODULE_AUTHOR("Borislav Deianov, Henrique de Moraes Holschuh");
 MODULE_DESCRIPTION(TPACPI_DESC);

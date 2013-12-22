@@ -16,6 +16,7 @@
 #include <linux/pm.h>
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/jiffies.h>
 #include <linux/pci-aspm.h>
 #include "../pci.h"
 
@@ -32,6 +33,11 @@ struct endpoint_state {
 struct pcie_link_state {
 	struct list_head sibiling;
 	struct pci_dev *pdev;
+	bool downstream_has_switch;
+
+	struct pcie_link_state *parent;
+	struct list_head children;
+	struct list_head link;
 
 	/* ASPM state */
 	unsigned int support_state;
@@ -124,7 +130,7 @@ static void pcie_set_clock_pm(struct pci_dev *pdev, int enable)
 	link_state->clk_pm_enabled = !!enable;
 }
 
-static void pcie_check_clock_pm(struct pci_dev *pdev)
+static void pcie_check_clock_pm(struct pci_dev *pdev, int blacklist)
 {
 	int pos;
 	u32 reg32;
@@ -148,10 +154,26 @@ static void pcie_check_clock_pm(struct pci_dev *pdev)
 		if (!(reg16 & PCI_EXP_LNKCTL_CLKREQ_EN))
 			enabled = 0;
 	}
-	link_state->clk_pm_capable = capable;
 	link_state->clk_pm_enabled = enabled;
 	link_state->bios_clk_state = enabled;
-	pcie_set_clock_pm(pdev, policy_to_clkpm_state(pdev));
+	if (!blacklist) {
+		link_state->clk_pm_capable = capable;
+		pcie_set_clock_pm(pdev, policy_to_clkpm_state(pdev));
+	} else {
+		link_state->clk_pm_capable = 0;
+		pcie_set_clock_pm(pdev, 0);
+	}
+}
+
+static bool pcie_aspm_downstream_has_switch(struct pci_dev *pdev)
+{
+	struct pci_dev *child_dev;
+
+	list_for_each_entry(child_dev, &pdev->subordinate->devices, bus_list) {
+		if (child_dev->pcie_type == PCI_EXP_TYPE_UPSTREAM)
+			return true;
+	}
+	return false;
 }
 
 /*
@@ -161,11 +183,12 @@ static void pcie_check_clock_pm(struct pci_dev *pdev)
  */
 static void pcie_aspm_configure_common_clock(struct pci_dev *pdev)
 {
-	int pos, child_pos;
+	int pos, child_pos, i = 0;
 	u16 reg16 = 0;
 	struct pci_dev *child_dev;
 	int same_clock = 1;
-
+	unsigned long start_jiffies;
+	u16 child_regs[8], parent_reg;
 	/*
 	 * all functions of a slot should have the same Slot Clock
 	 * Configuration, so just check one function
@@ -191,16 +214,19 @@ static void pcie_aspm_configure_common_clock(struct pci_dev *pdev)
 		child_pos = pci_find_capability(child_dev, PCI_CAP_ID_EXP);
 		pci_read_config_word(child_dev, child_pos + PCI_EXP_LNKCTL,
 			&reg16);
+		child_regs[i] = reg16;
 		if (same_clock)
 			reg16 |= PCI_EXP_LNKCTL_CCC;
 		else
 			reg16 &= ~PCI_EXP_LNKCTL_CCC;
 		pci_write_config_word(child_dev, child_pos + PCI_EXP_LNKCTL,
 			reg16);
+		i++;
 	}
 
 	/* Configure upstream component */
 	pci_read_config_word(pdev, pos + PCI_EXP_LNKCTL, &reg16);
+	parent_reg = reg16;
 	if (same_clock)
 		reg16 |= PCI_EXP_LNKCTL_CCC;
 	else
@@ -212,11 +238,29 @@ static void pcie_aspm_configure_common_clock(struct pci_dev *pdev)
 	pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, reg16);
 
 	/* Wait for link training end */
-	while (1) {
+	/* break out after waiting for 1 second */
+	start_jiffies = jiffies;
+	while ((jiffies - start_jiffies) < HZ) {
 		pci_read_config_word(pdev, pos + PCI_EXP_LNKSTA, &reg16);
 		if (!(reg16 & PCI_EXP_LNKSTA_LT))
 			break;
 		cpu_relax();
+	}
+	/* training failed -> recover */
+	if ((jiffies - start_jiffies) >= HZ) {
+		dev_printk (KERN_ERR, &pdev->dev, "ASPM: Could not configure"
+			    " common clock\n");
+		i = 0;
+		list_for_each_entry(child_dev, &pdev->subordinate->devices,
+				    bus_list) {
+			child_pos = pci_find_capability(child_dev,
+							PCI_CAP_ID_EXP);
+			pci_write_config_word(child_dev,
+					      child_pos + PCI_EXP_LNKCTL,
+					      child_regs[i]);
+			i++;
+		}
+		pci_write_config_word(pdev, pos + PCI_EXP_LNKCTL, parent_reg);
 	}
 }
 
@@ -396,9 +440,9 @@ static unsigned int pcie_aspm_check_state(struct pci_dev *pdev,
 {
 	struct pci_dev *child_dev;
 
-	/* If no child, disable the link */
+	/* If no child, ignore the link */
 	if (list_empty(&pdev->subordinate->devices))
-		return 0;
+		return state;
 	list_for_each_entry(child_dev, &pdev->subordinate->devices, bus_list) {
 		if (child_dev->pcie_type == PCI_EXP_TYPE_PCI_BRIDGE) {
 			/*
@@ -439,6 +483,9 @@ static void __pcie_aspm_config_link(struct pci_dev *pdev, unsigned int state)
 	int valid = 1;
 	struct pcie_link_state *link_state = pdev->link_state;
 
+	/* If no child, disable the link */
+	if (list_empty(&pdev->subordinate->devices))
+		state = 0;
 	/*
 	 * if the downstream component has pci bridge function, don't do ASPM
 	 * now
@@ -470,20 +517,52 @@ static void __pcie_aspm_config_link(struct pci_dev *pdev, unsigned int state)
 	link_state->enabled_state = state;
 }
 
+static struct pcie_link_state *get_root_port_link(struct pcie_link_state *link)
+{
+	struct pcie_link_state *root_port_link = link;
+	while (root_port_link->parent)
+		root_port_link = root_port_link->parent;
+	return root_port_link;
+}
+
+/* check the whole hierarchy, and configure each link in the hierarchy */
 static void __pcie_aspm_configure_link_state(struct pci_dev *pdev,
 	unsigned int state)
 {
 	struct pcie_link_state *link_state = pdev->link_state;
+	struct pcie_link_state *root_port_link = get_root_port_link(link_state);
+	struct pcie_link_state *leaf;
 
-	if (link_state->support_state == 0)
-		return;
 	state &= PCIE_LINK_STATE_L0S|PCIE_LINK_STATE_L1;
 
-	/* state 0 means disabling aspm */
-	state = pcie_aspm_check_state(pdev, state);
+	/* check all links who have specific root port link */
+	list_for_each_entry(leaf, &link_list, sibiling) {
+		if (!list_empty(&leaf->children) ||
+			get_root_port_link(leaf) != root_port_link)
+			continue;
+		state = pcie_aspm_check_state(leaf->pdev, state);
+	}
+	/* check root port link too in case it hasn't children */
+	state = pcie_aspm_check_state(root_port_link->pdev, state);
+
 	if (link_state->enabled_state == state)
 		return;
-	__pcie_aspm_config_link(pdev, state);
+
+	/*
+	 * we must change the hierarchy. See comments in
+	 * __pcie_aspm_config_link for the order
+	 **/
+	if (state & PCIE_LINK_STATE_L1) {
+		list_for_each_entry(leaf, &link_list, sibiling) {
+			if (get_root_port_link(leaf) == root_port_link)
+				__pcie_aspm_config_link(leaf->pdev, state);
+		}
+	} else {
+		list_for_each_entry_reverse(leaf, &link_list, sibiling) {
+			if (get_root_port_link(leaf) == root_port_link)
+				__pcie_aspm_config_link(leaf->pdev, state);
+		}
+	}
 }
 
 /*
@@ -547,38 +626,72 @@ void pcie_aspm_init_link_state(struct pci_dev *pdev)
 	unsigned int state;
 	struct pcie_link_state *link_state;
 	int error = 0;
+	int blacklist;
 
 	if (aspm_disabled || !pdev->is_pcie || pdev->link_state)
 		return;
 	if (pdev->pcie_type != PCI_EXP_TYPE_ROOT_PORT &&
 		pdev->pcie_type != PCI_EXP_TYPE_DOWNSTREAM)
 		return;
+	/* VIA has a strange chipset, root port is under a bridge */
+	if (pdev->pcie_type == PCI_EXP_TYPE_ROOT_PORT &&
+		pdev->bus->self)
+		return;
 	down_read(&pci_bus_sem);
 	if (list_empty(&pdev->subordinate->devices))
 		goto out;
 
-	if (pcie_aspm_sanity_check(pdev))
-		goto out;
+	blacklist = !!pcie_aspm_sanity_check(pdev);
 
 	mutex_lock(&aspm_lock);
 
 	link_state = kzalloc(sizeof(*link_state), GFP_KERNEL);
 	if (!link_state)
 		goto unlock_out;
+
+	link_state->downstream_has_switch = pcie_aspm_downstream_has_switch(pdev);
+	INIT_LIST_HEAD(&link_state->children);
+	INIT_LIST_HEAD(&link_state->link);
+	if (pdev->bus->self) {/* this is a switch */
+		struct pcie_link_state *parent_link_state;
+
+		parent_link_state = pdev->bus->parent->self->link_state;
+		if (!parent_link_state) {
+			kfree(link_state);
+			goto unlock_out;
+		}
+		list_add(&link_state->link, &parent_link_state->children);
+		link_state->parent = parent_link_state;
+	}
+
 	pdev->link_state = link_state;
 
-	pcie_aspm_configure_common_clock(pdev);
-
-	pcie_aspm_cap_init(pdev);
-
-	/* config link state to avoid BIOS error */
-	state = pcie_aspm_check_state(pdev, policy_to_aspm_state(pdev));
-	__pcie_aspm_config_link(pdev, state);
-
-	pcie_check_clock_pm(pdev);
+	if (!blacklist) {
+		pcie_aspm_configure_common_clock(pdev);
+		pcie_aspm_cap_init(pdev);
+	} else {
+		link_state->enabled_state = PCIE_LINK_STATE_L0S|PCIE_LINK_STATE_L1;
+		link_state->bios_aspm_state = 0;
+		/* Set support state to 0, so we will disable ASPM later */
+		link_state->support_state = 0;
+	}
 
 	link_state->pdev = pdev;
 	list_add(&link_state->sibiling, &link_list);
+
+	if (link_state->downstream_has_switch) {
+		/*
+		 * If link has switch, delay the link config. The leaf link
+		 * initialization will config the whole hierarchy. but we must
+		 * make sure BIOS doesn't set unsupported link state
+		 **/
+		state = pcie_aspm_check_state(pdev, link_state->bios_aspm_state);
+		__pcie_aspm_config_link(pdev, state);
+	} else
+		__pcie_aspm_configure_link_state(pdev,
+			policy_to_aspm_state(pdev));
+
+	pcie_check_clock_pm(pdev, blacklist);
 
 unlock_out:
 	if (error)
@@ -604,14 +717,15 @@ void pcie_aspm_exit_link_state(struct pci_dev *pdev)
 
 	/*
 	 * All PCIe functions are in one slot, remove one function will remove
-	 * the the whole slot, so just wait
+	 * the whole slot, so just wait until we are the last function left.
 	 */
-	if (!list_empty(&parent->subordinate->devices))
+	if (!list_is_last(&pdev->bus_list, &parent->subordinate->devices))
 		goto out;
 
 	/* All functions are removed, so just disable ASPM for the link */
 	__pcie_aspm_config_one_dev(parent, 0);
 	list_del(&link_state->sibiling);
+	list_del(&link_state->link);
 	/* Clock PM is for endpoint device */
 
 	free_link_state(parent);

@@ -42,6 +42,8 @@ static struct usb_device_id wdm_ids[] = {
 	{ }
 };
 
+MODULE_DEVICE_TABLE (usb, wdm_ids);
+
 #define WDM_MINOR_BASE	176
 
 
@@ -639,7 +641,7 @@ next_desc:
 
 	iface = &intf->altsetting[0];
 	ep = &iface->endpoint[0].desc;
-	if (!usb_endpoint_is_int_in(ep)) {
+	if (!ep || !usb_endpoint_is_int_in(ep)) {
 		rv = -EINVAL;
 		goto err;
 	}

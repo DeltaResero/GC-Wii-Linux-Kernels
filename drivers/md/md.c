@@ -1454,6 +1454,11 @@ static int bind_rdev_to_array(mdk_rdev_t * rdev, mddev_t * mddev)
 		if (find_rdev_nr(mddev, rdev->desc_nr))
 			return -EBUSY;
 	}
+	if (mddev->max_disks && rdev->desc_nr >= mddev->max_disks) {
+		printk(KERN_WARNING "md: %s: array is limited to %d devices\n",
+		       mdname(mddev), mddev->max_disks);
+		return -EBUSY;
+	}
 	bdevname(rdev->bdev,b);
 	while ( (s=strchr(b, '/')) != NULL)
 		*s = '!';
@@ -2109,8 +2114,6 @@ rdev_size_store(mdk_rdev_t *rdev, const char *buf, size_t len)
 
 	if (strict_strtoull(buf, 10, &size) < 0)
 		return -EINVAL;
-	if (size < my_mddev->size)
-		return -EINVAL;
 	if (my_mddev->pers && rdev->raid_disk >= 0) {
 		if (my_mddev->persistent) {
 			size = super_types[my_mddev->major_version].
@@ -2121,9 +2124,9 @@ rdev_size_store(mdk_rdev_t *rdev, const char *buf, size_t len)
 			size = (rdev->bdev->bd_inode->i_size >> 10);
 			size -= rdev->data_offset/2;
 		}
-		if (size < my_mddev->size)
-			return -EINVAL; /* component must fit device */
 	}
+	if (size < my_mddev->size)
+		return -EINVAL; /* component must fit device */
 
 	rdev->size = size;
 	if (size > oldsize && my_mddev->external) {
@@ -2364,6 +2367,15 @@ static void analyze_sbs(mddev_t * mddev)
 
 	i = 0;
 	rdev_for_each(rdev, tmp, mddev) {
+		if (rdev->desc_nr >= mddev->max_disks ||
+		    i > mddev->max_disks) {
+			printk(KERN_WARNING
+			       "md: %s: %s: only %d devices permitted\n",
+			       mdname(mddev), bdevname(rdev->bdev, b),
+			       mddev->max_disks);
+			kick_rdev_from_array(rdev);
+			continue;
+		}
 		if (rdev != freshest)
 			if (super_types[mddev->major_version].
 			    validate_super(mddev, rdev)) {
@@ -2730,9 +2742,9 @@ array_state_store(mddev_t *mddev, const char *buf, size_t len)
 		break;
 	case read_auto:
 		if (mddev->pers) {
-			if (mddev->ro != 1)
+			if (mddev->ro == 0)
 				err = do_md_stop(mddev, 1, 0);
-			else
+			else if (mddev->ro == 1)
 				err = restart_array(mddev);
 			if (err == 0) {
 				mddev->ro = 2;
@@ -2760,11 +2772,8 @@ array_state_store(mddev_t *mddev, const char *buf, size_t len)
 			} else
 				err = -EBUSY;
 			spin_unlock_irq(&mddev->write_lock);
-		} else {
-			mddev->ro = 0;
-			mddev->recovery_cp = MaxSector;
-			err = do_md_run(mddev);
-		}
+		} else
+			err = -EINVAL;
 		break;
 	case active:
 		if (mddev->pers) {
@@ -2948,7 +2957,13 @@ metadata_store(mddev_t *mddev, const char *buf, size_t len)
 {
 	int major, minor;
 	char *e;
-	if (!list_empty(&mddev->disks))
+	/* Changing the details of 'external' metadata is
+	 * always permitted.  Otherwise there must be
+	 * no devices attached to the array.
+	 */
+	if (mddev->external && strncmp(buf, "external:", 9) == 0)
+		;
+	else if (!list_empty(&mddev->disks))
 		return -EBUSY;
 
 	if (cmd_match(buf, "none")) {
@@ -3266,7 +3281,8 @@ suspend_lo_store(mddev_t *mddev, const char *buf, size_t len)
 	char *e;
 	unsigned long long new = simple_strtoull(buf, &e, 10);
 
-	if (mddev->pers->quiesce == NULL)
+	if (mddev->pers == NULL ||
+	    mddev->pers->quiesce == NULL)
 		return -EINVAL;
 	if (buf == e || (*e && *e != '\n'))
 		return -EINVAL;
@@ -3294,7 +3310,8 @@ suspend_hi_store(mddev_t *mddev, const char *buf, size_t len)
 	char *e;
 	unsigned long long new = simple_strtoull(buf, &e, 10);
 
-	if (mddev->pers->quiesce == NULL)
+	if (mddev->pers == NULL ||
+	    mddev->pers->quiesce == NULL)
 		return -EINVAL;
 	if (buf == e || (*e && *e != '\n'))
 		return -EINVAL;
@@ -4452,13 +4469,6 @@ static int hot_add_disk(mddev_t * mddev, dev_t dev)
 	 * noticed in interrupt contexts ...
 	 */
 
-	if (rdev->desc_nr == mddev->max_disks) {
-		printk(KERN_WARNING "%s: can not hot-add to full array!\n",
-			mdname(mddev));
-		err = -EBUSY;
-		goto abort_unbind_export;
-	}
-
 	rdev->raid_disk = -1;
 
 	md_update_sb(mddev, 1);
@@ -4471,9 +4481,6 @@ static int hot_add_disk(mddev_t * mddev, dev_t dev)
 	md_wakeup_thread(mddev->thread);
 	md_new_event(mddev);
 	return 0;
-
-abort_unbind_export:
-	unbind_rdev_from_array(rdev);
 
 abort_export:
 	export_rdev(rdev);
@@ -4809,6 +4816,7 @@ static int md_ioctl(struct inode *inode, struct file *file,
 	int err = 0;
 	void __user *argp = (void __user *)arg;
 	mddev_t *mddev = NULL;
+	int ro;
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
@@ -4944,6 +4952,34 @@ static int md_ioctl(struct inode *inode, struct file *file,
 			err = do_md_stop (mddev, 1, 1);
 			goto done_unlock;
 
+		case BLKROSET:
+			if (get_user(ro, (int __user *)(arg))) {
+				err = -EFAULT;
+				goto done_unlock;
+			}
+			err = -EINVAL;
+
+			/* if the bdev is going readonly the value of mddev->ro
+			 * does not matter, no writes are coming
+			 */
+			if (ro)
+				goto done_unlock;
+
+			/* are we are already prepared for writes? */
+			if (mddev->ro != 1)
+				goto done_unlock;
+
+			/* transitioning to readauto need only happen for
+			 * arrays that call md_write_start
+			 */
+			if (mddev->pers) {
+				err = restart_array(mddev);
+				if (err == 0) {
+					mddev->ro = 2;
+					set_disk_ro(mddev->gendisk, 0);
+				}
+			}
+			goto done_unlock;
 	}
 
 	/*

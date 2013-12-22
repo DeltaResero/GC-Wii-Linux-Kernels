@@ -19,6 +19,7 @@
 #include <linux/signal.h>
 #include <linux/rcupdate.h>
 #include <linux/pid_namespace.h>
+#include <linux/smp_lock.h>
 
 #include <asm/poll.h>
 #include <asm/siginfo.h>
@@ -49,7 +50,7 @@ static int get_close_on_exec(unsigned int fd)
 	return res;
 }
 
-asmlinkage long sys_dup3(unsigned int oldfd, unsigned int newfd, int flags)
+SYSCALL_DEFINE3(dup3, unsigned int, oldfd, unsigned int, newfd, int, flags)
 {
 	int err = -EBADF;
 	struct file * file, *tofree;
@@ -112,20 +113,22 @@ out_unlock:
 	return err;
 }
 
-asmlinkage long sys_dup2(unsigned int oldfd, unsigned int newfd)
+SYSCALL_DEFINE2(dup2, unsigned int, oldfd, unsigned int, newfd)
 {
 	if (unlikely(newfd == oldfd)) { /* corner case */
 		struct files_struct *files = current->files;
+		int retval = oldfd;
+
 		rcu_read_lock();
 		if (!fcheck_files(files, oldfd))
-			oldfd = -EBADF;
+			retval = -EBADF;
 		rcu_read_unlock();
-		return oldfd;
+		return retval;
 	}
 	return sys_dup3(oldfd, newfd, 0);
 }
 
-asmlinkage long sys_dup(unsigned int fildes)
+SYSCALL_DEFINE1(dup, unsigned int, fildes)
 {
 	int ret = -EBADF;
 	struct file *file = fget(fildes);
@@ -175,6 +178,11 @@ static int setfl(int fd, struct file * filp, unsigned long arg)
 	if (error)
 		return error;
 
+	/*
+	 * We still need a lock here for now to keep multiple FASYNC calls
+	 * from racing with each other.
+	 */
+	lock_kernel();
 	if ((arg ^ filp->f_flags) & FASYNC) {
 		if (filp->f_op && filp->f_op->fasync) {
 			error = filp->f_op->fasync(fd, filp, (arg & FASYNC) != 0);
@@ -185,6 +193,7 @@ static int setfl(int fd, struct file * filp, unsigned long arg)
 
 	filp->f_flags = (arg & SETFL_MASK) | (filp->f_flags & ~SETFL_MASK);
  out:
+	unlock_kernel();
 	return error;
 }
 
@@ -327,7 +336,7 @@ static long do_fcntl(int fd, unsigned int cmd, unsigned long arg,
 	return err;
 }
 
-asmlinkage long sys_fcntl(unsigned int fd, unsigned int cmd, unsigned long arg)
+SYSCALL_DEFINE3(fcntl, unsigned int, fd, unsigned int, cmd, unsigned long, arg)
 {	
 	struct file *filp;
 	long err = -EBADF;
@@ -350,7 +359,8 @@ out:
 }
 
 #if BITS_PER_LONG == 32
-asmlinkage long sys_fcntl64(unsigned int fd, unsigned int cmd, unsigned long arg)
+SYSCALL_DEFINE3(fcntl64, unsigned int, fd, unsigned int, cmd,
+		unsigned long, arg)
 {	
 	struct file * filp;
 	long err;

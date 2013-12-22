@@ -644,6 +644,9 @@ int i2c_del_adapter(struct i2c_adapter *adap)
 		}
 	}
 
+	/* device name is gone after device_unregister */
+	dev_dbg(&adap->dev, "adapter [%s] unregistered\n", adap->name);
+
 	/* clean up the sysfs representation */
 	init_completion(&adap->dev_released);
 	device_unregister(&adap->dev);
@@ -653,8 +656,6 @@ int i2c_del_adapter(struct i2c_adapter *adap)
 
 	/* free bus id */
 	idr_remove(&i2c_adapter_idr, adap->nr);
-
-	dev_dbg(&adap->dev, "adapter [%s] unregistered\n", adap->name);
 
 	/* Clear the device structure in case this adapter is ever going to be
 	   added again */
@@ -1268,14 +1269,24 @@ static int i2c_detect_address(struct i2c_client *temp_client, int kind,
 
 	/* Make sure there is something at this address, unless forced */
 	if (kind < 0) {
-		if (i2c_smbus_xfer(adapter, addr, 0, 0, 0,
-				   I2C_SMBUS_QUICK, NULL) < 0)
-			return 0;
+		if (addr == 0x73 && (adapter->class & I2C_CLASS_HWMON)) {
+			/* Special probe for FSC hwmon chips */
+			union i2c_smbus_data dummy;
 
-		/* prevent 24RF08 corruption */
-		if ((addr & ~0x0f) == 0x50)
-			i2c_smbus_xfer(adapter, addr, 0, 0, 0,
-				       I2C_SMBUS_QUICK, NULL);
+			if (i2c_smbus_xfer(adapter, addr, 0, I2C_SMBUS_READ, 0,
+					   I2C_SMBUS_BYTE_DATA, &dummy) < 0)
+				return 0;
+		} else {
+			if (i2c_smbus_xfer(adapter, addr, 0, I2C_SMBUS_WRITE, 0,
+					   I2C_SMBUS_QUICK, NULL) < 0)
+				return 0;
+
+			/* Prevent 24RF08 corruption */
+			if ((addr & ~0x0f) == 0x50)
+				i2c_smbus_xfer(adapter, addr, 0,
+					       I2C_SMBUS_WRITE, 0,
+					       I2C_SMBUS_QUICK, NULL);
+		}
 	}
 
 	/* Finally call the custom detection function */
@@ -1795,7 +1806,8 @@ static s32 i2c_smbus_xfer_emulated(struct i2c_adapter * adapter, u16 addr,
 	case I2C_SMBUS_QUICK:
 		msg[0].len = 0;
 		/* Special case: The read/write field is used as data */
-		msg[0].flags = flags | (read_write==I2C_SMBUS_READ)?I2C_M_RD:0;
+		msg[0].flags = flags | (read_write == I2C_SMBUS_READ ?
+					I2C_M_RD : 0);
 		num = 1;
 		break;
 	case I2C_SMBUS_BYTE:

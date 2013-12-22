@@ -1590,6 +1590,7 @@ int security_syslog(int type);
 int security_settime(struct timespec *ts, struct timezone *tz);
 int security_vm_enough_memory(long pages);
 int security_vm_enough_memory_mm(struct mm_struct *mm, long pages);
+int security_vm_enough_memory_kern(long pages);
 int security_bprm_alloc(struct linux_binprm *bprm);
 void security_bprm_free(struct linux_binprm *bprm);
 void security_bprm_apply_creds(struct linux_binprm *bprm, int unsafe);
@@ -1822,12 +1823,21 @@ static inline int security_settime(struct timespec *ts, struct timezone *tz)
 
 static inline int security_vm_enough_memory(long pages)
 {
+	WARN_ON(current->mm == NULL);
 	return cap_vm_enough_memory(current->mm, pages);
 }
 
 static inline int security_vm_enough_memory_mm(struct mm_struct *mm, long pages)
 {
+	WARN_ON(mm == NULL);
 	return cap_vm_enough_memory(mm, pages);
+}
+
+static inline int security_vm_enough_memory_kern(long pages)
+{
+	/* If current->mm is a kernel thread then we will pass NULL,
+	   for this specific case that is fine */
+	return cap_vm_enough_memory(current->mm, pages);
 }
 
 static inline int security_bprm_alloc(struct linux_binprm *bprm)
@@ -2134,6 +2144,8 @@ static inline int security_file_mmap(struct file *file, unsigned long reqprot,
 				     unsigned long addr,
 				     unsigned long addr_only)
 {
+	if ((addr < mmap_min_addr) && !capable(CAP_SYS_RAWIO))
+		return -EACCES;
 	return 0;
 }
 

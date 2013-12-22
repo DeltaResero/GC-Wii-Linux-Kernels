@@ -2187,6 +2187,9 @@ int netif_receive_skb(struct sk_buff *skb)
 	int ret = NET_RX_DROP;
 	__be16 type;
 
+	if (skb->vlan_tci && vlan_hwaccel_do_receive(skb))
+		return NET_RX_SUCCESS;
+
 	/* if we've gotten here through NAPI, check netpoll */
 	if (netpoll_receive_skb(skb))
 		return NET_RX_DROP;
@@ -3990,7 +3993,7 @@ int register_netdevice(struct net_device *dev)
 		dev->features &= ~NETIF_F_TSO;
 	}
 	if (dev->features & NETIF_F_UFO) {
-		if (!(dev->features & NETIF_F_HW_CSUM)) {
+		if (!(dev->features & NETIF_F_GEN_CSUM)) {
 			printk(KERN_ERR "%s: Dropping NETIF_F_UFO since no "
 					"NETIF_F_HW_CSUM feature.\n",
 							dev->name);

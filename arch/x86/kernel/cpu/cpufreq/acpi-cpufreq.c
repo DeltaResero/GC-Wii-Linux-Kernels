@@ -742,6 +742,7 @@ static int acpi_cpufreq_cpu_exit(struct cpufreq_policy *policy)
 		per_cpu(drv_data, policy->cpu) = NULL;
 		acpi_processor_unregister_performance(data->acpi_data,
 						      policy->cpu);
+		kfree(data->freq_table);
 		kfree(data);
 	}
 
@@ -778,6 +779,9 @@ static struct cpufreq_driver acpi_cpufreq_driver = {
 static int __init acpi_cpufreq_init(void)
 {
 	int ret;
+
+	if (acpi_disabled)
+		return 0;
 
 	dprintk("acpi_cpufreq_init\n");
 

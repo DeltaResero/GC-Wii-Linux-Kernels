@@ -204,7 +204,7 @@ int iwl_rx_queue_restock(struct iwl_priv *priv)
 		list_del(element);
 
 		/* Point to Rx buffer via next RBD in circular buffer */
-		rxq->bd[rxq->write] = iwl_dma_addr2rbd_ptr(priv, rxb->dma_addr);
+		rxq->bd[rxq->write] = iwl_dma_addr2rbd_ptr(priv, rxb->aligned_dma_addr);
 		rxq->queue[rxq->write] = rxb;
 		rxq->write = (rxq->write + 1) & RX_QUEUE_MASK;
 		rxq->free_count--;
@@ -245,36 +245,53 @@ void iwl_rx_allocate(struct iwl_priv *priv)
 	struct list_head *element;
 	struct iwl_rx_mem_buffer *rxb;
 	unsigned long flags;
-	spin_lock_irqsave(&rxq->lock, flags);
-	while (!list_empty(&rxq->rx_used)) {
+
+	while (1) {
+		spin_lock_irqsave(&rxq->lock, flags);
+
+		if (list_empty(&rxq->rx_used)) {
+			spin_unlock_irqrestore(&rxq->lock, flags);
+			return;
+		}
 		element = rxq->rx_used.next;
 		rxb = list_entry(element, struct iwl_rx_mem_buffer, list);
+		list_del(element);
+
+		spin_unlock_irqrestore(&rxq->lock, flags);
 
 		/* Alloc a new receive buffer */
-		rxb->skb = alloc_skb(priv->hw_params.rx_buf_size,
-				__GFP_NOWARN | GFP_ATOMIC);
+		rxb->skb = alloc_skb(priv->hw_params.rx_buf_size + 256,
+				     GFP_KERNEL);
 		if (!rxb->skb) {
-			if (net_ratelimit())
-				printk(KERN_CRIT DRV_NAME
-				       ": Can not allocate SKB buffers\n");
+			printk(KERN_CRIT DRV_NAME
+				   "Can not allocate SKB buffers\n");
 			/* We don't reschedule replenish work here -- we will
 			 * call the restock method and if it still needs
 			 * more buffers it will schedule replenish */
 			break;
 		}
-		priv->alloc_rxb_skb++;
-		list_del(element);
 
 		/* Get physical address of RB/SKB */
-		rxb->dma_addr =
-		    pci_map_single(priv->pci_dev, rxb->skb->data,
-			   priv->hw_params.rx_buf_size, PCI_DMA_FROMDEVICE);
+		rxb->real_dma_addr = pci_map_single(
+					priv->pci_dev,
+					rxb->skb->data,
+					priv->hw_params.rx_buf_size + 256,
+					PCI_DMA_FROMDEVICE);
+		/* dma address must be no more than 36 bits */
+		BUG_ON(rxb->real_dma_addr & ~DMA_BIT_MASK(36));
+		/* and also 256 byte aligned! */
+		rxb->aligned_dma_addr = ALIGN(rxb->real_dma_addr, 256);
+		skb_reserve(rxb->skb, rxb->aligned_dma_addr - rxb->real_dma_addr);
+
+		spin_lock_irqsave(&rxq->lock, flags);
+
 		list_add_tail(&rxb->list, &rxq->rx_free);
 		rxq->free_count++;
+		priv->alloc_rxb_skb++;
+
+		spin_unlock_irqrestore(&rxq->lock, flags);
 	}
-	spin_unlock_irqrestore(&rxq->lock, flags);
 }
-EXPORT_SYMBOL(iwl_rx_allocate);
 
 void iwl_rx_replenish(struct iwl_priv *priv)
 {
@@ -300,8 +317,8 @@ void iwl_rx_queue_free(struct iwl_priv *priv, struct iwl_rx_queue *rxq)
 	for (i = 0; i < RX_QUEUE_SIZE + RX_FREE_BUFFERS; i++) {
 		if (rxq->pool[i].skb != NULL) {
 			pci_unmap_single(priv->pci_dev,
-					 rxq->pool[i].dma_addr,
-					 priv->hw_params.rx_buf_size,
+					 rxq->pool[i].real_dma_addr,
+					 priv->hw_params.rx_buf_size + 256,
 					 PCI_DMA_FROMDEVICE);
 			dev_kfree_skb(rxq->pool[i].skb);
 		}
@@ -354,8 +371,8 @@ void iwl_rx_queue_reset(struct iwl_priv *priv, struct iwl_rx_queue *rxq)
 		 * to an SKB, so we need to unmap and free potential storage */
 		if (rxq->pool[i].skb != NULL) {
 			pci_unmap_single(priv->pci_dev,
-					 rxq->pool[i].dma_addr,
-					 priv->hw_params.rx_buf_size,
+					 rxq->pool[i].real_dma_addr,
+					 priv->hw_params.rx_buf_size + 256,
 					 PCI_DMA_FROMDEVICE);
 			priv->alloc_rxb_skb--;
 			dev_kfree_skb(rxq->pool[i].skb);
