@@ -286,9 +286,13 @@ config PPC_STD_MMU
 	depends on 6xx
 	default y
 
+# Although 750CXe (Gekko) seems to be cache coherent capable, the GAMECUBE
+# does not maintain cache coherency with respect to dma enabled devices
+# like the BBA, DI, ARAM, etc.
+# We need Y here if we want a working kernel dma api.
 config NOT_COHERENT_CACHE
 	bool
-	depends on 4xx || 8xx || E200
+	depends on 4xx || 8xx || E200 || GAMECUBE
 	default y
 
 endmenu
@@ -653,6 +657,12 @@ config SANDPOINT
 	  Select SANDPOINT if configuring for a Motorola Sandpoint X3
 	  (any flavor).
 
+config GAMECUBE
+	bool "Nintendo-GameCube"
+	help
+	  Select GAMECUBE if configuring for the Nintendo GameCube.
+	  More information at: <http://gc-linux.sourceforge.net/>
+
 config RADSTONE_PPC7D
 	bool "Radstone Technology PPC7D board"
 	select PPC_I8259
@@ -743,6 +753,26 @@ config PQ2ADS
 	depends on ADS8272
 	default y
 
+config GAMECUBE_CONSOLE
+	bool "Nintendo GameCube debug console"
+	depends on GAMECUBE
+	default n
+	help
+	  This option enables an early minimal console suitable for debugging
+	  purposes.
+	  
+	  If in doubt, say N here.
+
+config GAMECUBE_RESET
+	bool "Nintendo GameCube reset button"
+	depends on GAMECUBE
+	default y
+	help
+	  If you say yes to this option, support will be included for the
+	  reset button of the Nintendo GameCube.
+	  
+	  If in doubt, say Y here.
+
 config TQM8xxL
 	bool
 	depends on 8xx && (TQM823L || TQM850L || FPS850L || TQM855L || TQM860L)
@@ -750,7 +780,7 @@ config TQM8xxL
 
 config EMBEDDEDBOOT
 	bool
-	depends on 8xx || 8260
+	depends on 8xx || 8260 || GAMECUBE
 	default y
 
 config PPC_MPC52xx
@@ -1092,7 +1122,7 @@ config MCA
 
 config PCI
 	bool "PCI support" if 40x || CPM2 || 83xx || 85xx || PPC_MPC52xx
-	default y if !40x && !CPM2 && !8xx && !83xx && !85xx
+	default y if !40x && !CPM2 && !8xx && !83xx && !85xx && !GAMECUBE
 	default PCI_QSPAN if !4xx && !CPM2 && 8xx
 	help
 	  Find out whether your system includes a PCI bus. PCI is the name of
@@ -1159,6 +1189,8 @@ config RAPIDIO
 	  infrastructure code to support RapidIO interconnect devices.
 
 source "drivers/rapidio/Kconfig"
+
+source "drivers/exi/Kconfig"
 
 endmenu
 

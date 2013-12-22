@@ -413,9 +413,19 @@ static inline unsigned int ioread16(void __iomem *addr)
 	return readw(addr);
 }
 
+static inline unsigned int ioread16be(void __iomem *addr)
+{
+	return in_be16(addr);
+}
+
 static inline unsigned int ioread32(void __iomem *addr)
 {
 	return readl(addr);
+}
+
+static inline unsigned int ioread32be(void __iomem *addr)
+{
+	return in_be32(addr);
 }
 
 static inline void iowrite8(u8 val, void __iomem *addr)
@@ -428,9 +438,19 @@ static inline void iowrite16(u16 val, void __iomem *addr)
 	writew(val, addr);
 }
 
+static inline void iowrite16be(u16 val, void __iomem *addr)
+{
+	out_be16(addr, val);
+}
+
 static inline void iowrite32(u32 val, void __iomem *addr)
 {
 	writel(val, addr);
+}
+
+static inline void iowrite32be(u32 val, void __iomem *addr)
+{
+	out_be32(addr, val);
 }
 
 static inline void ioread8_rep(void __iomem *addr, void *dst, unsigned long count)
