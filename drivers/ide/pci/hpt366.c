@@ -1,5 +1,5 @@
 /*
- * linux/drivers/ide/pci/hpt366.c		Version 1.02	Apr 18, 2007
+ * linux/drivers/ide/pci/hpt366.c		Version 1.04	Jun 4, 2007
  *
  * Copyright (C) 1999-2003		Andre Hedrick <andre@linux-ide.org>
  * Portions Copyright (C) 2001	        Sun Microsystems, Inc.
@@ -106,7 +106,8 @@
  *   switch  to calculating  PCI clock frequency based on the chip's base DPLL
  *   frequency
  * - switch to using the  DPLL clock and enable UltraATA/133 mode by default on
- *   anything  newer than HPT370/A
+ *   anything  newer than HPT370/A (except HPT374 that is not capable of this
+ *   mode according to the manual)
  * - fold PCI clock detection and DPLL setup code into init_chipset_hpt366(),
  *   also fixing the interchanged 25/40 MHz PCI clock cases for HPT36x chips;
  *   unify HPT36x/37x timing setup code and the speedproc handlers by joining
@@ -365,7 +366,6 @@ static u32 sixty_six_base_hpt37x[] = {
 };
 
 #define HPT366_DEBUG_DRIVE_INFO		0
-#define HPT374_ALLOW_ATA133_6		1
 #define HPT371_ALLOW_ATA133_6		1
 #define HPT302_ALLOW_ATA133_6		1
 #define HPT372_ALLOW_ATA133_6		1
@@ -450,7 +450,7 @@ static struct hpt_info hpt370a __devinitdata = {
 
 static struct hpt_info hpt374 __devinitdata = {
 	.chip_type	= HPT374,
-	.max_mode	= HPT374_ALLOW_ATA133_6 ? 4 : 3,
+	.max_mode	= 3,
 	.dpll_clk	= 48,
 	.settings	= hpt37x_settings
 };
@@ -1527,7 +1527,12 @@ static int __devinit init_setup_hpt366(struct pci_dev *dev, ide_pci_device_t *d)
 	if (rev > 2)
 		goto init_single;
 
+	/*
+	 * HPT36x chips are single channel and
+	 * do not seem to have the channel enable bit...
+	 */
 	d->channels = 1;
+	d->enablebits[0].reg = 0;
 
 	if ((dev2 = pci_get_slot(dev->bus, dev->devfn + 1)) != NULL) {
 	  	u8  pin1 = 0, pin2 = 0;

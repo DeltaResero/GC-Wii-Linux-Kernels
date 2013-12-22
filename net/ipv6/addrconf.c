@@ -2281,8 +2281,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 		break;
 
 	case NETDEV_CHANGENAME:
-#ifdef CONFIG_SYSCTL
 		if (idev) {
+			snmp6_unregister_dev(idev);
+#ifdef CONFIG_SYSCTL
 			addrconf_sysctl_unregister(&idev->cnf);
 			neigh_sysctl_unregister(idev->nd_parms);
 			neigh_sysctl_register(dev, idev->nd_parms,
@@ -2290,8 +2291,9 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 					      &ndisc_ifinfo_sysctl_change,
 					      NULL);
 			addrconf_sysctl_register(idev, &idev->cnf);
-		}
 #endif
+			snmp6_register_dev(idev);
+		}
 		break;
 	};
 
@@ -4060,6 +4062,10 @@ int __init addrconf_init(void)
 		return err;
 
 	ip6_null_entry.rt6i_idev = in6_dev_get(&loopback_dev);
+#ifdef CONFIG_IPV6_MULTIPLE_TABLES
+	ip6_prohibit_entry.rt6i_idev = in6_dev_get(&loopback_dev);
+	ip6_blk_hole_entry.rt6i_idev = in6_dev_get(&loopback_dev);
+#endif
 
 	register_netdevice_notifier(&ipv6_dev_notf);
 
