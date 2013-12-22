@@ -78,7 +78,7 @@ static char sthcd_driver_version[] = "0.4i";
 #define STHCD_MAX_CHUNK_SIZE	(2048)
 
 #define STHCD_PORT_MAX_RESETS	2	/* maximum number of consecutive
-					 * allowed for a port */
+					 * resets allowed for a port */
 #define STHCD_RESCAN_INTERVAL	5	/* seconds */
 
 #define starlet_ioh_sg_entry(sg, ptr) \
@@ -1064,7 +1064,7 @@ static int sthcd_pep_xfer_callback(struct starlet_ipc_request *req)
 		status = xfer_len;
 		xfer_len = 0;
 
-		if (status != -7004 && status != -7003) {
+		if (status != -7004 && status != -7003 && status != -7005) {
 			drv_printk(KERN_ERR, "request completed"
 				   " with error %d\n", status);
 			sthcd_pep_print(pep);
@@ -1077,8 +1077,8 @@ static int sthcd_pep_xfer_callback(struct starlet_ipc_request *req)
 			status = -EPIPE;
 			break;
 		case -7005:
-			/* endpoint shutdown? */
-			status = -ESHUTDOWN;
+			/* nak? */
+			status = -ECONNRESET;
 			break;
 		case -7008:
 		case -7022:
@@ -1768,6 +1768,7 @@ static int sthcd_oh_check_hub(struct sthcd_oh *oh, u16 idVendor, u16 idProduct)
 	char pathname[32];
 	struct usb_device_descriptor *descriptor;
 	int fd;
+	int i;
 	int retval;
 
 	descriptor = starlet_ioh_kzalloc(USB_DT_DEVICE_SIZE);
@@ -1785,11 +1786,19 @@ static int sthcd_oh_check_hub(struct sthcd_oh *oh, u16 idVendor, u16 idProduct)
 		goto done;
 	}
 	fd = retval;
-	retval = sthcd_usb_control_msg(fd, USB_REQ_GET_DESCRIPTOR,
-				      USB_DIR_IN,
-				      USB_DT_DEVICE << 8, 0,
-				      descriptor, USB_DT_DEVICE_SIZE,
-				      0);
+
+	for (i=0; i < 3; i++) {
+		retval = sthcd_usb_control_msg(fd, USB_REQ_GET_DESCRIPTOR,
+					      USB_DIR_IN,
+					      USB_DT_DEVICE << 8, 0,
+					      descriptor, USB_DT_DEVICE_SIZE,
+					      0);
+		if (retval != -7005)
+			break;
+		DBG("%s: attempt %d, retval=%d (%x)\n", __func__,
+		    i, retval, retval);
+	}
+
 	starlet_close(fd);
 
 	if (retval >= USB_DT_DEVICE_SIZE) {
