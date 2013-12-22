@@ -1725,17 +1725,27 @@ size_t iov_iter_copy_from_user(struct page *page,
 }
 EXPORT_SYMBOL(iov_iter_copy_from_user);
 
-static void __iov_iter_advance_iov(struct iov_iter *i, size_t bytes)
+void iov_iter_advance(struct iov_iter *i, size_t bytes)
 {
+	BUG_ON(i->count < bytes);
+
 	if (likely(i->nr_segs == 1)) {
 		i->iov_offset += bytes;
+		i->count -= bytes;
 	} else {
 		const struct iovec *iov = i->iov;
 		size_t base = i->iov_offset;
 
-		while (bytes) {
-			int copy = min(bytes, iov->iov_len - base);
+		/*
+		 * The !iov->iov_len check ensures we skip over unlikely
+		 * zero-length segments (without overruning the iovec).
+		 */
+		while (bytes || unlikely(!iov->iov_len && i->count)) {
+			int copy;
 
+			copy = min(bytes, iov->iov_len - base);
+			BUG_ON(!i->count || i->count < copy);
+			i->count -= copy;
 			bytes -= copy;
 			base += copy;
 			if (iov->iov_len == base) {
@@ -1746,14 +1756,6 @@ static void __iov_iter_advance_iov(struct iov_iter *i, size_t bytes)
 		i->iov = iov;
 		i->iov_offset = base;
 	}
-}
-
-void iov_iter_advance(struct iov_iter *i, size_t bytes)
-{
-	BUG_ON(i->count < bytes);
-
-	__iov_iter_advance_iov(i, bytes);
-	i->count -= bytes;
 }
 EXPORT_SYMBOL(iov_iter_advance);
 
@@ -2251,6 +2253,7 @@ again:
 
 		cond_resched();
 
+		iov_iter_advance(i, copied);
 		if (unlikely(copied == 0)) {
 			/*
 			 * If we were unable to copy any data at all, we must
@@ -2264,7 +2267,6 @@ again:
 						iov_iter_single_seg_count(i));
 			goto again;
 		}
-		iov_iter_advance(i, copied);
 		pos += copied;
 		written += copied;
 

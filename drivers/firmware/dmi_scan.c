@@ -219,7 +219,7 @@ static void __init dmi_save_ipmi_device(const struct dmi_header *dm)
 	dev->name = "IPMI controller";
 	dev->device_data = data;
 
-	list_add(&dev->list, &dmi_devices);
+	list_add_tail(&dev->list, &dmi_devices);
 }
 
 /*
@@ -468,13 +468,4 @@ int dmi_get_year(int field)
 	}
 
 	return year;
-}
-
-/**
- *	dmi_get_slot - return dmi_ident[slot]
- *	@slot:	index into dmi_ident[]
- */
-char *dmi_get_slot(int slot)
-{
-	return(dmi_ident[slot]);
 }

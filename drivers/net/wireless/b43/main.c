@@ -101,6 +101,7 @@ static const struct ssb_device_id b43_ssb_tbl[] = {
 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 7),
 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 9),
 	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 10),
+	SSB_DEVICE(SSB_VENDOR_BROADCOM, SSB_DEV_80211, 13),
 	SSB_DEVTABLE_END
 };
 
@@ -1800,6 +1801,18 @@ static int b43_upload_microcode(struct b43_wldev *dev)
 		err = -EOPNOTSUPP;
 		goto out;
 	}
+	if (fwrev > 351) {
+		b43err(dev->wl, "YOUR FIRMWARE IS TOO NEW. Please downgrade your "
+		       "firmware.\n");
+		b43err(dev->wl, "Use this firmware tarball: "
+		       "http://downloads.openwrt.org/sources/broadcom-wl-4.80.53.0.tar.bz2\n");
+		b43err(dev->wl, "Use this b43-fwcutter tarball: "
+		       "http://bu3sch.de/b43/fwcutter/b43-fwcutter-009.tar.bz2\n");
+		b43err(dev->wl, "Read, understand and _do_ what this message says, please.\n");
+		b43_write32(dev, B43_MMIO_MACCTL, 0);
+		err = -EOPNOTSUPP;
+		goto out;
+	}
 	b43dbg(dev->wl, "Loading firmware version %u.%u "
 	       "(20%.2i-%.2i-%.2i %.2i:%.2i:%.2i)\n",
 	       fwrev, fwpatch,
@@ -3067,7 +3080,7 @@ static int b43_phy_versioning(struct b43_wldev *dev)
 			unsupported = 1;
 		break;
 	case B43_PHYTYPE_G:
-		if (phy_rev > 8)
+		if (phy_rev > 9)
 			unsupported = 1;
 		break;
 	default:
@@ -3395,8 +3408,6 @@ static int b43_wireless_core_init(struct b43_wldev *dev)
 	b43_bluetooth_coext_enable(dev);
 
 	ssb_bus_powerup(bus, 1);	/* Enable dynamic PCTL */
-	memset(wl->bssid, 0, ETH_ALEN);
-	memset(wl->mac_addr, 0, ETH_ALEN);
 	b43_upload_card_macaddress(dev);
 	b43_security_init(dev);
 	b43_rng_init(wl);
@@ -3492,6 +3503,13 @@ static int b43_start(struct ieee80211_hw *hw)
 	struct b43_wldev *dev = wl->current_dev;
 	int did_init = 0;
 	int err = 0;
+
+	/* Kill all old instance specific information to make sure
+	 * the card won't use it in the short timeframe between start
+	 * and mac80211 reconfiguring it. */
+	memset(wl->bssid, 0, ETH_ALEN);
+	memset(wl->mac_addr, 0, ETH_ALEN);
+	wl->filter_flags = 0;
 
 	/* First register RFkill.
 	 * LEDs that are registered later depend on it. */

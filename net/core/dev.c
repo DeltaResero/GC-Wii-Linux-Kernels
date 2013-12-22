@@ -1068,8 +1068,6 @@ int dev_close(struct net_device *dev)
 	 */
 	call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
 
-	dev_deactivate(dev);
-
 	clear_bit(__LINK_STATE_START, &dev->state);
 
 	/* Synchronize to scheduled poll. We cannot touch poll list,
@@ -1079,6 +1077,8 @@ int dev_close(struct net_device *dev)
 	 * napi_struct instances on this device.
 	 */
 	smp_mb__after_clear_bit(); /* Commit netif_running(). */
+
+	dev_deactivate(dev);
 
 	/*
 	 *	Call the device specific close. This cannot fail.
@@ -2906,7 +2906,7 @@ int __dev_addr_add(struct dev_addr_list **list, int *count,
 		}
 	}
 
-	da = kmalloc(sizeof(*da), GFP_ATOMIC);
+	da = kzalloc(sizeof(*da), GFP_ATOMIC);
 	if (da == NULL)
 		return -ENOMEM;
 	memcpy(da->da_addr, addr, alen);
@@ -3240,7 +3240,7 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
 			return -EOPNOTSUPP;
 
 		case SIOCADDMULTI:
-			if (!dev->set_multicast_list ||
+			if ((!dev->set_multicast_list && !dev->set_rx_mode) ||
 			    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
 				return -EINVAL;
 			if (!netif_device_present(dev))
@@ -3249,7 +3249,7 @@ static int dev_ifsioc(struct net *net, struct ifreq *ifr, unsigned int cmd)
 					  dev->addr_len, 1);
 
 		case SIOCDELMULTI:
-			if (!dev->set_multicast_list ||
+			if ((!dev->set_multicast_list && !dev->set_rx_mode) ||
 			    ifr->ifr_hwaddr.sa_family != AF_UNSPEC)
 				return -EINVAL;
 			if (!netif_device_present(dev))
