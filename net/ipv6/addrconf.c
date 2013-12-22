@@ -73,6 +73,7 @@
 #include <net/tcp.h>
 #include <net/ip.h>
 #include <net/netlink.h>
+#include <net/pkt_sched.h>
 #include <linux/if_tunnel.h>
 #include <linux/rtnetlink.h>
 
@@ -211,6 +212,12 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
 /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
 const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
 const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
+
+/* Check if a valid qdisc is available */
+static inline int addrconf_qdisc_ok(struct net_device *dev)
+{
+	return (dev->qdisc != &noop_qdisc);
+}
 
 static void addrconf_del_timer(struct inet6_ifaddr *ifp)
 {
@@ -376,7 +383,7 @@ static struct inet6_dev * ipv6_add_dev(struct net_device *dev)
 	}
 #endif
 
-	if (netif_running(dev) && netif_carrier_ok(dev))
+	if (netif_running(dev) && addrconf_qdisc_ok(dev))
 		ndev->if_flags |= IF_READY;
 
 	ipv6_mc_init_dev(ndev);
@@ -1021,7 +1028,7 @@ int ipv6_dev_get_saddr(struct net_device *daddr_dev,
 				hiscore.rule++;
 			}
 			if (ipv6_saddr_preferred(score.addr_type) ||
-			   (((ifa_result->flags &
+			   (((ifa->flags &
 			    (IFA_F_DEPRECATED|IFA_F_OPTIMISTIC)) == 0))) {
 				score.attrs |= IPV6_SADDR_SCORE_PREFERRED;
 				if (!(hiscore.attrs & IPV6_SADDR_SCORE_PREFERRED)) {
@@ -2269,7 +2276,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 	case NETDEV_UP:
 	case NETDEV_CHANGE:
 		if (event == NETDEV_UP) {
-			if (!netif_carrier_ok(dev)) {
+			if (!addrconf_qdisc_ok(dev)) {
 				/* device is not ready yet. */
 				printk(KERN_INFO
 					"ADDRCONF(NETDEV_UP): %s: "
@@ -2278,10 +2285,13 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 				break;
 			}
 
+			if (!idev && dev->mtu >= IPV6_MIN_MTU)
+				idev = ipv6_add_dev(dev);
+
 			if (idev)
 				idev->if_flags |= IF_READY;
 		} else {
-			if (!netif_carrier_ok(dev)) {
+			if (!addrconf_qdisc_ok(dev)) {
 				/* device is still not ready. */
 				break;
 			}
@@ -2342,10 +2352,16 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
 		break;
 
 	case NETDEV_CHANGEMTU:
-		if ( idev && dev->mtu >= IPV6_MIN_MTU) {
+		if (idev && dev->mtu >= IPV6_MIN_MTU) {
 			rt6_mtu_change(dev, dev->mtu);
 			idev->cnf.mtu6 = dev->mtu;
 			break;
+		}
+
+		if (!idev && dev->mtu >= IPV6_MIN_MTU) {
+			idev = ipv6_add_dev(dev);
+			if (idev)
+				break;
 		}
 
 		/* MTU falled under IPV6_MIN_MTU. Stop IPv6 on this interface. */
@@ -2472,6 +2488,7 @@ static int addrconf_ifdown(struct net_device *dev, int how)
 		write_unlock_bh(&idev->lock);
 
 		__ipv6_ifa_notify(RTM_DELADDR, ifa);
+		atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifa);
 		in6_ifa_put(ifa);
 
 		write_lock_bh(&idev->lock);

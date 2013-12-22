@@ -102,11 +102,14 @@ int sysctl_tcp_abc __read_mostly;
 #define FLAG_DATA_LOST		0x80 /* SACK detected data lossage.		*/
 #define FLAG_SLOWPATH		0x100 /* Do not skip RFC checks for window update.*/
 #define FLAG_ONLY_ORIG_SACKED	0x200 /* SACKs only non-rexmit sent before RTO */
+#define FLAG_SND_UNA_ADVANCED	0x400 /* Snd_una was changed (!= FLAG_DATA_ACKED) */
+#define FLAG_DSACKING_ACK	0x800 /* SACK blocks contained DSACK info */
 
 #define FLAG_ACKED		(FLAG_DATA_ACKED|FLAG_SYN_ACKED)
 #define FLAG_NOT_DUP		(FLAG_DATA|FLAG_WIN_UPDATE|FLAG_ACKED)
 #define FLAG_CA_ALERT		(FLAG_DATA_SACKED|FLAG_ECE)
 #define FLAG_FORWARD_PROGRESS	(FLAG_ACKED|FLAG_DATA_SACKED)
+#define FLAG_ANY_PROGRESS	(FLAG_FORWARD_PROGRESS|FLAG_SND_UNA_ADVANCED)
 
 #define IsReno(tp) ((tp)->rx_opt.sack_ok == 0)
 #define IsFack(tp) ((tp)->rx_opt.sack_ok & 2)
@@ -964,12 +967,14 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
 
 	/* Check for D-SACK. */
 	if (before(ntohl(sp[0].start_seq), TCP_SKB_CB(ack_skb)->ack_seq)) {
+		flag |= FLAG_DSACKING_ACK;
 		found_dup_sack = 1;
 		tp->rx_opt.sack_ok |= 4;
 		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKRECV);
 	} else if (num_sacks > 1 &&
 			!after(ntohl(sp[0].end_seq), ntohl(sp[1].end_seq)) &&
 			!before(ntohl(sp[0].start_seq), ntohl(sp[1].start_seq))) {
+		flag |= FLAG_DSACKING_ACK;
 		found_dup_sack = 1;
 		tp->rx_opt.sack_ok |= 4;
 		NET_INC_STATS_BH(LINUX_MIB_TCPDSACKOFORECV);
@@ -988,6 +993,9 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
 	 */
 	if (before(TCP_SKB_CB(ack_skb)->ack_seq, prior_snd_una - tp->max_window))
 		return 0;
+
+	if (!tp->packets_out)
+		goto out;
 
 	/* SACK fastpath:
 	 * if the only SACK change is the increase of the end_seq of
@@ -1257,6 +1265,8 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
 	    (!tp->frto_highmark || after(tp->snd_una, tp->frto_highmark)))
 		tcp_update_reordering(sk, ((tp->fackets_out + 1) - reord), 0);
 
+out:
+
 #if FASTRETRANS_DEBUG > 0
 	BUG_TRAP((int)tp->sacked_out >= 0);
 	BUG_TRAP((int)tp->lost_out >= 0);
@@ -1398,7 +1408,9 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
 		 * waiting for the first ACK and did not get it)...
 		 */
 		if ((tp->frto_counter == 1) && !(flag&FLAG_DATA_ACKED)) {
-			tp->retrans_out += tcp_skb_pcount(skb);
+			/* For some reason this R-bit might get cleared? */
+			if (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_RETRANS)
+				tp->retrans_out += tcp_skb_pcount(skb);
 			/* ...enter this if branch just for the first segment */
 			flag |= FLAG_DATA_ACKED;
 		} else {
@@ -1849,19 +1861,22 @@ static inline u32 tcp_cwnd_min(const struct sock *sk)
 }
 
 /* Decrease cwnd each second ack. */
-static void tcp_cwnd_down(struct sock *sk)
+static void tcp_cwnd_down(struct sock *sk, int flag)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	int decr = tp->snd_cwnd_cnt + 1;
 
-	tp->snd_cwnd_cnt = decr&1;
-	decr >>= 1;
+	if ((flag&(FLAG_ANY_PROGRESS|FLAG_DSACKING_ACK)) ||
+	    (IsReno(tp) && !(flag&FLAG_NOT_DUP))) {
+		tp->snd_cwnd_cnt = decr&1;
+		decr >>= 1;
 
-	if (decr && tp->snd_cwnd > tcp_cwnd_min(sk))
-		tp->snd_cwnd -= decr;
+		if (decr && tp->snd_cwnd > tcp_cwnd_min(sk))
+			tp->snd_cwnd -= decr;
 
-	tp->snd_cwnd = min(tp->snd_cwnd, tcp_packets_in_flight(tp)+1);
-	tp->snd_cwnd_stamp = tcp_time_stamp;
+		tp->snd_cwnd = min(tp->snd_cwnd, tcp_packets_in_flight(tp)+1);
+		tp->snd_cwnd_stamp = tcp_time_stamp;
+	}
 }
 
 /* Nothing was retransmitted or returned timestamp is less
@@ -2058,7 +2073,7 @@ static void tcp_try_to_open(struct sock *sk, int flag)
 		}
 		tcp_moderate_cwnd(tp);
 	} else {
-		tcp_cwnd_down(sk);
+		tcp_cwnd_down(sk, flag);
 	}
 }
 
@@ -2107,7 +2122,9 @@ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
 {
 	struct inet_connection_sock *icsk = inet_csk(sk);
 	struct tcp_sock *tp = tcp_sk(sk);
-	int is_dupack = (tp->snd_una == prior_snd_una && !(flag&FLAG_NOT_DUP));
+	int is_dupack = !(flag&(FLAG_SND_UNA_ADVANCED|FLAG_NOT_DUP));
+	int do_lost = is_dupack || ((flag&FLAG_DATA_SACKED) &&
+				    (tp->fackets_out > tp->reordering));
 
 	/* Some technical things:
 	 * 1. Reno does not count dupacks (sacked_out) automatically. */
@@ -2191,7 +2208,7 @@ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
 			int acked = prior_packets - tp->packets_out;
 			if (IsReno(tp))
 				tcp_remove_reno_sacks(sk, acked);
-			is_dupack = tcp_try_undo_partial(sk, acked);
+			do_lost = tcp_try_undo_partial(sk, acked);
 		}
 		break;
 	case TCP_CA_Loss:
@@ -2256,9 +2273,9 @@ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
 		tcp_set_ca_state(sk, TCP_CA_Recovery);
 	}
 
-	if (is_dupack || tcp_head_timedout(sk))
+	if (do_lost || tcp_head_timedout(sk))
 		tcp_update_scoreboard(sk);
-	tcp_cwnd_down(sk);
+	tcp_cwnd_down(sk, flag);
 	tcp_xmit_retransmit_queue(sk);
 }
 
@@ -2391,6 +2408,9 @@ static int tcp_tso_acked(struct sock *sk, struct sk_buff *skb,
 			__u32 dval = min(tp->fackets_out, packets_acked);
 			tp->fackets_out -= dval;
 		}
+		/* hint's skb might be NULL but we don't need to care */
+		tp->fastpath_cnt_hint -= min_t(u32, packets_acked,
+					       tp->fastpath_cnt_hint);
 		tp->packets_out -= packets_acked;
 
 		BUG_ON(tcp_skb_pcount(skb) == 0);
@@ -2765,6 +2785,9 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
 
 	if (before(ack, prior_snd_una))
 		goto old_ack;
+
+	if (after(ack, prior_snd_una))
+		flag |= FLAG_SND_UNA_ADVANCED;
 
 	if (sysctl_tcp_abc) {
 		if (icsk->icsk_ca_state < TCP_CA_CWR)

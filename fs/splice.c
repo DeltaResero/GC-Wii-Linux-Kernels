@@ -601,7 +601,7 @@ find_page:
 		ret = add_to_page_cache_lru(page, mapping, index,
 					    GFP_KERNEL);
 		if (unlikely(ret))
-			goto out;
+			goto out_release;
 	}
 
 	ret = mapping->a_ops->prepare_write(file, page, offset, offset+this_len);
@@ -657,8 +657,9 @@ find_page:
 	 */
 	mark_page_accessed(page);
 out:
-	page_cache_release(page);
 	unlock_page(page);
+out_release:
+	page_cache_release(page);
 out_ret:
 	return ret;
 }
@@ -1010,7 +1011,7 @@ long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
 		max_read_len = min(len, (size_t)(PIPE_BUFFERS*PAGE_SIZE));
 
 		ret = do_splice_to(in, ppos, pipe, max_read_len, flags);
-		if (unlikely(ret < 0))
+		if (unlikely(ret <= 0))
 			goto out_release;
 
 		read_len = ret;
@@ -1022,7 +1023,7 @@ long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
 		 */
 		ret = do_splice_from(pipe, out, &out_off, read_len,
 				     flags & ~SPLICE_F_NONBLOCK);
-		if (unlikely(ret < 0))
+		if (unlikely(ret <= 0))
 			goto out_release;
 
 		bytes += ret;
@@ -1179,6 +1180,9 @@ static int get_iovec_page_array(const struct iovec __user *iov,
 			break;
 		error = -EFAULT;
 		if (unlikely(!base))
+			break;
+
+		if (!access_ok(VERIFY_READ, base, len))
 			break;
 
 		/*
