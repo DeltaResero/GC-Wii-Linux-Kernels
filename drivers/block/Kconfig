@@ -63,6 +63,68 @@ config AMIGA_Z2RAM
 	  To compile this driver as a module, choose M here: the
 	  module will be called z2ram.
 
+config GAMECUBE_DI
+	tristate "Nintendo Gamecube (alternate) DVD support"
+	depends on GAMECUBE && EXPERIMENTAL
+	help
+	  This enables support for using DVD-R media on
+	  the Nintendo GameCube DVD drive.
+	  Say Y if you want to include this driver in the kernel.
+	  
+	  To compile this driver as a module, choose M here: the 
+	  module will be called gcn-di.
+
+config GAMECUBE_DVD
+	tristate "Nintendo Gamecube DVD"
+	depends on GAMECUBE && !GAMECUBE_DI
+	help
+	  This enables support for using the mini-DVD drive on the 
+	  Nintendo Gamecube.
+	  Say Y if you want to include this driver in the kernel.
+	  
+	  To compile this driver as a module, choose M here: the 
+	  module will be called gcn-dvd
+
+config GAMECUBE_ARAM
+	tristate "Nintendo GameCube ARAM"
+	depends on GAMECUBE
+	help
+	  This enables support for using the 16MB of ARAM found in the
+	  Nintendo GameCube as a ramdisk or as a swap partition.
+	  Say Y if you want to include this driver in the kernel.
+	  
+	  To compile this driver as a module, choose M here: the
+	  module will be called gcn-aram.
+
+config GAMECUBE_MEMCARD
+	tristate "Nintendo GameCube memory card (EXPERIMENTAL)"
+	depends on GAMECUBE && GAMECUBE_EXI && EXPERIMENTAL && BROKEN
+	help
+	  This enables support for using memory cards compatible with the
+	  Nintendo GameCube.
+	  Say Y if you want to include this driver in the kernel.
+	  
+	  To compile this driver as a module, choose M here: the
+	  module will be called gcn-memcard.
+
+config GAMECUBE_SD
+	tristate "Nintendo GameCube SD and MMC memory card (EXPERIMENTAL)"
+	depends on GAMECUBE && GAMECUBE_EXI && EXPERIMENTAL
+	help
+	  This enables support for using SD and MMC cards through
+	  the Nintendo SD Card Adapter (DOL-019) or compatible hardware.
+	  
+	  Currently, only read support is enabled.
+	  
+	  You probably want to compile FAT support, and the required
+	  codepages, or mount will complain. See Filesystems -> DOS/FAT/NT
+	  filesystems and Filesystems -> Native Language Support
+
+	  Say Y if you want to include this driver in the kernel.
+	  
+	  To compile this driver as a module, choose M here: the
+	  module will be called gcn-sd.
+	  
 config ATARI_ACSI
 	tristate "Atari ACSI support"
 	depends on ATARI && BROKEN

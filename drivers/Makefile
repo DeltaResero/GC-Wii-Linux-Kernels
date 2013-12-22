@@ -77,3 +77,7 @@ obj-$(CONFIG_CRYPTO)		+= crypto/
 obj-$(CONFIG_SUPERH)		+= sh/
 obj-$(CONFIG_GENERIC_TIME)	+= clocksource/
 obj-$(CONFIG_DMA_ENGINE)	+= dma/
+
+obj-$(CONFIG_GAMECUBE_EXI)	+= exi/
+obj-$(CONFIG_GAMECUBE_SI)	+= input/si/
+
