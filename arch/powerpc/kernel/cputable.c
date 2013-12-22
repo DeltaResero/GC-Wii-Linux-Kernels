@@ -594,6 +594,18 @@ static struct cpu_spec __initdata cpu_specs[] = {
 		.machine_check		= machine_check_generic,
 		.platform		= "ppc750",
 	},
+	{	/* 750CL "Broadway" (87200) */
+		.pvr_mask		= 0xffffffff,
+		.pvr_value		= 0x00087200,
+		.cpu_name		= "750CL",
+		.cpu_features		= CPU_FTRS_750CL,
+		.cpu_user_features	= COMMON_USER | PPC_FEATURE_PPC_LE,
+		.icache_bsize		= 32,
+		.dcache_bsize		= 32,
+		.num_pmcs		= 4,
+		.cpu_setup		= __setup_cpu_750,
+		.platform		= "ppc750",
+	},
 	{	/* 750CL */
 		.pvr_mask		= 0xfffff0f0,
 		.pvr_value		= 0x00087010,

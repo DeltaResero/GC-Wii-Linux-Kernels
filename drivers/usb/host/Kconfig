@@ -260,3 +260,22 @@ config USB_R8A66597_HCD
 	  To compile this driver as a module, choose M here: the
 	  module will be called r8a66597-hcd.
 
+config USB_WII_HCD
+	tristate "Nintendo Wii HCD support"
+	depends on USB && WII && EXPERIMENTAL
+	help
+	  The Nintendo Wii includes a USB 1.1 host controller that can be
+	  accessed through the API provided by the starlet subsystem.
+	  
+	  Enable this option if you plan to use the internal Nintendo Wii
+	  bluetooth dongle or any USB peripheral connected to the external
+	  ports.
+
+	  USB devices using isochronous transfers are not supported.
+	  Use of USB hubs is partially supported.
+	  
+	  Use completely at you own risk. If unsure, say N.
+	  
+	  To compile this driver as a module, choose M here: the
+	  module will be called rvl-sthcd.
+

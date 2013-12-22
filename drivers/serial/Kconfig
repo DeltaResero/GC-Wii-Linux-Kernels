@@ -1352,4 +1352,17 @@ config SERIAL_SC26XX_CONSOLE
 	help
 	  Support for Console on SC2681/SC2692 serial ports.
 
+config SERIAL_USBGECKO
+	bool "USBGecko adapter on the Nintendo GameCube/Wii"
+	depends on GAMECUBE_EXI
+	select SERIAL_CORE
+	help
+	  This is a driver for the USB Gecko adapter for the Nintendo GameCube
+	  and Wii gaming consoles. It provides a console and a tty interface.
+	  
+	  If you have an adapter like this, say Y here, otherwise say N.
+	  
+          To compile this driver as a module, choose M here: the
+          module will be called usbgecko.
+
 endmenu

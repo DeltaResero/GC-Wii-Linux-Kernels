@@ -221,6 +221,7 @@ obj-$(CONFIG_FEC_8XX) += fec_8xx/
 obj-$(CONFIG_PASEMI_MAC) += pasemi_mac.o
 obj-$(CONFIG_MLX4_CORE) += mlx4/
 obj-$(CONFIG_ENC28J60) += enc28j60.o
+obj-$(CONFIG_GAMECUBE_BBA) += gcn-bba.o
 
 obj-$(CONFIG_MACB) += macb.o
 
