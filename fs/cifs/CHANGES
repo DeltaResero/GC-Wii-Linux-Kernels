@@ -1,3 +1,8 @@
+Fix oops in cifs_dfs_ref.c when prefixpath is not reachable when using DFS.
+Fix "redzone overwritten" bug in cifs_put_tcon (CIFSTcon may allocate too
+little memory for the "nativeFileSystem" field returned by the server
+during mount).
+
 Version 1.55
 ------------
 Various fixes to make delete of open files behavior more predictable

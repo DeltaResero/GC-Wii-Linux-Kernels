@@ -1447,6 +1447,11 @@ static int bind_rdev_to_array(mdk_rdev_t * rdev, mddev_t * mddev)
 		if (find_rdev_nr(mddev, rdev->desc_nr))
 			return -EBUSY;
 	}
+	if (mddev->max_disks && rdev->desc_nr >= mddev->max_disks) {
+		printk(KERN_WARNING "md: %s: array is limited to %d devices\n",
+		       mdname(mddev), mddev->max_disks);
+		return -EBUSY;
+	}
 	bdevname(rdev->bdev,b);
 	while ( (s=strchr(b, '/')) != NULL)
 		*s = '!';
@@ -2355,6 +2360,15 @@ static void analyze_sbs(mddev_t * mddev)
 
 	i = 0;
 	rdev_for_each(rdev, tmp, mddev) {
+		if (rdev->desc_nr >= mddev->max_disks ||
+		    i > mddev->max_disks) {
+			printk(KERN_WARNING
+			       "md: %s: %s: only %d devices permitted\n",
+			       mdname(mddev), bdevname(rdev->bdev, b),
+			       mddev->max_disks);
+			kick_rdev_from_array(rdev);
+			continue;
+		}
 		if (rdev != freshest)
 			if (super_types[mddev->major_version].
 			    validate_super(mddev, rdev)) {
@@ -3680,6 +3694,10 @@ static int do_md_run(mddev_t * mddev)
 		return err;
 	}
 	if (mddev->pers->sync_request) {
+		/* wait for any previously scheduled redundancy groups
+		 * to be removed
+		 */
+		flush_scheduled_work();
 		if (sysfs_create_group(&mddev->kobj, &md_redundancy_group))
 			printk(KERN_WARNING
 			       "md: cannot register extra attributes for %s\n",
@@ -3810,6 +3828,14 @@ static void restore_bitmap_write_access(struct file *file)
 	spin_unlock(&inode->i_lock);
 }
 
+
+static void sysfs_delayed_rm(struct work_struct *ws)
+{
+	mddev_t *mddev = container_of(ws, mddev_t, del_work);
+
+	sysfs_remove_group(&mddev->kobj, &md_redundancy_group);
+}
+
 /* mode:
  *   0 - completely stop and dis-assemble array
  *   1 - switch to readonly
@@ -3819,6 +3845,7 @@ static int do_md_stop(mddev_t * mddev, int mode, int is_open)
 {
 	int err = 0;
 	struct gendisk *disk = mddev->gendisk;
+	int remove_group = 0;
 
 	if (atomic_read(&mddev->openers) > is_open) {
 		printk("md: %s still in use.\n",mdname(mddev));
@@ -3854,10 +3881,9 @@ static int do_md_stop(mddev_t * mddev, int mode, int is_open)
 			mddev->queue->merge_bvec_fn = NULL;
 			mddev->queue->unplug_fn = NULL;
 			mddev->queue->backing_dev_info.congested_fn = NULL;
-			if (mddev->pers->sync_request)
-				sysfs_remove_group(&mddev->kobj, &md_redundancy_group);
-
 			module_put(mddev->pers->owner);
+			if (mddev->pers->sync_request)
+				remove_group = 1;
 			mddev->pers = NULL;
 			/* tell userspace to handle 'inactive' */
 			sysfs_notify_dirent(mddev->sysfs_state);
@@ -3904,6 +3930,15 @@ static int do_md_stop(mddev_t * mddev, int mode, int is_open)
 
 		/* make sure all md_delayed_delete calls have finished */
 		flush_scheduled_work();
+
+		/* we can't wait for group removal under mddev_lock as
+		 * threads holding the group 'active' need to acquire
+		 * mddev_lock before going inactive
+		 */
+		if (remove_group) {
+			INIT_WORK(&mddev->del_work, sysfs_delayed_rm);
+			schedule_work(&mddev->del_work);
+		}
 
 		export_array(mddev);
 
@@ -4448,13 +4483,6 @@ static int hot_add_disk(mddev_t * mddev, dev_t dev)
 	 * noticed in interrupt contexts ...
 	 */
 
-	if (rdev->desc_nr == mddev->max_disks) {
-		printk(KERN_WARNING "%s: can not hot-add to full array!\n",
-			mdname(mddev));
-		err = -EBUSY;
-		goto abort_unbind_export;
-	}
-
 	rdev->raid_disk = -1;
 
 	md_update_sb(mddev, 1);
@@ -4467,9 +4495,6 @@ static int hot_add_disk(mddev_t * mddev, dev_t dev)
 	md_wakeup_thread(mddev->thread);
 	md_new_event(mddev);
 	return 0;
-
-abort_unbind_export:
-	unbind_rdev_from_array(rdev);
 
 abort_export:
 	export_rdev(rdev);

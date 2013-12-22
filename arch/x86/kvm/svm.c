@@ -772,6 +772,22 @@ static void svm_get_segment(struct kvm_vcpu *vcpu,
 	var->l = (s->attrib >> SVM_SELECTOR_L_SHIFT) & 1;
 	var->db = (s->attrib >> SVM_SELECTOR_DB_SHIFT) & 1;
 	var->g = (s->attrib >> SVM_SELECTOR_G_SHIFT) & 1;
+
+	/*
+	 * SVM always stores 0 for the 'G' bit in the CS selector in
+	 * the VMCB on a VMEXIT. This hurts cross-vendor migration:
+	 * Intel's VMENTRY has a check on the 'G' bit.
+	 */
+	if (seg == VCPU_SREG_CS)
+		var->g = s->limit > 0xfffff;
+
+	/*
+	 * Work around a bug where the busy flag in the tr selector
+	 * isn't exposed
+	 */
+	if (seg == VCPU_SREG_TR)
+		var->type |= 0x2;
+
 	var->unusable = !var->present;
 }
 
@@ -1596,7 +1612,6 @@ static void svm_intr_assist(struct kvm_vcpu *vcpu)
 	/* Okay, we can deliver the interrupt: grab it and update PIC state. */
 	intr_vector = kvm_cpu_get_interrupt(vcpu);
 	svm_inject_irq(svm, intr_vector);
-	kvm_timer_intr_post(vcpu, intr_vector);
 out:
 	update_cr8_intercept(vcpu);
 }

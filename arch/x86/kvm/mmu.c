@@ -384,7 +384,9 @@ static void account_shadowed(struct kvm *kvm, gfn_t gfn)
 {
 	int *write_count;
 
-	write_count = slot_largepage_idx(gfn, gfn_to_memslot(kvm, gfn));
+	gfn = unalias_gfn(kvm, gfn);
+	write_count = slot_largepage_idx(gfn,
+					 gfn_to_memslot_unaliased(kvm, gfn));
 	*write_count += 1;
 }
 
@@ -392,16 +394,20 @@ static void unaccount_shadowed(struct kvm *kvm, gfn_t gfn)
 {
 	int *write_count;
 
-	write_count = slot_largepage_idx(gfn, gfn_to_memslot(kvm, gfn));
+	gfn = unalias_gfn(kvm, gfn);
+	write_count = slot_largepage_idx(gfn,
+					 gfn_to_memslot_unaliased(kvm, gfn));
 	*write_count -= 1;
 	WARN_ON(*write_count < 0);
 }
 
 static int has_wrprotected_page(struct kvm *kvm, gfn_t gfn)
 {
-	struct kvm_memory_slot *slot = gfn_to_memslot(kvm, gfn);
+	struct kvm_memory_slot *slot;
 	int *largepage_idx;
 
+	gfn = unalias_gfn(kvm, gfn);
+	slot = gfn_to_memslot_unaliased(kvm, gfn);
 	if (slot) {
 		largepage_idx = slot_largepage_idx(gfn, slot);
 		return *largepage_idx;
@@ -787,7 +793,7 @@ static struct kvm_mmu_page *kvm_mmu_alloc_page(struct kvm_vcpu *vcpu,
 	set_page_private(virt_to_page(sp->spt), (unsigned long)sp);
 	list_add(&sp->link, &vcpu->kvm->arch.active_mmu_pages);
 	ASSERT(is_empty_shadow_page(sp->spt));
-	sp->slot_bitmap = 0;
+	bitmap_zero(sp->slot_bitmap, KVM_MEMORY_SLOTS + KVM_PRIVATE_MEM_SLOTS);
 	sp->multimapped = 0;
 	sp->parent_pte = parent_pte;
 	--vcpu->kvm->arch.n_free_mmu_pages;
@@ -975,7 +981,7 @@ static int mmu_unsync_walk(struct kvm_mmu_page *sp,
 	for_each_unsync_children(sp->unsync_child_bitmap, i) {
 		u64 ent = sp->spt[i];
 
-		if (is_shadow_present_pte(ent)) {
+		if (is_shadow_present_pte(ent) && !is_large_pte(ent)) {
 			struct kvm_mmu_page *child;
 			child = page_header(ent & PT64_BASE_ADDR_MASK);
 
@@ -1153,6 +1159,8 @@ static int walk_shadow(struct kvm_shadow_walk *walker,
 	if (level == PT32E_ROOT_LEVEL) {
 		shadow_addr = vcpu->arch.mmu.pae_root[(addr >> 30) & 3];
 		shadow_addr &= PT64_BASE_ADDR_MASK;
+		if (!shadow_addr)
+			return 1;
 		--level;
 	}
 
@@ -1362,7 +1370,7 @@ static void page_header_update_slot(struct kvm *kvm, void *pte, gfn_t gfn)
 	int slot = memslot_id(kvm, gfn_to_memslot(kvm, gfn));
 	struct kvm_mmu_page *sp = page_header(__pa(pte));
 
-	__set_bit(slot, &sp->slot_bitmap);
+	__set_bit(slot, sp->slot_bitmap);
 }
 
 static void mmu_convert_notrap(struct kvm_mmu_page *sp)
@@ -2451,7 +2459,7 @@ void kvm_mmu_slot_remove_write_access(struct kvm *kvm, int slot)
 		int i;
 		u64 *pt;
 
-		if (!test_bit(slot, &sp->slot_bitmap))
+		if (!test_bit(slot, sp->slot_bitmap))
 			continue;
 
 		pt = sp->spt;
@@ -2860,8 +2868,8 @@ static void audit_write_protection(struct kvm_vcpu *vcpu)
 		if (sp->role.metaphysical)
 			continue;
 
-		slot = gfn_to_memslot(vcpu->kvm, sp->gfn);
 		gfn = unalias_gfn(vcpu->kvm, sp->gfn);
+		slot = gfn_to_memslot_unaliased(vcpu->kvm, sp->gfn);
 		rmapp = &slot->rmap[gfn - slot->base_gfn];
 		if (*rmapp)
 			printk(KERN_ERR "%s: (%s) shadow page has writable"

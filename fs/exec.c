@@ -102,7 +102,7 @@ static inline void put_binfmt(struct linux_binfmt * fmt)
  *
  * Also note that we take the address to load from from the file itself.
  */
-asmlinkage long sys_uselib(const char __user * library)
+SYSCALL_DEFINE1(uselib, const char __user *, library)
 {
 	struct file *file;
 	struct nameidata nd;
@@ -1084,9 +1084,7 @@ static int unsafe_exec(struct task_struct *p)
 {
 	int unsafe = tracehook_unsafe_exec(p);
 
-	if (atomic_read(&p->fs->count) > 1 ||
-	    atomic_read(&p->files->count) > 1 ||
-	    atomic_read(&p->sighand->count) > 1)
+	if (atomic_read(&p->fs->count) > 1)
 		unsafe |= LSM_UNSAFE_SHARE;
 
 	return unsafe;

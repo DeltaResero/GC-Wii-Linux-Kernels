@@ -27,7 +27,8 @@
 
 /* IMPORTANT NOTE: This file must be included in another file which does
  * the following thing for it to work:
- * The macro UNUSUAL_DEV() must be defined before this file is included
+ * The UNUSUAL_DEV, COMPLIANT_DEV, and USUAL_DEV macros must be defined
+ * before this file is included.
  */
 
 /* If you edit this file, please try to keep it sorted first by VendorID,
@@ -44,6 +45,12 @@
  * Alan Stern <stern@rowland.harvard.edu>, and don't forget to CC: the
  * USB development list <linux-usb@vger.kernel.org> and the USB storage list
  * <usb-storage@lists.one-eyed-alien.net>
+ */
+
+/* Note: If you add an entry only in order to set the CAPACITY_OK flag,
+ * use the COMPLIANT_DEV macro instead of UNUSUAL_DEV.  This is
+ * because such entries mark devices which actually work correctly,
+ * as opposed to devices that do something strangely or wrongly.
  */
 
 /* patch submitted by Vivian Bregier <Vivian.Bregier@imag.fr>
@@ -160,34 +167,6 @@ UNUSUAL_DEV(  0x0421, 0x0019, 0x0592, 0x0592,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_MAX_SECTORS_64 ),
 
-/* Reported by Filip Joelsson <filip@blueturtle.nu> */
-UNUSUAL_DEV(  0x0421, 0x005d, 0x0001, 0x0600,
-		"Nokia",
-		"Nokia 3110c",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY ),
-
-/* Reported by Ozan Sener <themgzzy@gmail.com> */
-UNUSUAL_DEV(  0x0421, 0x0060, 0x0551, 0x0551,
-		"Nokia",
-		"3500c",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY ),
-
-/* Reported by CSECSY Laszlo <boobaa@frugalware.org> */
-UNUSUAL_DEV(  0x0421, 0x0063, 0x0001, 0x0601,
-		"Nokia",
-		"Nokia 3109c",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY ),
-
-/* Patch for Nokia 5310 capacity */
-UNUSUAL_DEV(  0x0421, 0x006a, 0x0000, 0x0701,
-		"Nokia",
-		"5310",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY ),
-
 /* Reported by Mario Rettig <mariorettig@web.de> */
 UNUSUAL_DEV(  0x0421, 0x042e, 0x0100, 0x0100,
 		"Nokia",
@@ -240,7 +219,7 @@ UNUSUAL_DEV(  0x0421, 0x047c, 0x0370, 0x0610,
 		US_FL_MAX_SECTORS_64 ),
 
 /* Reported by Manuel Osdoba <manuel.osdoba@tu-ilmenau.de> */
-UNUSUAL_DEV( 0x0421, 0x0492, 0x0452, 0x0452,
+UNUSUAL_DEV( 0x0421, 0x0492, 0x0452, 0x9999,
 		"Nokia",
 		"Nokia 6233",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
@@ -252,35 +231,6 @@ UNUSUAL_DEV(  0x0421, 0x0495, 0x0370, 0x0370,
 		"6234",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_MAX_SECTORS_64 ),
-
-/* Reported by Cedric Godin <cedric@belbone.be> */
-UNUSUAL_DEV(  0x0421, 0x04b9, 0x0500, 0x0551,
-		"Nokia",
-		"5300",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY ),
-
-/* Reported by Richard Nauber <RichardNauber@web.de> */
-UNUSUAL_DEV(  0x0421, 0x04fa, 0x0550, 0x0660,
-		"Nokia",
-		"6300",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY ),
-
-/* Patch for Nokia 5310 capacity */
-UNUSUAL_DEV(  0x0421, 0x006a, 0x0000, 0x0591,
-	"Nokia",
-	"5310",
-	US_SC_DEVICE, US_PR_DEVICE, NULL,
-	US_FL_FIX_CAPACITY ),
-
-/* Submitted by Ricky Wong Yung Fei <evilbladewarrior@gmail.com> */
-/* Nokia 7610 Supernova - Too many sectors reported in usb storage mode */
-UNUSUAL_DEV(  0x0421, 0x00f5, 0x0000, 0x0470,
-	"Nokia",
-	"7610 Supernova",
-	US_SC_DEVICE, US_PR_DEVICE, NULL,
-	US_FL_FIX_CAPACITY ),
 
 /* Reported by Olaf Hering <olh@suse.de> from novell bug #105878 */
 UNUSUAL_DEV(  0x0424, 0x0fdc, 0x0210, 0x0210,
@@ -395,83 +345,6 @@ UNUSUAL_DEV(  0x04b0, 0x0301, 0x0010, 0x0010,
 		"NIKON DSC E2000",
 		US_SC_DEVICE, US_PR_DEVICE,NULL,
 		US_FL_NOT_LOCKABLE ),
-
-/* Reported by Stefan de Konink <skinkie@xs4all.nl> */
-UNUSUAL_DEV(  0x04b0, 0x0401, 0x0200, 0x0200,
-		"NIKON",
-		"NIKON DSC D100",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Tobias Kunze Briseno <t-linux@fictive.com> */
-UNUSUAL_DEV(  0x04b0, 0x0403, 0x0200, 0x0200,
-		"NIKON",
-		"NIKON DSC D2H",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Milinevsky Dmitry <niam.niam@gmail.com> */
-UNUSUAL_DEV(  0x04b0, 0x0409, 0x0100, 0x0100,
-		"NIKON",
-		"NIKON DSC D50",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Andreas Bockhold <andreas@bockionline.de> */
-UNUSUAL_DEV(  0x04b0, 0x0405, 0x0100, 0x0100,
-		"NIKON",
-		"NIKON DSC D70",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Jamie Kitson <jamie@staberinde.fsnet.co.uk> */
-UNUSUAL_DEV(  0x04b0, 0x040d, 0x0100, 0x0100,
-		"NIKON",
-		"NIKON DSC D70s",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Graber and Mike Pagano <mpagano-kernel@mpagano.com> */
-UNUSUAL_DEV(  0x04b0, 0x040f, 0x0100, 0x0200,
-		"NIKON",
-		"NIKON DSC D200",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Emil Larsson <emil@swip.net> */
-UNUSUAL_DEV(  0x04b0, 0x0411, 0x0100, 0x0111,
-		"NIKON",
-		"NIKON DSC D80",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Ortwin Glueck <odi@odi.ch> */
-UNUSUAL_DEV(  0x04b0, 0x0413, 0x0110, 0x0111,
-		"NIKON",
-		"NIKON DSC D40",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Paul Check <paul@openstreet.com> */
-UNUSUAL_DEV(  0x04b0, 0x0415, 0x0100, 0x0100,
-		"NIKON",
-		"NIKON DSC D2Xs",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by Shan Destromp (shansan@gmail.com) */
-UNUSUAL_DEV(  0x04b0, 0x0417, 0x0100, 0x0100,
-		"NIKON",
-		"NIKON DSC D40X",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/* Reported by paul ready <lxtwin@homecall.co.uk> */
-UNUSUAL_DEV(  0x04b0, 0x0419, 0x0100, 0x0200,
-		"NIKON",
-		"NIKON DSC D300",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
 
 /* Reported by Doug Maxey (dwm@austin.ibm.com) */
 UNUSUAL_DEV(  0x04b3, 0x4001, 0x0110, 0x0110,
@@ -684,6 +557,13 @@ UNUSUAL_DEV(  0x0525, 0xa140, 0x0100, 0x0100,
 		"USB Clik! 40",
 		US_SC_8070, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
+
+/* Added by Alan Stern <stern@rowland.harvard.edu> */
+COMPLIANT_DEV(0x0525, 0xa4a5, 0x0000, 0x9999,
+		"Linux",
+		"File-backed Storage Gadget",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_CAPACITY_OK ),
 
 /* Yakumo Mega Image 37
  * Submitted by Stephan Fuhrmann <atomenergie@t-online.de> */
@@ -996,13 +876,13 @@ UNUSUAL_DEV(  0x05e3, 0x0701, 0x0000, 0xffff,
 		"Genesys Logic",
 		"USB to IDE Optical",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_GO_SLOW | US_FL_MAX_SECTORS_64 ),
+		US_FL_GO_SLOW | US_FL_MAX_SECTORS_64 | US_FL_IGNORE_RESIDUE ),
 
 UNUSUAL_DEV(  0x05e3, 0x0702, 0x0000, 0xffff,
 		"Genesys Logic",
 		"USB to IDE Disk",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_GO_SLOW | US_FL_MAX_SECTORS_64 ),
+		US_FL_GO_SLOW | US_FL_MAX_SECTORS_64 | US_FL_IGNORE_RESIDUE ),
 
 /* Reported by Hanno Boeck <hanno@gmx.de>
  * Taken from the Lycoris Kernel */
@@ -1033,14 +913,16 @@ UNUSUAL_DEV( 0x066f, 0x8000, 0x0001, 0x0001,
 		US_FL_FIX_CAPACITY ),
 
 /* Reported by Richard -=[]=- <micro_flyer@hotmail.com> */
-UNUSUAL_DEV( 0x067b, 0x2507, 0x0100, 0x0100,
+/* Change to bcdDeviceMin (0x0100 to 0x0001) reported by
+ * Thomas Bartosik <tbartdev@gmx-topmail.de> */
+UNUSUAL_DEV( 0x067b, 0x2507, 0x0001, 0x0100,
 		"Prolific Technology Inc.",
 		"Mass Storage Device",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY | US_FL_GO_SLOW ),
 
 /* Reported by Alex Butcher <alex.butcher@assursys.co.uk> */
-UNUSUAL_DEV( 0x067b, 0x3507, 0x0001, 0x0001,
+UNUSUAL_DEV( 0x067b, 0x3507, 0x0001, 0x0101,
 		"Prolific Technology Inc.",
 		"ATAPI-6 Bridge Controller",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
@@ -1282,12 +1164,14 @@ UNUSUAL_DEV(  0x07c4, 0xa400, 0x0000, 0xffff,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
 
-/* Reported by Rauch Wolke <rauchwolke@gmx.net> */
+/* Reported by Rauch Wolke <rauchwolke@gmx.net>
+ * and augmented by binbin <binbinsh@gmail.com> (Bugzilla #12882)
+ */
 UNUSUAL_DEV(  0x07c4, 0xa4a5, 0x0000, 0xffff,
 		"Simple Tech/Datafab",
 		"CF+SM Reader",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_IGNORE_RESIDUE ),
+		US_FL_IGNORE_RESIDUE | US_FL_MAX_SECTORS_64 ),
 
 /* Casio QV 2x00/3x00/4000/8000 digital still cameras are not conformant
  * to the USB storage specification in two ways:
@@ -1315,6 +1199,13 @@ UNUSUAL_DEV( 0x0839, 0x000a, 0x0001, 0x0001,
 
 /* Reported by Luciano Rocha <luciano@eurotux.com> */
 UNUSUAL_DEV( 0x0840, 0x0082, 0x0001, 0x0001,
+		"Argosy",
+		"Storage",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY),
+
+/* Reported and patched by Nguyen Anh Quynh <aquynh@gmail.com> */
+UNUSUAL_DEV( 0x0840, 0x0084, 0x0001, 0x0001,
 		"Argosy",
 		"Storage",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
@@ -1417,14 +1308,6 @@ UNUSUAL_DEV( 0x0a17, 0x0004, 0x1000, 0x1000,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_INQUIRY ),
 
-
-/* Submitted by Per Winkvist <per.winkvist@uk.com> */
-UNUSUAL_DEV( 0x0a17, 0x006, 0x0000, 0xffff,
-		"Pentax",
-		"Optio S/S4",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_INQUIRY ),
-
 /* These are virtual windows driver CDs, which the zd1211rw driver
  * automatically converts into WLAN devices. */
 UNUSUAL_DEV( 0x0ace, 0x2011, 0x0101, 0x0101,
@@ -1446,6 +1329,16 @@ UNUSUAL_DEV( 0x0ace, 0x20ff, 0x0101, 0x0101,
 UNUSUAL_DEV( 0x0af0, 0x7401, 0x0000, 0x0000,
 		"Option",
 		"GI 0401 SD-Card",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		0 ),
+
+/* Reported by Jan Dumon <j.dumon@option.com>
+ * This device (wrongly) has a vendor-specific device descriptor.
+ * The entry is needed so usb-storage can bind to it's mass-storage
+ * interface as an interface driver */
+UNUSUAL_DEV( 0x0af0, 0x7501, 0x0000, 0x0000,
+		"Option",
+		"GI 0431 SD-Card",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		0 ),
 
@@ -2076,6 +1969,12 @@ UNUSUAL_DEV(  0x19d2, 0x2000, 0x0000, 0x0000,
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_IGNORE_DEVICE),
 
+UNUSUAL_DEV( 0x2116, 0x0320, 0x0001, 0x0001,
+		"ST",
+		"2A",
+		US_SC_DEVICE, US_PR_DEVICE, NULL,
+		US_FL_FIX_CAPACITY),
+
 /* patch submitted by Davide Perini <perini.davide@dpsoftware.org>
  * and Renato Perini <rperini@email.it>
  */
@@ -2084,27 +1983,6 @@ UNUSUAL_DEV(  0x22b8, 0x3010, 0x0001, 0x0001,
 		"RAZR V3x",
 		US_SC_DEVICE, US_PR_DEVICE, NULL,
 		US_FL_FIX_CAPACITY | US_FL_IGNORE_RESIDUE ),
-
-/*
- * Patch by Pete Zaitcev <zaitcev@redhat.com>
- * Report by Mark Patton. Red Hat bz#208928.
- * Added support for rev 0x0002 (Motorola ROKR W5)
- * by Javier Smaldone <javier@smaldone.com.ar>
- */
-UNUSUAL_DEV(  0x22b8, 0x4810, 0x0001, 0x0002,
-		"Motorola",
-		"RAZR V3i/ROKR W5",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
-
-/*
- * Patch by Jost Diederichs <jost@qdusa.com>
- */
-UNUSUAL_DEV(0x22b8, 0x6410, 0x0001, 0x9999,
-		"Motorola Inc.",
-		"Motorola Phone (RAZRV3xx)",
-		US_SC_DEVICE, US_PR_DEVICE, NULL,
-		US_FL_FIX_CAPACITY),
 
 /*
  * Patch by Constantin Baranov <const@tltsu.ru>

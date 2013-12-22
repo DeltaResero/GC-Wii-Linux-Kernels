@@ -897,6 +897,7 @@ static int vmx_get_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 *pdata)
 		data = vmcs_readl(GUEST_SYSENTER_ESP);
 		break;
 	default:
+		vmx_load_host_state(to_vmx(vcpu));
 		msr = find_msr_entry(to_vmx(vcpu), msr_index);
 		if (msr) {
 			data = msr->data;
@@ -2407,7 +2408,7 @@ static int vmx_set_tss_addr(struct kvm *kvm, unsigned int addr)
 {
 	int ret;
 	struct kvm_userspace_memory_region tss_mem = {
-		.slot = 8,
+		.slot = TSS_PRIVATE_MEMSLOT,
 		.guest_phys_addr = addr,
 		.memory_size = PAGE_SIZE * 3,
 		.flags = 0,
@@ -3171,10 +3172,8 @@ static void vmx_intr_assist(struct kvm_vcpu *vcpu)
 		else
 			enable_irq_window(vcpu);
 	}
-	if (vcpu->arch.interrupt.pending) {
+	if (vcpu->arch.interrupt.pending)
 		vmx_inject_irq(vcpu, vcpu->arch.interrupt.nr);
-		kvm_timer_intr_post(vcpu, vcpu->arch.interrupt.nr);
-	}
 }
 
 /*

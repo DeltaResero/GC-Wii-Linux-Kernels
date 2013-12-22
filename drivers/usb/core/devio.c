@@ -359,11 +359,6 @@ static void destroy_async(struct dev_state *ps, struct list_head *list)
 		spin_lock_irqsave(&ps->lock, flags);
 	}
 	spin_unlock_irqrestore(&ps->lock, flags);
-	as = async_getcompleted(ps);
-	while (as) {
-		free_async(as);
-		as = async_getcompleted(ps);
-	}
 }
 
 static void destroy_async_on_interface(struct dev_state *ps,
@@ -642,6 +637,7 @@ static int usbdev_release(struct inode *inode, struct file *file)
 	struct dev_state *ps = file->private_data;
 	struct usb_device *dev = ps->dev;
 	unsigned int ifnum;
+	struct async *as;
 
 	usb_lock_device(dev);
 
@@ -660,6 +656,12 @@ static int usbdev_release(struct inode *inode, struct file *file)
 	usb_unlock_device(dev);
 	usb_put_dev(dev);
 	put_pid(ps->disc_pid);
+
+	as = async_getcompleted(ps);
+	while (as) {
+		free_async(as);
+		as = async_getcompleted(ps);
+	}
 	kfree(ps);
 	return 0;
 }
@@ -1703,7 +1705,7 @@ const struct file_operations usbdev_file_operations = {
 	.release =	usbdev_release,
 };
 
-void usb_fs_classdev_common_remove(struct usb_device *udev)
+static void usbdev_remove(struct usb_device *udev)
 {
 	struct dev_state *ps;
 	struct siginfo sinfo;
@@ -1745,10 +1747,15 @@ static void usb_classdev_remove(struct usb_device *dev)
 {
 	if (dev->usb_classdev)
 		device_unregister(dev->usb_classdev);
-	usb_fs_classdev_common_remove(dev);
 }
 
-static int usb_classdev_notify(struct notifier_block *self,
+#else
+#define usb_classdev_add(dev)		0
+#define usb_classdev_remove(dev)	do {} while (0)
+
+#endif
+
+static int usbdev_notify(struct notifier_block *self,
 			       unsigned long action, void *dev)
 {
 	switch (action) {
@@ -1758,15 +1765,15 @@ static int usb_classdev_notify(struct notifier_block *self,
 		break;
 	case USB_DEVICE_REMOVE:
 		usb_classdev_remove(dev);
+		usbdev_remove(dev);
 		break;
 	}
 	return NOTIFY_OK;
 }
 
 static struct notifier_block usbdev_nb = {
-	.notifier_call = 	usb_classdev_notify,
+	.notifier_call = 	usbdev_notify,
 };
-#endif
 
 static struct cdev usb_device_cdev;
 
@@ -1801,9 +1808,8 @@ int __init usb_devio_init(void)
 	 * to /sys/dev
 	 */
 	usb_classdev_class->dev_kobj = NULL;
-
-	usb_register_notify(&usbdev_nb);
 #endif
+	usb_register_notify(&usbdev_nb);
 out:
 	return retval;
 
@@ -1814,8 +1820,8 @@ error_cdev:
 
 void usb_devio_cleanup(void)
 {
-#ifdef CONFIG_USB_DEVICE_CLASS
 	usb_unregister_notify(&usbdev_nb);
+#ifdef CONFIG_USB_DEVICE_CLASS
 	class_destroy(usb_classdev_class);
 #endif
 	cdev_del(&usb_device_cdev);
