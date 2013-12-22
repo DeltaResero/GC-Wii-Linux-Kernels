@@ -3772,6 +3772,7 @@ static const struct ata_blacklist_entry ata_device_blacklist [] = {
 	/* Devices where NCQ should be avoided */
 	/* NCQ is slow */
         { "WDC WD740ADFD-00",   NULL,		ATA_HORKAGE_NONCQ },
+	{ "WDC WD740ADFD-00NLR1", NULL,		ATA_HORKAGE_NONCQ, },
 	/* http://thread.gmane.org/gmane.linux.ide/14907 */
 	{ "FUJITSU MHT2060BH",	NULL,		ATA_HORKAGE_NONCQ },
 	/* NCQ is broken */
@@ -3790,15 +3791,6 @@ static const struct ata_blacklist_entry ata_device_blacklist [] = {
 	{ "HTS541060G9SA00",    "MB3OC60D",     ATA_HORKAGE_NONCQ, },
 	{ "HTS541080G9SA00",    "MB4OC60D",     ATA_HORKAGE_NONCQ, },
 	{ "HTS541010G9SA00",    "MBZOC60D",     ATA_HORKAGE_NONCQ, },
-	/* Drives which do spurious command completion */
-	{ "HTS541680J9SA00",	"SB2IC7EP",	ATA_HORKAGE_NONCQ, },
-	{ "HTS541612J9SA00",	"SBDIC7JP",	ATA_HORKAGE_NONCQ, },
-	{ "Hitachi HTS541616J9SA00", "SB4OC70P", ATA_HORKAGE_NONCQ, },
-	{ "WDC WD740ADFD-00NLR1", NULL,		ATA_HORKAGE_NONCQ, },
-	{ "FUJITSU MHV2080BH",	"00840028",	ATA_HORKAGE_NONCQ, },
-	{ "ST9160821AS",	"3.CLF",	ATA_HORKAGE_NONCQ, },
-	{ "ST3160812AS",	"3.AD",		ATA_HORKAGE_NONCQ, },
-	{ "SAMSUNG HD401LJ",	"ZZ100-15",	ATA_HORKAGE_NONCQ, },
 
 	/* devices which puke on READ_NATIVE_MAX */
 	{ "HDS724040KLSA80",	"KFAOA20N",	ATA_HORKAGE_BROKEN_HPA, },
@@ -6129,19 +6121,6 @@ static void ata_host_release(struct device *gendev, void *res)
 		if (!ap)
 			continue;
 
-		if ((host->flags & ATA_HOST_STARTED) && ap->ops->port_stop)
-			ap->ops->port_stop(ap);
-	}
-
-	if ((host->flags & ATA_HOST_STARTED) && host->ops->host_stop)
-		host->ops->host_stop(host);
-
-	for (i = 0; i < host->n_ports; i++) {
-		struct ata_port *ap = host->ports[i];
-
-		if (!ap)
-			continue;
-
 		if (ap->scsi_host)
 			scsi_host_put(ap->scsi_host);
 
@@ -6266,6 +6245,24 @@ struct ata_host *ata_host_alloc_pinfo(struct device *dev,
 	return host;
 }
 
+static void ata_host_stop(struct device *gendev, void *res)
+{
+	struct ata_host *host = dev_get_drvdata(gendev);
+	int i;
+
+	WARN_ON(!(host->flags & ATA_HOST_STARTED));
+
+	for (i = 0; i < host->n_ports; i++) {
+		struct ata_port *ap = host->ports[i];
+
+		if (ap->ops->port_stop)
+			ap->ops->port_stop(ap);
+	}
+
+	if (host->ops->host_stop)
+		host->ops->host_stop(host);
+}
+
 /**
  *	ata_host_start - start and freeze ports of an ATA host
  *	@host: ATA host to start ports for
@@ -6284,6 +6281,8 @@ struct ata_host *ata_host_alloc_pinfo(struct device *dev,
  */
 int ata_host_start(struct ata_host *host)
 {
+	int have_stop = 0;
+	void *start_dr = NULL;
 	int i, rc;
 
 	if (host->flags & ATA_HOST_STARTED)
@@ -6294,6 +6293,22 @@ int ata_host_start(struct ata_host *host)
 
 		if (!host->ops && !ata_port_is_dummy(ap))
 			host->ops = ap->ops;
+
+		if (ap->ops->port_stop)
+			have_stop = 1;
+	}
+
+	if (host->ops->host_stop)
+		have_stop = 1;
+
+	if (have_stop) {
+		start_dr = devres_alloc(ata_host_stop, 0, GFP_KERNEL);
+		if (!start_dr)
+			return -ENOMEM;
+	}
+
+	for (i = 0; i < host->n_ports; i++) {
+		struct ata_port *ap = host->ports[i];
 
 		if (ap->ops->port_start) {
 			rc = ap->ops->port_start(ap);
@@ -6307,6 +6322,8 @@ int ata_host_start(struct ata_host *host)
 		ata_eh_freeze_port(ap);
 	}
 
+	if (start_dr)
+		devres_add(host->dev, start_dr);
 	host->flags |= ATA_HOST_STARTED;
 	return 0;
 
@@ -6317,6 +6334,7 @@ int ata_host_start(struct ata_host *host)
 		if (ap->ops->port_stop)
 			ap->ops->port_stop(ap);
 	}
+	devres_free(start_dr);
 	return rc;
 }
 

@@ -629,6 +629,10 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
 			if (!vlandev)
 				continue;
 
+			flgs = vlandev->flags;
+			if (!(flgs & IFF_UP))
+				continue;
+
 			vlan_sync_address(dev, vlandev);
 		}
 		break;
@@ -740,6 +744,7 @@ static int vlan_ioctl_handler(void __user *arg)
 		vlan_dev_set_ingress_priority(dev,
 					      args.u.skb_priority,
 					      args.vlan_qos);
+		err = 0;
 		break;
 
 	case SET_VLAN_EGRESS_PRIORITY_CMD:
@@ -763,7 +768,7 @@ static int vlan_ioctl_handler(void __user *arg)
 	case SET_VLAN_NAME_TYPE_CMD:
 		err = -EPERM;
 		if (!capable(CAP_NET_ADMIN))
-			return -EPERM;
+			break;
 		if ((args.u.name_type >= 0) &&
 		    (args.u.name_type < VLAN_NAME_TYPE_HIGHEST)) {
 			vlan_name_type = args.u.name_type;

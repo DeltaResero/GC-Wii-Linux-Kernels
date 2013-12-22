@@ -29,6 +29,15 @@ fetch_robust_entry(compat_uptr_t *uentry, struct robust_list __user **entry,
 	return 0;
 }
 
+static void __user *futex_uaddr(struct robust_list *entry,
+				compat_long_t futex_offset)
+{
+	compat_uptr_t base = ptr_to_compat(entry);
+	void __user *uaddr = compat_ptr(base + futex_offset);
+
+	return uaddr;
+}
+
 /*
  * Walk curr->robust_list (very carefully, it's a userspace list!)
  * and mark any locks found there dead, and notify any waiters.
@@ -75,11 +84,13 @@ void compat_exit_robust_list(struct task_struct *curr)
 		 * A pending lock might already be on the list, so
 		 * dont process it twice:
 		 */
-		if (entry != pending)
-			if (handle_futex_death((void __user *)entry + futex_offset,
-						curr, pi))
-				return;
+		if (entry != pending) {
+			void __user *uaddr = futex_uaddr(entry,
+							 futex_offset);
 
+			if (handle_futex_death(uaddr, curr, pi))
+				return;
+		}
 		if (rc)
 			return;
 		uentry = next_uentry;
@@ -93,9 +104,11 @@ void compat_exit_robust_list(struct task_struct *curr)
 
 		cond_resched();
 	}
-	if (pending)
-		handle_futex_death((void __user *)pending + futex_offset,
-				   curr, pip);
+	if (pending) {
+		void __user *uaddr = futex_uaddr(pending, futex_offset);
+
+		handle_futex_death(uaddr, curr, pip);
+	}
 }
 
 asmlinkage long
@@ -162,7 +175,7 @@ asmlinkage long compat_sys_futex(u32 __user *uaddr, int op, u32 val,
 
 		t = timespec_to_ktime(ts);
 		if (cmd == FUTEX_WAIT)
-			t = ktime_add(ktime_get(), t);
+			t = ktime_add_safe(ktime_get(), t);
 		tp = &t;
 	}
 	if (cmd == FUTEX_REQUEUE || cmd == FUTEX_CMP_REQUEUE)

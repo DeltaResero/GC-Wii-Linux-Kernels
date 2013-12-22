@@ -573,7 +573,7 @@ static void acpi_video_device_find_cap(struct acpi_video_device *device)
 	struct acpi_video_device_brightness *br = NULL;
 
 
-	memset(&device->cap, 0, 4);
+	memset(&device->cap, 0, sizeof(device->cap));
 
 	if (ACPI_SUCCESS(acpi_get_handle(device->dev->handle, "_ADR", &h_dummy1))) {
 		device->cap._ADR = 1;
@@ -693,7 +693,7 @@ static void acpi_video_bus_find_cap(struct acpi_video_bus *video)
 {
 	acpi_handle h_dummy1;
 
-	memset(&video->cap, 0, 4);
+	memset(&video->cap, 0, sizeof(video->cap));
 	if (ACPI_SUCCESS(acpi_get_handle(video->device->handle, "_DOS", &h_dummy1))) {
 		video->cap._DOS = 1;
 	}
@@ -1633,9 +1633,20 @@ static int
 acpi_video_get_next_level(struct acpi_video_device *device,
 			  u32 level_current, u32 event)
 {
-	int min, max, min_above, max_below, i, l;
+	int min, max, min_above, max_below, i, l, delta = 255;
 	max = max_below = 0;
 	min = min_above = 255;
+	/* Find closest level to level_current */
+	for (i = 0; i < device->brightness->count; i++) {
+		l = device->brightness->levels[i];
+		if (abs(l - level_current) < abs(delta)) {
+			delta = l - level_current;
+			if (!delta)
+				break;
+		}
+	}
+	/* Ajust level_current to closest available level */
+	level_current += delta;
 	for (i = 0; i < device->brightness->count; i++) {
 		l = device->brightness->levels[i];
 		if (l < min)

@@ -148,6 +148,7 @@ __change_page_attr(unsigned long address, unsigned long pfn, pgprot_t prot,
 			split = split_large_page(address, prot, ref_prot2);
 			if (!split)
 				return -ENOMEM;
+			pgprot_val(ref_prot2) &= ~_PAGE_NX;
 			set_pte(kpte, mk_pte(split, ref_prot2));
 			kpte_page = split;
 		}
@@ -206,7 +207,7 @@ int change_page_attr_addr(unsigned long address, int numpages, pgprot_t prot)
 		if (__pa(address) < KERNEL_TEXT_SIZE) {
 			unsigned long addr2;
 			pgprot_t prot2;
-			addr2 = __START_KERNEL_map + __pa(address);
+			addr2 = __START_KERNEL_map + __pa(address) - phys_base;
 			/* Make sure the kernel mappings stay executable */
 			prot2 = pte_pgprot(pte_mkexec(pfn_pte(0, prot)));
 			err = __change_page_attr(addr2, pfn, prot2,
@@ -229,9 +230,14 @@ void global_flush_tlb(void)
 	struct page *pg, *next;
 	struct list_head l;
 
-	down_read(&init_mm.mmap_sem);
+	/*
+	 * Write-protect the semaphore, to exclude two contexts
+	 * doing a list_replace_init() call in parallel and to
+	 * exclude new additions to the deferred_pages list:
+	 */
+	down_write(&init_mm.mmap_sem);
 	list_replace_init(&deferred_pages, &l);
-	up_read(&init_mm.mmap_sem);
+	up_write(&init_mm.mmap_sem);
 
 	flush_map(&l);
 

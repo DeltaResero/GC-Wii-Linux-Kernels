@@ -1234,6 +1234,9 @@ static int copy_from_user_mmap_sem(void *dst, const void __user *src, size_t n)
 {
 	int partial;
 
+	if (!access_ok(VERIFY_READ, src, n))
+		return -EFAULT;
+
 	pagefault_disable();
 	partial = __copy_from_user_inatomic(dst, src, n);
 	pagefault_enable();
@@ -1286,7 +1289,7 @@ static int get_iovec_page_array(const struct iovec __user *iov,
 		if (unlikely(!len))
 			break;
 		error = -EFAULT;
-		if (unlikely(!base))
+		if (!access_ok(VERIFY_READ, base, len))
 			break;
 
 		/*
@@ -1390,10 +1393,10 @@ static int pipe_to_user(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
 	if (copy_to_user(sd->u.userptr, src + buf->offset, sd->len))
 		ret = -EFAULT;
 
+	buf->ops->unmap(pipe, buf, src);
 out:
 	if (ret > 0)
 		sd->u.userptr += ret;
-	buf->ops->unmap(pipe, buf, src);
 	return ret;
 }
 
@@ -1438,6 +1441,11 @@ static long vmsplice_to_user(struct file *file, const struct iovec __user *iov,
 		if (unlikely(!len))
 			break;
 		if (unlikely(!base)) {
+			error = -EFAULT;
+			break;
+		}
+
+		if (unlikely(!access_ok(VERIFY_WRITE, base, len))) {
 			error = -EFAULT;
 			break;
 		}
