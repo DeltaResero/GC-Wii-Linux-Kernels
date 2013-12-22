@@ -90,3 +90,90 @@ config MPC10X_OPENPIC
 config MPC10X_STORE_GATHERING
 	bool "Enable MPC10x store gathering"
 	depends on MPC10X_BRIDGE
+
+config GAMECUBE
+	bool "Nintendo-GameCube"
+	depends on EMBEDDED6xx
+	select GAMECUBE_COMMON
+	help
+	 Select GAMECUBE if configuring for the Nintendo GameCube.
+	 More information at: <http://gc-linux.sourceforge.net/>
+
+config WII
+	bool "Nintendo-Wii"
+	depends on EMBEDDED6xx
+	select GAMECUBE_COMMON
+	select PPC_LIB_RHEAP
+	help
+	 Select WII if configuring for the Nintendo Wii.
+	 More information at: <http://gc-linux.sourceforge.net/>
+
+config FLIPPER_PIC
+	bool
+	default n
+
+config GAMECUBE_COMMON
+	bool
+	select FLIPPER_PIC
+	select NOT_COHERENT_CACHE
+	default n
+	
+config GAMECUBE_RSW
+	bool "Nintendo GameCube/Wii reset switch/button"
+	depends on GAMECUBE_COMMON
+	default y
+	help
+	  If you say yes to this option, support will be included for the
+	  reset switch/button of the Nintendo GameCube/Wii.
+	  
+	  If in doubt, say Y here.
+
+config GAMECUBE_UDBG
+	bool "Nintendo GameCube/Wii udbg support"
+	depends on GAMECUBE_COMMON
+	default n
+	help
+	  If you say yes to this option, you will be able to choose between
+	  several udbg drivers available for the Nintendo GameCube/Wii.
+	  
+	  If in doubt, say N here.
+
+choice
+	prompt "Nintendo GameCube/Wii udbg drivers"
+	depends on GAMECUBE_UDBG
+	  
+config USBGECKO_UDBG
+	bool "USB Gecko udbg console for the Nintendo GameCube/Wii"
+	help
+	  If you say yes to this option, support will be included for the
+	  USB Gecko adapter as an udbg console.
+	  The USB Gecko is an USB serial-to-spi converter that can be plugged
+	  into a memcard slot in the Nintendo GameCube/Wii.
+	  
+	  This driver bypasses the EXI layer completely.
+	  
+	  If in doubt, say N here.
+
+config GAMECUBE_VIDEO_UDBG
+	bool "Nintendo GameCube/Wii framebuffer udbg console"
+	select FONTS
+	select FONT_8x16
+	help
+	  If you say yes to this option, support will be included for a
+	  framebuffer based udbg console for the Nintendo GameCube/Wii.
+	  
+	  If in doubt, say N here.
+
+endchoice
+
+config WII_GPIO
+	bool "Nintendo Wii GPIO support"
+	depends on GPIOLIB
+	default y
+	help
+	  If you say yes to this option, support will be included for the
+	  Nintendo Wii GPIO lines that control, for example, the sensor
+	  bar IR leds, the front led, or the eject switch of the disk unit.
+	  
+	  If in doubt, say Y here.
+
