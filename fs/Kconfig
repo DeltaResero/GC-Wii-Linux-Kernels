@@ -699,6 +699,17 @@ config UDF_NLS
 	default y
 	depends on (UDF_FS=m && NLS) || (UDF_FS=y && NLS=y)
 
+config GCDVD_FS
+	tristate "GCDVD file system support"
+	help 
+	 This is the filesystem used on commercial Gamecube games.  Say Y if 
+	 you intend to mount GC DVD discs.  
+
+	 To compile this file system support as a module, choose M here: the
+	 module will be called gcdvdfs
+
+	 If unsure, say N.
+
 endmenu
 endif
 
