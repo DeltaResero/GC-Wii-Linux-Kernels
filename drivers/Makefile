@@ -81,3 +81,5 @@ obj-$(CONFIG_GENERIC_TIME)	+= clocksource/
 obj-$(CONFIG_DMA_ENGINE)	+= dma/
 obj-$(CONFIG_HID)		+= hid/
 obj-$(CONFIG_PPC_PS3)		+= ps3/
+obj-$(CONFIG_GAMECUBE_EXI)	+= exi/
+obj-$(CONFIG_GAMECUBE_SI)	+= input/si/
