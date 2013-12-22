@@ -569,8 +569,8 @@ static void sky2_phy_power(struct sky2_hw *hw, unsigned port, int onoff)
 	if (hw->chip_id == CHIP_ID_YUKON_XL && hw->chip_rev > 1)
 		onoff = !onoff;
 
+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_ON);
 	reg1 = sky2_pci_read32(hw, PCI_DEV_REG1);
-
 	if (onoff)
 		/* Turn off phy power saving */
 		reg1 &= ~phy_power[port];
@@ -579,6 +579,7 @@ static void sky2_phy_power(struct sky2_hw *hw, unsigned port, int onoff)
 
 	sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
 	sky2_pci_read32(hw, PCI_DEV_REG1);
+	sky2_write8(hw, B2_TST_CTRL1, TST_CFG_WRITE_OFF);
 	udelay(100);
 }
 
@@ -699,8 +700,14 @@ static void sky2_mac_init(struct sky2_hw *hw, unsigned port)
 }
 
 /* Assign Ram Buffer allocation in units of 64bit (8 bytes) */
-static void sky2_ramset(struct sky2_hw *hw, u16 q, u32 start, u32 end)
+static void sky2_ramset(struct sky2_hw *hw, u16 q, u32 start, u32 space)
 {
+	u32 end;
+
+	start *= 1024/8;
+	space *= 1024/8;
+	end = start + space - 1;
+
 	pr_debug(PFX "q %d %#x %#x\n", q, start, end);
 
 	sky2_write8(hw, RB_ADDR(q, RB_CTRL), RB_RST_CLR);
@@ -1192,20 +1199,21 @@ static int sky2_up(struct net_device *dev)
 
 	sky2_mac_init(hw, port);
 
-	/* Determine available ram buffer space in qwords.  */
-	ramsize = sky2_read8(hw, B2_E_0) * 4096/8;
+	/* Determine available ram buffer space (in 4K blocks). */
+	ramsize = sky2_read8(hw, B2_E_0) * 4;
+	if (ramsize != 0) {
+		if (ramsize < 16)
+			rxspace = ramsize / 2;
+		else
+			rxspace = 8 + (2*(ramsize - 16))/3;
 
-	if (ramsize > 6*1024/8)
-		rxspace = ramsize - (ramsize + 2) / 3;
-	else
-		rxspace = ramsize / 2;
+		sky2_ramset(hw, rxqaddr[port], 0, rxspace);
+		sky2_ramset(hw, txqaddr[port], rxspace, ramsize - rxspace);
 
-	sky2_ramset(hw, rxqaddr[port], 0, rxspace-1);
-	sky2_ramset(hw, txqaddr[port], rxspace, ramsize-1);
-
-	/* Make sure SyncQ is disabled */
-	sky2_write8(hw, RB_ADDR(port == 0 ? Q_XS1 : Q_XS2, RB_CTRL),
-		    RB_RST_SET);
+		/* Make sure SyncQ is disabled */
+		sky2_write8(hw, RB_ADDR(port == 0 ? Q_XS1 : Q_XS2, RB_CTRL),
+ 			    RB_RST_SET);
+	}
 
 	sky2_qset(hw, txqaddr[port]);
 
@@ -1453,7 +1461,7 @@ static void sky2_tx_complete(struct sky2_port *sky2, u16 done)
 			if (unlikely(netif_msg_tx_done(sky2)))
 				printk(KERN_DEBUG "%s: tx done %u\n",
 				       dev->name, idx);
-			dev_kfree_skb(re->skb);
+			dev_kfree_skb_any(re->skb);
 		}
 
 		le->opcode = 0;	/* paranoia */
@@ -1497,6 +1505,13 @@ static int sky2_down(struct net_device *dev)
 	imask = sky2_read32(hw, B0_IMSK);
 	imask &= ~portirq_msk[port];
 	sky2_write32(hw, B0_IMSK, imask);
+
+	/*
+	 * Both ports share the NAPI poll on port 0, so if necessary undo the
+	 * the disable that is done in dev_close.
+	 */
+	if (sky2->port == 0 && hw->ports > 1)
+		netif_poll_enable(dev);
 
 	sky2_gmac_reset(hw, port);
 
@@ -1775,6 +1790,7 @@ out:
 
 /* Transmit timeout is only called if we are running, carries is up
  * and tx queue is full (stopped).
+ * Called with netif_tx_lock held.
  */
 static void sky2_tx_timeout(struct net_device *dev)
 {
@@ -1800,17 +1816,14 @@ static void sky2_tx_timeout(struct net_device *dev)
 		sky2_write8(hw, STAT_TX_TIMER_CTRL, TIM_START);
 	} else if (report != sky2->tx_cons) {
 		printk(KERN_INFO PFX "status report lost?\n");
-
-		netif_tx_lock_bh(dev);
 		sky2_tx_complete(sky2, report);
-		netif_tx_unlock_bh(dev);
 	} else {
 		printk(KERN_INFO PFX "hardware hung? flushing\n");
 
 		sky2_write32(hw, Q_ADDR(txq, Q_CSR), BMU_STOP);
 		sky2_write32(hw, Y2_QADDR(txq, PREF_UNIT_CTRL), PREF_UNIT_RST_SET);
 
-		sky2_tx_clean(dev);
+		sky2_tx_complete(sky2, sky2->tx_prod);
 
 		sky2_qset(hw, txq);
 		sky2_prefetch_init(hw, txq, sky2->tx_le_map, TX_RING_SIZE - 1);

@@ -387,7 +387,7 @@ svc_destroy(struct svc_serv *serv)
 		svsk = list_entry(serv->sv_tempsocks.next,
 				  struct svc_sock,
 				  sk_list);
-		svc_delete_socket(svsk);
+		svc_close_socket(svsk);
 	}
 	if (serv->sv_shutdown)
 		serv->sv_shutdown(serv);
@@ -396,7 +396,7 @@ svc_destroy(struct svc_serv *serv)
 		svsk = list_entry(serv->sv_permsocks.next,
 				  struct svc_sock,
 				  sk_list);
-		svc_delete_socket(svsk);
+		svc_close_socket(svsk);
 	}
 	
 	cache_clean_deferred(serv);
@@ -910,7 +910,8 @@ err_bad_prog:
 
 err_bad_vers:
 #ifdef RPC_PARANOIA
-	printk("svc: unknown version (%d)\n", vers);
+	printk("svc: unknown version (%d for prog %d, %s)\n",
+	       vers, prog, progp->pg_name);
 #endif
 	serv->sv_stats->rpcbadfmt++;
 	svc_putnl(resv, RPC_PROG_MISMATCH);
