@@ -59,6 +59,23 @@ config PPC_PRPMC2800
 	help
 	  This option enables support for the Motorola PrPMC2800 board
 
+config GAMECUBE
+	bool "Nintendo-GameCube"
+	depends on EMBEDDED6xx
+	select GAMECUBE_COMMON
+	help
+	 Select GAMECUBE if configuring for the Nintendo GameCube.
+	 More information at: <http://gc-linux.sourceforge.net/>
+
+config WII
+	bool "Nintendo-Wii"
+	depends on EMBEDDED6xx
+	select GAMECUBE_COMMON
+	select PPC_LIB_RHEAP
+	help
+	 Select WII if configuring for the Nintendo Wii.
+	 More information at: <http://gc-linux.sourceforge.net/>
+
 config TSI108_BRIDGE
 	bool
 	select PCI
@@ -80,3 +97,39 @@ config MPC10X_OPENPIC
 config MPC10X_STORE_GATHERING
 	bool "Enable MPC10x store gathering"
 	depends on MPC10X_BRIDGE
+
+config FLIPPER_PIC
+	bool
+	default n
+
+config GAMECUBE_COMMON
+	bool
+	select FLIPPER_PIC
+	select NOT_COHERENT_CACHE
+	default n
+	
+config GAMECUBE_RSW
+	bool "Nintendo GameCube/Wii reset switch/button"
+	depends on GAMECUBE_COMMON
+	default y
+	help
+	  If you say yes to this option, support will be included for the
+	  reset switch/button of the Nintendo GameCube/Wii.
+	  
+	  If in doubt, say Y here.
+
+config USBGECKO_UDBG
+	bool "USB Gecko udbg console for the Nintendo GameCube/Wii"
+	depends on GAMECUBE_COMMON
+	default n
+	help
+	  If you say yes to this option, support will be included for the
+	  USB Gecko adapter as an udbg console.
+	  The USB Gecko is an USB serial-to-spi converter that can be plugged
+	  into a memcard slot in the Nintendo GameCube/Wii.
+	  
+	  This driver bypasses the EXI layer completely.
+	  
+	  If in doubt, say N here.
+
+

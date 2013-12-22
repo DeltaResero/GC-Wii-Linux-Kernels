@@ -26,3 +26,5 @@ obj-$(CONFIG_INTEL_MENLOW)	+= intel_menlow.o
 obj-$(CONFIG_ENCLOSURE_SERVICES) += enclosure.o
 obj-$(CONFIG_KGDB_TESTS)	+= kgdbts.o
 obj-$(CONFIG_SGI_XP)		+= sgi-xp/
+obj-$(CONFIG_GAMECUBE_GQR)	+= gcn-gqr.o
+obj-$(CONFIG_GAMECUBE_MI)	+= gcn-mi.o
