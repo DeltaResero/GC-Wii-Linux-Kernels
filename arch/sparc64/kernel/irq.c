@@ -1,6 +1,6 @@
 /* irq.c: UltraSparc IRQ handling/init/registry.
  *
- * Copyright (C) 1997, 2007  David S. Miller  (davem@davemloft.net)
+ * Copyright (C) 1997, 2007, 2008 David S. Miller (davem@davemloft.net)
  * Copyright (C) 1998  Eddie C. Dost    (ecd@skynet.be)
  * Copyright (C) 1998  Jakub Jelinek    (jj@ultra.linux.cz)
  */
@@ -308,6 +308,7 @@ static void sun4u_irq_enable(unsigned int virt_irq)
 			 IMAP_AID_SAFARI | IMAP_NID_SAFARI);
 		val |= tid | IMAP_VALID;
 		upa_writeq(val, imap);
+		upa_writeq(ICLR_IDLE, data->iclr);
 	}
 }
 
@@ -620,8 +621,9 @@ unsigned int sun4v_build_irq(u32 devhandle, unsigned int devino)
 unsigned int sun4v_build_virq(u32 devhandle, unsigned int devino)
 {
 	struct irq_handler_data *data;
-	struct ino_bucket *bucket;
 	unsigned long hv_err, cookie;
+	struct ino_bucket *bucket;
+	struct irq_desc *desc;
 	unsigned int virt_irq;
 
 	bucket = kzalloc(sizeof(struct ino_bucket), GFP_ATOMIC);
@@ -641,6 +643,13 @@ unsigned int sun4v_build_virq(u32 devhandle, unsigned int devino)
 	data = kzalloc(sizeof(struct irq_handler_data), GFP_ATOMIC);
 	if (unlikely(!data))
 		return 0;
+
+	/* In order to make the LDC channel startup sequence easier,
+	 * especially wrt. locking, we do not let request_irq() enable
+	 * the interrupt.
+	 */
+	desc = irq_desc + virt_irq;
+	desc->status |= IRQ_NOAUTOEN;
 
 	set_irq_chip_data(virt_irq, data);
 

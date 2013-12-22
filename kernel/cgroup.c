@@ -1722,7 +1722,12 @@ void cgroup_enable_task_cg_lists(void)
 	use_task_css_set_links = 1;
 	do_each_thread(g, p) {
 		task_lock(p);
-		if (list_empty(&p->cg_list))
+		/*
+		 * We should check if the process is exiting, otherwise
+		 * it will race with cgroup_exit() in that the list
+		 * entry won't be deleted though the process has exited.
+		 */
+		if (!(p->flags & PF_EXITING) && list_empty(&p->cg_list))
 			list_add(&p->cg_list, &p->cgroups->tasks);
 		task_unlock(p);
 	} while_each_thread(g, p);
@@ -2803,7 +2808,7 @@ int cgroup_clone(struct task_struct *tsk, struct cgroup_subsys *subsys)
 	cg = tsk->cgroups;
 	parent = task_cgroup(tsk, subsys->subsys_id);
 
-	snprintf(nodename, MAX_CGROUP_TYPE_NAMELEN, "node_%d", tsk->pid);
+	snprintf(nodename, MAX_CGROUP_TYPE_NAMELEN, "%d", tsk->pid);
 
 	/* Pin the hierarchy */
 	atomic_inc(&parent->root->sb->s_active);

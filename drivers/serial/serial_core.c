@@ -535,7 +535,7 @@ static int uart_chars_in_buffer(struct tty_struct *tty)
 static void uart_flush_buffer(struct tty_struct *tty)
 {
 	struct uart_state *state = tty->driver_data;
-	struct uart_port *port = state->port;
+	struct uart_port *port;
 	unsigned long flags;
 
 	/*
@@ -547,6 +547,7 @@ static void uart_flush_buffer(struct tty_struct *tty)
 		return;
 	}
 
+	port = state->port;
 	pr_debug("uart_flush_buffer(%d) called\n", tty->index);
 
 	spin_lock_irqsave(&port->lock, flags);
@@ -1949,7 +1950,9 @@ struct uart_match {
 static int serial_match_port(struct device *dev, void *data)
 {
 	struct uart_match *match = data;
-	dev_t devt = MKDEV(match->driver->major, match->driver->minor) + match->port->line;
+	struct tty_driver *tty_drv = match->driver->tty_driver;
+	dev_t devt = MKDEV(tty_drv->major, tty_drv->minor_start) +
+		match->port->line;
 
 	return dev->devt == devt; /* Actually, only one tty per port */
 }
@@ -2021,6 +2024,8 @@ int uart_suspend_port(struct uart_driver *drv, struct uart_port *port)
 int uart_resume_port(struct uart_driver *drv, struct uart_port *port)
 {
 	struct uart_state *state = drv->state + port->line;
+	struct device *tty_dev;
+	struct uart_match match = {port, drv};
 
 	mutex_lock(&state->mutex);
 
@@ -2030,7 +2035,8 @@ int uart_resume_port(struct uart_driver *drv, struct uart_port *port)
 		return 0;
 	}
 
-	if (!port->suspended) {
+	tty_dev = device_find_child(port->dev, &match, serial_match_port);
+	if (!port->suspended && device_may_wakeup(tty_dev)) {
 		disable_irq_wake(port->irq);
 		mutex_unlock(&state->mutex);
 		return 0;

@@ -73,13 +73,18 @@ void __rtnl_unlock(void)
 
 void rtnl_unlock(void)
 {
-	mutex_unlock(&rtnl_mutex);
+	/* This fellow will unlock it for us. */
 	netdev_run_todo();
 }
 
 int rtnl_trylock(void)
 {
 	return mutex_trylock(&rtnl_mutex);
+}
+
+int rtnl_is_locked(void)
+{
+	return mutex_is_locked(&rtnl_mutex);
 }
 
 static struct rtnl_link *rtnl_msg_handlers[NPROTO];
@@ -1389,6 +1394,7 @@ EXPORT_SYMBOL(rtnetlink_put_metrics);
 EXPORT_SYMBOL(rtnl_lock);
 EXPORT_SYMBOL(rtnl_trylock);
 EXPORT_SYMBOL(rtnl_unlock);
+EXPORT_SYMBOL(rtnl_is_locked);
 EXPORT_SYMBOL(rtnl_unicast);
 EXPORT_SYMBOL(rtnl_notify);
 EXPORT_SYMBOL(rtnl_set_sk_err);

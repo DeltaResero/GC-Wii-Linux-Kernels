@@ -596,7 +596,6 @@ struct b43_dma {
 
 /* Context information for a noise calculation (Link Quality). */
 struct b43_noise_calculation {
-	u8 channel_at_start;
 	bool calculation_running;
 	u8 nr_samples;
 	s8 samples[8][4];
@@ -628,6 +627,10 @@ struct b43_wl {
 
 	struct mutex mutex;
 	spinlock_t irq_lock;
+	/* R/W lock for data transmission.
+	 * Transmissions on 2+ queues can run concurrently, but somebody else
+	 * might sync with TX by write_lock_irqsave()'ing. */
+	rwlock_t tx_lock;
 	/* Lock for LEDs access. */
 	spinlock_t leds_lock;
 	/* Lock for SHM access. */

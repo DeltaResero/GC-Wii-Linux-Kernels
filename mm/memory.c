@@ -943,17 +943,15 @@ struct page *follow_page(struct vm_area_struct *vma, unsigned long address,
 	}
 
 	ptep = pte_offset_map_lock(mm, pmd, address, &ptl);
-	if (!ptep)
-		goto out;
 
 	pte = *ptep;
 	if (!pte_present(pte))
-		goto unlock;
+		goto no_page;
 	if ((flags & FOLL_WRITE) && !pte_write(pte))
 		goto unlock;
 	page = vm_normal_page(vma, address, pte);
 	if (unlikely(!page))
-		goto unlock;
+		goto bad_page;
 
 	if (flags & FOLL_GET)
 		get_page(page);
@@ -968,6 +966,15 @@ unlock:
 out:
 	return page;
 
+bad_page:
+	pte_unmap_unlock(ptep, ptl);
+	return ERR_PTR(-EFAULT);
+
+no_page:
+	pte_unmap_unlock(ptep, ptl);
+	if (!pte_none(pte))
+		return page;
+	/* Fall through to ZERO_PAGE handling */
 no_page_table:
 	/*
 	 * When core dumping an enormous anonymous area that nobody
@@ -980,6 +987,26 @@ no_page_table:
 		BUG_ON(flags & FOLL_WRITE);
 	}
 	return page;
+}
+
+/* Can we do the FOLL_ANON optimization? */
+static inline int use_zero_page(struct vm_area_struct *vma)
+{
+	/*
+	 * We don't want to optimize FOLL_ANON for make_pages_present()
+	 * when it tries to page in a VM_LOCKED region. As to VM_SHARED,
+	 * we want to get the page from the page tables to make sure
+	 * that we serialize and update with any other user of that
+	 * mapping.
+	 */
+	if (vma->vm_flags & (VM_LOCKED | VM_SHARED))
+		return 0;
+	/*
+	 * And if we have a fault or a nopfn routine, it's not an
+	 * anonymous region.
+	 */
+	return !vma->vm_ops ||
+		(!vma->vm_ops->fault && !vma->vm_ops->nopfn);
 }
 
 int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
@@ -1056,9 +1083,7 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 		foll_flags = FOLL_TOUCH;
 		if (pages)
 			foll_flags |= FOLL_GET;
-		if (!write && !(vma->vm_flags & VM_LOCKED) &&
-		    (!vma->vm_ops || (!vma->vm_ops->nopage &&
-					!vma->vm_ops->fault)))
+		if (!write && use_zero_page(vma))
 			foll_flags |= FOLL_ANON;
 
 		do {
@@ -1104,6 +1129,8 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
 
 				cond_resched();
 			}
+			if (IS_ERR(page))
+				return i ? i : PTR_ERR(page);
 			if (pages) {
 				pages[i] = page;
 
@@ -2591,16 +2618,26 @@ int make_pages_present(unsigned long addr, unsigned long end)
 
 	vma = find_vma(current->mm, addr);
 	if (!vma)
-		return -1;
+		return -ENOMEM;
 	write = (vma->vm_flags & VM_WRITE) != 0;
 	BUG_ON(addr >= end);
 	BUG_ON(end > vma->vm_end);
 	len = DIV_ROUND_UP(end, PAGE_SIZE) - addr/PAGE_SIZE;
 	ret = get_user_pages(current, current->mm, addr,
 			len, write, 0, NULL, NULL);
-	if (ret < 0)
+	if (ret < 0) {
+		/*
+		   SUS require strange return value to mlock
+		    - invalid addr generate to ENOMEM.
+		    - out of memory should generate EAGAIN.
+		*/
+		if (ret == -EFAULT)
+			ret = -ENOMEM;
+		else if (ret == -ENOMEM)
+			ret = -EAGAIN;
 		return ret;
-	return ret == len ? 0 : -1;
+	}
+	return ret == len ? 0 : -ENOMEM;
 }
 
 #if !defined(__HAVE_ARCH_GATE_AREA)

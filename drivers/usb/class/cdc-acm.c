@@ -531,8 +531,8 @@ static int acm_tty_open(struct tty_struct *tty, struct file *filp)
 	tasklet_schedule(&acm->urb_task);
 
 done:
-err_out:
 	mutex_unlock(&acm->mutex);
+err_out:
 	mutex_unlock(&open_mutex);
 	return rv;
 
@@ -1240,6 +1240,9 @@ static struct usb_device_id acm_ids[] = {
 	.driver_info = SINGLE_RX_URB, /* firmware bug */
 	},
 	{ USB_DEVICE(0x22b8, 0x7000), /* Motorola Q Phone */
+	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
+	},
+	{ USB_DEVICE(0x0803, 0x3095), /* Zoom Telephonics Model 3095F USB MODEM */
 	.driver_info = NO_UNION_NORMAL, /* has no union descriptor */
 	},
 

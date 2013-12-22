@@ -231,6 +231,11 @@ static unsigned char asn1_length_decode(struct asn1_ctx *ctx,
 			}
 		}
 	}
+
+	/* don't trust len bigger than ctx buffer */
+	if (*len > ctx->end - ctx->pointer)
+		return 0;
+
 	return 1;
 }
 
@@ -247,6 +252,10 @@ static unsigned char asn1_header_decode(struct asn1_ctx *ctx,
 
 	def = len = 0;
 	if (!asn1_length_decode(ctx, &def, &len))
+		return 0;
+
+	/* primitive shall be definite, indefinite shall be constructed */
+	if (*con == ASN1_PRI && !def)
 		return 0;
 
 	if (def)
@@ -429,10 +438,15 @@ static unsigned char asn1_oid_decode(struct asn1_ctx *ctx,
 				     unsigned int *len)
 {
 	unsigned long subid;
-	unsigned int  size;
 	unsigned long *optr;
+	size_t size;
 
 	size = eoc - ctx->pointer + 1;
+
+	/* first subid actually encodes first two subids */
+	if (size < 2 || size > ULONG_MAX/sizeof(unsigned long))
+		return 0;
+
 	*oid = kmalloc(size * sizeof(unsigned long), GFP_ATOMIC);
 	if (*oid == NULL) {
 		if (net_ratelimit())
@@ -728,6 +742,7 @@ static unsigned char snmp_object_decode(struct asn1_ctx *ctx,
 			*obj = kmalloc(sizeof(struct snmp_object) + len,
 				       GFP_ATOMIC);
 			if (*obj == NULL) {
+				kfree(p);
 				kfree(id);
 				if (net_ratelimit())
 					printk("OOM in bsalg (%d)\n", __LINE__);

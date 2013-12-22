@@ -514,7 +514,14 @@ static struct dentry * real_lookup(struct dentry * parent, struct qstr * name, s
 	 */
 	result = d_lookup(parent, name);
 	if (!result) {
-		struct dentry * dentry = d_alloc(parent, name);
+		struct dentry *dentry;
+
+		/* Don't create child dentry for a dead directory. */
+		result = ERR_PTR(-ENOENT);
+		if (IS_DEADDIR(dir))
+			goto out_unlock;
+
+		dentry = d_alloc(parent, name);
 		result = ERR_PTR(-ENOMEM);
 		if (dentry) {
 			result = dir->i_op->lookup(dir, dentry, nd);
@@ -523,6 +530,7 @@ static struct dentry * real_lookup(struct dentry * parent, struct qstr * name, s
 			else
 				result = dentry;
 		}
+out_unlock:
 		mutex_unlock(&dir->i_mutex);
 		return result;
 	}
@@ -1313,7 +1321,14 @@ static struct dentry *__lookup_hash(struct qstr *name,
 
 	dentry = cached_lookup(base, name, nd);
 	if (!dentry) {
-		struct dentry *new = d_alloc(base, name);
+		struct dentry *new;
+
+		/* Don't create child dentry for a dead directory. */
+		dentry = ERR_PTR(-ENOENT);
+		if (IS_DEADDIR(inode))
+			goto out;
+
+		new = d_alloc(base, name);
 		dentry = ERR_PTR(-ENOMEM);
 		if (!new)
 			goto out;
@@ -1904,18 +1919,22 @@ struct dentry *lookup_create(struct nameidata *nd, int is_dir)
 	if (IS_ERR(dentry))
 		goto fail;
 
+	if (dentry->d_inode)
+		goto eexist;
 	/*
 	 * Special case - lookup gave negative, but... we had foo/bar/
 	 * From the vfs_mknod() POV we just have a negative dentry -
 	 * all is fine. Let's be bastards - you had / on the end, you've
 	 * been asking for (non-existent) directory. -ENOENT for you.
 	 */
-	if (!is_dir && nd->last.name[nd->last.len] && !dentry->d_inode)
-		goto enoent;
+	if (unlikely(!is_dir && nd->last.name[nd->last.len])) {
+		dput(dentry);
+		dentry = ERR_PTR(-ENOENT);
+	}
 	return dentry;
-enoent:
+eexist:
 	dput(dentry);
-	dentry = ERR_PTR(-ENOENT);
+	dentry = ERR_PTR(-EEXIST);
 fail:
 	return dentry;
 }
