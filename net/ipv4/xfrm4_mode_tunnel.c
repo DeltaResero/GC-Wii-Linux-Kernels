@@ -66,6 +66,8 @@ static int xfrm4_tunnel_output(struct xfrm_state *x, struct sk_buff *skb)
 	top_iph->daddr = x->id.daddr.a4;
 	top_iph->protocol = IPPROTO_IPIP;
 
+	skb->protocol = htons(ETH_P_IP);
+
 	memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
 	return 0;
 }
@@ -84,6 +86,7 @@ static int xfrm4_tunnel_input(struct xfrm_state *x, struct sk_buff *skb)
 	    (err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC)))
 		goto out;
 
+	iph = skb->nh.iph;
 	if (x->props.flags & XFRM_STATE_DECAP_DSCP)
 		ipv4_copy_dscp(iph, skb->h.ipiph);
 	if (!(x->props.flags & XFRM_STATE_NOECN))

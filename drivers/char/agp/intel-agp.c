@@ -117,13 +117,15 @@ static int intel_i810_configure(void)
 
 	current_size = A_SIZE_FIX(agp_bridge->current_size);
 
-	pci_read_config_dword(intel_i810_private.i810_dev, I810_MMADDR, &temp);
-	temp &= 0xfff80000;
-
-	intel_i810_private.registers = ioremap(temp, 128 * 4096);
 	if (!intel_i810_private.registers) {
-		printk(KERN_ERR PFX "Unable to remap memory.\n");
-		return -ENOMEM;
+		pci_read_config_dword(intel_i810_private.i810_dev, I810_MMADDR, &temp);
+		temp &= 0xfff80000;
+
+		intel_i810_private.registers = ioremap(temp, 128 * 4096);
+		if (!intel_i810_private.registers) {
+			printk(KERN_ERR PFX "Unable to remap memory.\n");
+			return -ENOMEM;
+		}
 	}
 
 	if ((readl(intel_i810_private.registers+I810_DRAM_CTL)
@@ -403,9 +405,8 @@ static void intel_i830_init_gtt_entries(void)
 
 	if (IS_I965) {
 		u32 pgetbl_ctl;
+		pgetbl_ctl = readl(intel_i830_private.registers+I810_PGETBL_CTL);
 
-		pci_read_config_dword(agp_bridge->dev, I810_PGETBL_CTL,
-				      &pgetbl_ctl);
 		/* The 965 has a field telling us the size of the GTT,
 		 * which may be larger than what is necessary to map the
 		 * aperture.

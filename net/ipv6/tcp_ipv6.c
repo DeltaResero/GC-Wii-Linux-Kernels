@@ -637,6 +637,7 @@ static int tcp_v6_md5_do_del(struct sock *sk, struct in6_addr *peer)
 			if (tp->md5sig_info->entries6 == 0) {
 				kfree(tp->md5sig_info->keys6);
 				tp->md5sig_info->keys6 = NULL;
+				tp->md5sig_info->alloced6 = 0;
 
 				tcp_free_md5sig_pool();
 
@@ -1453,6 +1454,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
 	   First: no IPv4 options.
 	 */
 	newinet->opt = NULL;
+	newnp->ipv6_fl_list = NULL;
 
 	/* Clone RX bits */
 	newnp->rxopt.all = np->rxopt.all;
@@ -2125,7 +2127,6 @@ struct proto tcpv6_prot = {
 	.shutdown		= tcp_shutdown,
 	.setsockopt		= tcp_setsockopt,
 	.getsockopt		= tcp_getsockopt,
-	.sendmsg		= tcp_sendmsg,
 	.recvmsg		= tcp_recvmsg,
 	.backlog_rcv		= tcp_v6_do_rcv,
 	.hash			= tcp_v6_hash,

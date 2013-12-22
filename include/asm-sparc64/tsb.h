@@ -264,18 +264,20 @@ extern struct tsb_phys_patch_entry __tsb_phys_patch, __tsb_phys_patch_end;
 	be,a,pt		%xcc, OK_LABEL; \
 	 mov		REG4, REG1;
 
+#ifndef CONFIG_DEBUG_PAGEALLOC
 	/* This version uses a trick, the TAG is already (VADDR >> 22) so
 	 * we can make use of that for the index computation.
 	 */
 #define KERN_TSB4M_LOOKUP_TL1(TAG, REG1, REG2, REG3, REG4, OK_LABEL) \
 	sethi		%hi(swapper_4m_tsb), REG1; \
 	or		REG1, %lo(swapper_4m_tsb), REG1; \
-	and		TAG, (KERNEL_TSB_NENTRIES - 1), REG2; \
+	and		TAG, (KERNEL_TSB4M_NENTRIES - 1), REG2; \
 	sllx		REG2, 4, REG2; \
 	add		REG1, REG2, REG2; \
 	KTSB_LOAD_QUAD(REG2, REG3); \
 	cmp		REG3, TAG; \
 	be,a,pt		%xcc, OK_LABEL; \
 	 mov		REG4, REG1;
+#endif
 
 #endif /* !(_SPARC64_TSB_H) */

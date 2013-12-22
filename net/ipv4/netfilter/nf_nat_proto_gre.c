@@ -72,6 +72,11 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
 	__be16 *keyptr;
 	unsigned int min, i, range_size;
 
+	/* If there is no master conntrack we are not PPTP,
+	   do not change tuples */
+	if (!conntrack->master)
+		return 0;
+		
 	if (maniptype == IP_NAT_MANIP_SRC)
 		keyptr = &tuple->src.u.gre.key;
 	else
@@ -122,18 +127,9 @@ gre_manip_pkt(struct sk_buff **pskb, unsigned int iphdroff,
 	if (maniptype != IP_NAT_MANIP_DST)
 		return 1;
 	switch (greh->version) {
-	case 0:
-		if (!greh->key) {
-			DEBUGP("can't nat GRE w/o key\n");
-			break;
-		}
-		if (greh->csum) {
-			/* FIXME: Never tested this code... */
-			nf_proto_csum_replace4(gre_csum(greh), *pskb,
-					       *(gre_key(greh)),
-					       tuple->dst.u.gre.key, 0);
-		}
-		*(gre_key(greh)) = tuple->dst.u.gre.key;
+	case GRE_VERSION_1701:
+		/* We do not currently NAT any GREv0 packets.
+		 * Try to behave like "nf_nat_proto_unknown" */
 		break;
 	case GRE_VERSION_PPTP:
 		DEBUGP("call_id -> 0x%04x\n", ntohs(tuple->dst.u.gre.key));
@@ -152,8 +148,7 @@ static struct nf_nat_protocol gre __read_mostly = {
 	.manip_pkt		= gre_manip_pkt,
 	.in_range		= gre_in_range,
 	.unique_tuple		= gre_unique_tuple,
-#if defined(CONFIG_IP_NF_CONNTRACK_NETLINK) || \
-    defined(CONFIG_IP_NF_CONNTRACK_NETLINK_MODULE)
+#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 	.range_to_nfattr	= nf_nat_port_range_to_nfattr,
 	.nfattr_to_range	= nf_nat_port_nfattr_to_range,
 #endif
