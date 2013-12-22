@@ -102,7 +102,7 @@
 			interrupts = <08>;
 			interrupt-parent = <&pic>;
 			xfb-start = <01698000>; /* end-of-mem1 - xfb-size */
-			xfb-size = <168000>;
+			xfb-size = <168000>;	/* 640x576x2 x 2 bytes */
 		};
 
 		resetswitch@0c003000 {

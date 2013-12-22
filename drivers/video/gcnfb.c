@@ -713,16 +713,45 @@ static int vifb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	return 0;
 }
 
+static int vifb_mmap(struct fb_info *info, struct vm_area_struct *vma)
+{
+        unsigned long off;
+        unsigned long start;
+        u32 len;
+
+	off = vma->vm_pgoff << PAGE_SHIFT;
+
+        /* frame buffer memory */
+        start = info->fix.smem_start;
+        len = PAGE_ALIGN((start & ~PAGE_MASK) + info->fix.smem_len);
+        start &= PAGE_MASK;
+        if ((vma->vm_end - vma->vm_start + off) > len)
+                return -EINVAL;
+        off += start;
+        vma->vm_pgoff = off >> PAGE_SHIFT;
+
+        /* this is an IO map, tell maydump to skip this VMA */
+        vma->vm_flags |= VM_IO | VM_RESERVED;
+
+	/* we share RAM between the cpu and the video hardware */
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+        if (io_remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
+                               vma->vm_end - vma->vm_start,
+			       vma->vm_page_prot))
+                return -EAGAIN;
+        return 0;
+}
+
+
 struct fb_ops vifb_ops = {
 	.owner = THIS_MODULE,
 	.fb_setcolreg = vifb_setcolreg,
 	.fb_pan_display = vifb_pan_display,
 	.fb_ioctl = vifb_ioctl,
-#ifdef CONFIG_FB_GAMECUBE_GX
-	.fb_mmap = gcngx_mmap,
-#endif
-	.fb_check_var = vifb_check_var,
 	.fb_set_par = vifb_set_par,
+	.fb_check_var = vifb_check_var,
+	.fb_mmap = vifb_mmap,
 	.fb_fillrect = cfb_fillrect,
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
@@ -856,6 +885,8 @@ static int vifb_do_probe(struct device *dev,
 	info->flags = FBINFO_FLAG_DEFAULT | (ypan) ? FBINFO_HWACCEL_YPAN : 0;
 
 	dev_set_drvdata(dev, info);
+
+	vi_enable_interrupts(ctl, 0);
 
 	err = request_irq(ctl->irq, vi_irq_handler, 0, DRV_MODULE_NAME, dev);
 	if (err) {
