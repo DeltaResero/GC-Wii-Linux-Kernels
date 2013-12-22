@@ -37,6 +37,9 @@
 
 #define EXI_DATA                0x10
 
+#define UG_READ_ATTEMPTS	100
+#define UG_WRITE_ATTEMPTS	100
+
 
 static void __iomem *ug_io_base;
 
@@ -106,7 +109,7 @@ static void ug_raw_putc(char ch)
  */
 static void ug_putc(char ch)
 {
-	int count = 16;
+	int count = UG_WRITE_ATTEMPTS;
 
 	if (!ug_io_base)
 		return;
@@ -158,7 +161,7 @@ static int ug_raw_getc(void)
  */
 static int ug_getc(void)
 {
-	int count = 16;
+	int count = UG_READ_ATTEMPTS;
 
 	if (!ug_io_base)
 		return -1;
@@ -214,10 +217,12 @@ static void __iomem *ug_udbg_setup_io_base(struct device_node *np)
 	reg = of_get_property(np, "reg", NULL);
 	if (reg) {
 		paddr = of_translate_address(np, reg);
-		if (paddr)
+		if (paddr) {
 			ug_io_base = ioremap(paddr, reg[1]);
+			return ug_io_base;
+		}
 	}
-	return ug_io_base;
+	return NULL;
 }
 
 /*
@@ -225,19 +230,30 @@ static void __iomem *ug_udbg_setup_io_base(struct device_node *np)
  */
 void __init ug_udbg_init(void)
 {
-	struct device_node *np;
+	struct device_node *np = NULL;
 	struct device_node *stdout;
 	const char *path;
 
-	ug_io_base = NULL;
+	if (ug_io_base)
+		udbg_printf("%s: early -> final\n", __func__);
+
+	if (!of_chosen) {
+		udbg_printf("%s: missing of_chosen\n", __func__);
+		goto done;
+	}
 
 	path = of_get_property(of_chosen, "linux,stdout-path", NULL);
-	if (!path)
-		return;
+	if (!path) {
+		udbg_printf("%s: missing %s property", __func__,
+			    "linux,stdout-path");
+		goto done;
+	}
 
 	stdout = of_find_node_by_path(path);
-	if (!stdout)
-		return;
+	if (!stdout) {
+		udbg_printf("%s: missing path %s", __func__, path);
+		goto done;
+	}
 
 	for(np = NULL;
 	    (np = of_find_compatible_node(np, NULL, "usbgecko,usbgecko")); )
@@ -245,18 +261,30 @@ void __init ug_udbg_init(void)
 			break;
 
 	of_node_put(stdout);
-	if (!np)
-		return;
+	if (!np) {
+		udbg_printf("%s: stdout is not an usbgecko", __func__);
+		goto done;
+	}
 
-	ug_udbg_setup_io_base(np);
-	if (ug_is_adapter_present()) {
+	if (!ug_udbg_setup_io_base(np)) {
+		udbg_printf("%s: failed to setup io base", __func__);
+		goto done;
+	}
+
+	if (!ug_is_adapter_present()) {
+		udbg_printf("usbgecko_udbg: not found\n");
+		ug_io_base = NULL;
+	} else {
 		udbg_putc = ug_udbg_putc;
 		udbg_getc = ug_udbg_getc;
 		udbg_getc_poll = ug_udbg_getc_poll;
-		printk(KERN_INFO "usbgecko_udbg: ready\n");
+		udbg_printf("usbgecko_udbg: ready\n");
 	}
 
-	of_node_put(np);
+done:
+	if (np)
+		of_node_put(np);
+	return;
 }
 
 #ifdef CONFIG_PPC_EARLY_DEBUG_USBGECKO

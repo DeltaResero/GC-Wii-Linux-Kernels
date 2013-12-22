@@ -59,14 +59,14 @@ static void wii_show_cpuinfo(struct seq_file *m)
 	seq_printf(m, "machine\t\t: Nintendo Wii\n");
 }
 
-static void wii_setup_arch(void)
+static void __init wii_setup_arch(void)
 {
+	ug_udbg_init();
+	gcnvi_udbg_init();
 }
 
 static void __init wii_init_early(void)
 {
-	ug_udbg_init();
-	gcnvi_udbg_init();
 }
 
 static int __init wii_probe(void)
