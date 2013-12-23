@@ -97,6 +97,7 @@
 	{USB_DEVICE(0x0DF6,0x002C)}, /* Sitecom */		\
 	{USB_DEVICE(0x0DF6,0x002D)}, /* Sitecom */		\
 	{USB_DEVICE(0x0DF6,0x0039)}, /* Sitecom */		\
+	{USB_DEVICE(0x0DF6,0x003F)}, /* Sitecom WL-608 */	\
 	{USB_DEVICE(0x14B2,0x3C06)}, /* Conceptronic */		\
 	{USB_DEVICE(0x14B2,0x3C28)}, /* Conceptronic */		\
 	{USB_DEVICE(0x2019,0xED06)}, /* Planex Communications, Inc. */		\
@@ -579,16 +580,14 @@ VOID RTUSBBulkRxComplete(purbb_t pUrb, struct pt_regs *pt_regs);
 #define RTUSBMlmeUp(pAd)	        \
 {								    \
 	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;	\
-	BUG_ON(pObj->MLMEThr_task == NULL);		    \
-	CHECK_PID_LEGALITY(task_pid(pObj->MLMEThr_task))		    \
+	CHECK_PID_LEGALITY(pObj->MLMEThr_pid)		    \
         up(&(pAd->mlme_semaphore)); \
 }
 
 #define RTUSBCMDUp(pAd)	                \
 {									    \
 	POS_COOKIE pObj = (POS_COOKIE) pAd->OS_Cookie;	\
-	BUG_ON(pObj->RTUSBCmdThr_task == NULL);	    \
-	CHECK_PID_LEGALITY(task_pid(pObj->RTUSBCmdThr_task))	    \
+	CHECK_PID_LEGALITY(pObj->RTUSBCmdThr_pid)	    \
 	    up(&(pAd->RTUSBCmd_semaphore)); \
 }
 

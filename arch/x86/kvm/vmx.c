@@ -32,6 +32,7 @@
 #include <asm/desc.h>
 #include <asm/vmx.h>
 #include <asm/virtext.h>
+#include <asm/mce.h>
 
 #define __ex(x) __kvm_handle_fault_on_reboot(x)
 
@@ -97,6 +98,8 @@ struct vcpu_vmx {
 	int soft_vnmi_blocked;
 	ktime_t entry_time;
 	s64 vnmi_blocked_time;
+
+	u32 exit_reason;
 };
 
 static inline struct vcpu_vmx *to_vmx(struct kvm_vcpu *vcpu)
@@ -478,7 +481,7 @@ static void update_exception_bitmap(struct kvm_vcpu *vcpu)
 {
 	u32 eb;
 
-	eb = (1u << PF_VECTOR) | (1u << UD_VECTOR);
+	eb = (1u << PF_VECTOR) | (1u << UD_VECTOR) | (1u << MC_VECTOR);
 	if (!vcpu->fpu_active)
 		eb |= 1u << NM_VECTOR;
 	if (vcpu->guest_debug & KVM_GUESTDBG_ENABLE) {
@@ -729,23 +732,45 @@ static void vmx_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags)
 	vmcs_writel(GUEST_RFLAGS, rflags);
 }
 
+static u32 vmx_get_interrupt_shadow(struct kvm_vcpu *vcpu, int mask)
+{
+	u32 interruptibility = vmcs_read32(GUEST_INTERRUPTIBILITY_INFO);
+	int ret = 0;
+
+	if (interruptibility & GUEST_INTR_STATE_STI)
+		ret |= X86_SHADOW_INT_STI;
+	if (interruptibility & GUEST_INTR_STATE_MOV_SS)
+		ret |= X86_SHADOW_INT_MOV_SS;
+
+	return ret & mask;
+}
+
+static void vmx_set_interrupt_shadow(struct kvm_vcpu *vcpu, int mask)
+{
+	u32 interruptibility_old = vmcs_read32(GUEST_INTERRUPTIBILITY_INFO);
+	u32 interruptibility = interruptibility_old;
+
+	interruptibility &= ~(GUEST_INTR_STATE_STI | GUEST_INTR_STATE_MOV_SS);
+
+	if (mask & X86_SHADOW_INT_MOV_SS)
+		interruptibility |= GUEST_INTR_STATE_MOV_SS;
+	if (mask & X86_SHADOW_INT_STI)
+		interruptibility |= GUEST_INTR_STATE_STI;
+
+	if ((interruptibility != interruptibility_old))
+		vmcs_write32(GUEST_INTERRUPTIBILITY_INFO, interruptibility);
+}
+
 static void skip_emulated_instruction(struct kvm_vcpu *vcpu)
 {
 	unsigned long rip;
-	u32 interruptibility;
 
 	rip = kvm_rip_read(vcpu);
 	rip += vmcs_read32(VM_EXIT_INSTRUCTION_LEN);
 	kvm_rip_write(vcpu, rip);
 
-	/*
-	 * We emulated an instruction, so temporary interrupt blocking
-	 * should be removed, if set.
-	 */
-	interruptibility = vmcs_read32(GUEST_INTERRUPTIBILITY_INFO);
-	if (interruptibility & 3)
-		vmcs_write32(GUEST_INTERRUPTIBILITY_INFO,
-			     interruptibility & ~3);
+	/* skipping an emulated instruction also counts */
+	vmx_set_interrupt_shadow(vcpu, 0);
 	vcpu->arch.interrupt_window_open = 1;
 }
 
@@ -1181,12 +1206,9 @@ static __init int setup_vmcs_config(struct vmcs_config *vmcs_conf)
 	if (_cpu_based_2nd_exec_control & SECONDARY_EXEC_ENABLE_EPT) {
 		/* CR3 accesses and invlpg don't need to cause VM Exits when EPT
 		   enabled */
-		min &= ~(CPU_BASED_CR3_LOAD_EXITING |
-			 CPU_BASED_CR3_STORE_EXITING |
-			 CPU_BASED_INVLPG_EXITING);
-		if (adjust_vmx_controls(min, opt, MSR_IA32_VMX_PROCBASED_CTLS,
-					&_cpu_based_exec_control) < 0)
-			return -EIO;
+		_cpu_based_exec_control &= ~(CPU_BASED_CR3_LOAD_EXITING |
+					     CPU_BASED_CR3_STORE_EXITING |
+					     CPU_BASED_INVLPG_EXITING);
 		rdmsr(MSR_IA32_VMX_EPT_VPID_CAP,
 		      vmx_capability.ept, vmx_capability.vpid);
 	}
@@ -2585,6 +2607,35 @@ static int handle_rmode_exception(struct kvm_vcpu *vcpu,
 	return 0;
 }
 
+/*
+ * Trigger machine check on the host. We assume all the MSRs are already set up
+ * by the CPU and that we still run on the same CPU as the MCE occurred on.
+ * We pass a fake environment to the machine check handler because we want
+ * the guest to be always treated like user space, no matter what context
+ * it used internally.
+ */
+static void kvm_machine_check(void)
+{
+#ifdef CONFIG_X86_MCE
+	struct pt_regs regs = {
+		.cs = 3, /* Fake ring 3 no matter what the guest ran on */
+		.flags = X86_EFLAGS_IF,
+	};
+
+#ifdef CONFIG_X86_64
+	do_machine_check(&regs, 0);
+#else
+	machine_check_vector(&regs, 0);
+#endif
+#endif
+}
+
+static int handle_machine_check(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
+{
+	/* already handled by vcpu_run */
+	return 1;
+}
+
 static int handle_exception(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -2595,6 +2646,10 @@ static int handle_exception(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 
 	vect_info = vmx->idt_vectoring_info;
 	intr_info = vmcs_read32(VM_EXIT_INTR_INFO);
+
+	ex_no = intr_info & INTR_INFO_VECTOR_MASK;
+	if (ex_no == MC_VECTOR)
+		return handle_machine_check(vcpu, kvm_run);
 
 	if ((vect_info & VECTORING_INFO_VALID_MASK) &&
 						!is_page_fault(intr_info))
@@ -2648,7 +2703,6 @@ static int handle_exception(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 		return 1;
 	}
 
-	ex_no = intr_info & INTR_INFO_VECTOR_MASK;
 	switch (ex_no) {
 	case DB_VECTOR:
 		dr6 = vmcs_readl(EXIT_QUALIFICATION);
@@ -2808,6 +2862,8 @@ static int handle_dr(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 	unsigned long val;
 	int dr, reg;
 
+	if (!kvm_require_cpl(vcpu, 0))
+		return 1;
 	dr = vmcs_readl(GUEST_DR7);
 	if (dr & DR7_GD) {
 		/*
@@ -2978,6 +3034,12 @@ static int handle_vmcall(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 	return 1;
 }
 
+static int handle_vmx_insn(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
+{
+	kvm_queue_exception(vcpu, UD_VECTOR);
+	return 1;
+}
+
 static int handle_invlpg(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 {
 	u64 exit_qualification = vmcs_read64(EXIT_QUALIFICATION);
@@ -3145,11 +3207,21 @@ static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu,
 	[EXIT_REASON_HLT]                     = handle_halt,
 	[EXIT_REASON_INVLPG]		      = handle_invlpg,
 	[EXIT_REASON_VMCALL]                  = handle_vmcall,
+	[EXIT_REASON_VMCLEAR]	              = handle_vmx_insn,
+	[EXIT_REASON_VMLAUNCH]                = handle_vmx_insn,
+	[EXIT_REASON_VMPTRLD]                 = handle_vmx_insn,
+	[EXIT_REASON_VMPTRST]                 = handle_vmx_insn,
+	[EXIT_REASON_VMREAD]                  = handle_vmx_insn,
+	[EXIT_REASON_VMRESUME]                = handle_vmx_insn,
+	[EXIT_REASON_VMWRITE]                 = handle_vmx_insn,
+	[EXIT_REASON_VMOFF]                   = handle_vmx_insn,
+	[EXIT_REASON_VMON]                    = handle_vmx_insn,
 	[EXIT_REASON_TPR_BELOW_THRESHOLD]     = handle_tpr_below_threshold,
 	[EXIT_REASON_APIC_ACCESS]             = handle_apic_access,
 	[EXIT_REASON_WBINVD]                  = handle_wbinvd,
 	[EXIT_REASON_TASK_SWITCH]             = handle_task_switch,
 	[EXIT_REASON_EPT_VIOLATION]	      = handle_ept_violation,
+	[EXIT_REASON_MCE_DURING_VMENTRY]      = handle_machine_check,
 };
 
 static const int kvm_vmx_max_exit_handlers =
@@ -3161,8 +3233,8 @@ static const int kvm_vmx_max_exit_handlers =
  */
 static int kvm_handle_exit(struct kvm_run *kvm_run, struct kvm_vcpu *vcpu)
 {
-	u32 exit_reason = vmcs_read32(VM_EXIT_REASON);
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	u32 exit_reason = vmx->exit_reason;
 	u32 vectoring_info = vmx->idt_vectoring_info;
 
 	KVMTRACE_3D(VMEXIT, vcpu, exit_reason, (u32)kvm_rip_read(vcpu),
@@ -3512,6 +3584,13 @@ static void vmx_vcpu_run(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 
 	intr_info = vmcs_read32(VM_EXIT_INTR_INFO);
 
+	vmx->exit_reason = vmcs_read32(VM_EXIT_REASON);
+
+	/* Handle machine checks before interrupts are enabled */
+	if ((vmx->exit_reason == EXIT_REASON_MCE_DURING_VMENTRY) ||
+		(intr_info & INTR_INFO_VECTOR_MASK) == MC_VECTOR)
+		kvm_machine_check();
+
 	/* We need to handle NMIs before interrupts are enabled */
 	if ((intr_info & INTR_INFO_INTR_TYPE_MASK) == INTR_TYPE_NMI_INTR &&
 	    (intr_info & INTR_INFO_VALID_MASK)) {
@@ -3680,6 +3759,8 @@ static struct kvm_x86_ops vmx_x86_ops = {
 	.run = vmx_vcpu_run,
 	.handle_exit = kvm_handle_exit,
 	.skip_emulated_instruction = skip_emulated_instruction,
+	.set_interrupt_shadow = vmx_set_interrupt_shadow,
+	.get_interrupt_shadow = vmx_get_interrupt_shadow,
 	.patch_hypercall = vmx_patch_hypercall,
 	.get_irq = vmx_get_irq,
 	.set_irq = vmx_inject_irq,

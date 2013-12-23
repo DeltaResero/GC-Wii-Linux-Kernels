@@ -6186,9 +6186,9 @@ static struct hda_verb alc885_mbp_ch2_init[] = {
 };
 
 /*
- * 6ch mode
+ * 4ch mode
  */
-static struct hda_verb alc885_mbp_ch6_init[] = {
+static struct hda_verb alc885_mbp_ch4_init[] = {
 	{ 0x1a, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT },
 	{ 0x1a, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE},
 	{ 0x1a, AC_VERB_SET_CONNECT_SEL, 0x01 },
@@ -6197,9 +6197,9 @@ static struct hda_verb alc885_mbp_ch6_init[] = {
 	{ } /* end */
 };
 
-static struct hda_channel_mode alc885_mbp_6ch_modes[2] = {
+static struct hda_channel_mode alc885_mbp_4ch_modes[2] = {
 	{ 2, alc885_mbp_ch2_init },
-	{ 6, alc885_mbp_ch6_init },
+	{ 4, alc885_mbp_ch4_init },
 };
 
 
@@ -6232,10 +6232,11 @@ static struct snd_kcontrol_new alc882_base_mixer[] = {
 };
 
 static struct snd_kcontrol_new alc885_mbp3_mixer[] = {
-	HDA_CODEC_VOLUME("Front Playback Volume", 0x0c, 0x00, HDA_OUTPUT),
-	HDA_BIND_MUTE   ("Front Playback Switch", 0x0c, 0x02, HDA_INPUT),
-	HDA_CODEC_MUTE  ("Speaker Playback Switch", 0x14, 0x00, HDA_OUTPUT),
-	HDA_CODEC_VOLUME("Line-Out Playback Volume", 0x0d, 0x00, HDA_OUTPUT),
+	HDA_CODEC_VOLUME("Speaker Playback Volume", 0x0c, 0x00, HDA_OUTPUT),
+	HDA_BIND_MUTE   ("Speaker Playback Switch", 0x0c, 0x02, HDA_INPUT),
+	HDA_CODEC_VOLUME("Headphone Playback Volume", 0x0e, 0x00, HDA_OUTPUT),
+	HDA_BIND_MUTE   ("Headphone Playback Switch", 0x0e, 0x02, HDA_INPUT),
+	HDA_CODEC_VOLUME("Surround Playback Volume", 0x0d, 0x00, HDA_OUTPUT),
 	HDA_CODEC_VOLUME("Line Playback Volume", 0x0b, 0x02, HDA_INPUT),
 	HDA_CODEC_MUTE  ("Line Playback Switch", 0x0b, 0x02, HDA_INPUT),
 	HDA_CODEC_VOLUME("Mic Playback Volume", 0x0b, 0x00, HDA_INPUT),
@@ -6481,14 +6482,18 @@ static struct hda_verb alc885_mbp3_init_verbs[] = {
 	{0x0d, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_ZERO},
 	{0x0d, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_MUTE(0)},
 	{0x0d, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_MUTE(1)},
+	/* HP mixer */
+	{0x0e, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_ZERO},
+	{0x0e, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_MUTE(0)},
+	{0x0e, AC_VERB_SET_AMP_GAIN_MUTE, AMP_IN_MUTE(1)},
 	/* Front Pin: output 0 (0x0c) */
 	{0x14, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_OUT},
 	{0x14, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE},
 	{0x14, AC_VERB_SET_CONNECT_SEL, 0x00},
-	/* HP Pin: output 0 (0x0d) */
+	/* HP Pin: output 0 (0x0e) */
 	{0x15, AC_VERB_SET_PIN_WIDGET_CONTROL, 0xc4},
-	{0x15, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_MUTE},
-	{0x15, AC_VERB_SET_CONNECT_SEL, 0x00},
+	{0x15, AC_VERB_SET_AMP_GAIN_MUTE, AMP_OUT_UNMUTE},
+	{0x15, AC_VERB_SET_CONNECT_SEL, 0x02},
 	{0x15, AC_VERB_SET_UNSOLICITED_ENABLE, ALC880_HP_EVENT | AC_USRSP_EN},
 	/* Mic (rear) pin: input vref at 80% */
 	{0x18, AC_VERB_SET_PIN_WIDGET_CONTROL, PIN_VREF80},
@@ -6885,10 +6890,11 @@ static struct alc_config_preset alc882_presets[] = {
 		.mixers = { alc885_mbp3_mixer, alc882_chmode_mixer },
 		.init_verbs = { alc885_mbp3_init_verbs,
 				alc880_gpio1_init_verbs },
-		.num_dacs = ARRAY_SIZE(alc882_dac_nids),
+		.num_dacs = 2,
 		.dac_nids = alc882_dac_nids,
-		.channel_mode = alc885_mbp_6ch_modes,
-		.num_channel_mode = ARRAY_SIZE(alc885_mbp_6ch_modes),
+		.hp_nid = 0x04,
+		.channel_mode = alc885_mbp_4ch_modes,
+		.num_channel_mode = ARRAY_SIZE(alc885_mbp_4ch_modes),
 		.input_mux = &alc882_capture_source,
 		.dig_out_nid = ALC882_DIGOUT_NID,
 		.dig_in_nid = ALC882_DIGIN_NID,
@@ -10204,6 +10210,18 @@ static void alc262_lenovo_3000_unsol_event(struct hda_codec *codec,
 	alc262_lenovo_3000_automute(codec, 1);
 }
 
+static int amp_stereo_mute_update(struct hda_codec *codec, hda_nid_t nid,
+				  int dir, int idx, long *valp)
+{
+	int i, change = 0;
+
+	for (i = 0; i < 2; i++, valp++)
+		change |= snd_hda_codec_amp_update(codec, nid, i, dir, idx,
+						   HDA_AMP_MUTE,
+						   *valp ? 0 : HDA_AMP_MUTE);
+	return change;
+}
+
 /* bind hp and internal speaker mute (with plug check) */
 static int alc262_fujitsu_master_sw_put(struct snd_kcontrol *kcontrol,
 					 struct snd_ctl_elem_value *ucontrol)
@@ -10212,13 +10230,8 @@ static int alc262_fujitsu_master_sw_put(struct snd_kcontrol *kcontrol,
 	long *valp = ucontrol->value.integer.value;
 	int change;
 
-	change = snd_hda_codec_amp_stereo(codec, 0x14, HDA_OUTPUT, 0,
-						 HDA_AMP_MUTE,
-						 valp ? 0 : HDA_AMP_MUTE);
-	change |= snd_hda_codec_amp_stereo(codec, 0x1b, HDA_OUTPUT, 0,
-						 HDA_AMP_MUTE,
-						 valp ? 0 : HDA_AMP_MUTE);
-
+	change = amp_stereo_mute_update(codec, 0x14, HDA_OUTPUT, 0, valp);
+	change |= amp_stereo_mute_update(codec, 0x1b, HDA_OUTPUT, 0, valp);
 	if (change)
 		alc262_fujitsu_automute(codec, 0);
 	return change;
@@ -10253,10 +10266,7 @@ static int alc262_lenovo_3000_master_sw_put(struct snd_kcontrol *kcontrol,
 	long *valp = ucontrol->value.integer.value;
 	int change;
 
-	change = snd_hda_codec_amp_stereo(codec, 0x1b, HDA_OUTPUT, 0,
-						 HDA_AMP_MUTE,
-						 valp ? 0 : HDA_AMP_MUTE);
-
+	change = amp_stereo_mute_update(codec, 0x1b, HDA_OUTPUT, 0, valp);
 	if (change)
 		alc262_lenovo_3000_automute(codec, 0);
 	return change;
@@ -10915,6 +10925,7 @@ static struct snd_pci_quirk alc262_cfg_tbl[] = {
 	SND_PCI_QUIRK(0x104d, 0x8203, "Sony UX-90", ALC262_HIPPO),
 	SND_PCI_QUIRK(0x104d, 0x820f, "Sony ASSAMD", ALC262_SONY_ASSAMD),
 	SND_PCI_QUIRK(0x104d, 0x9016, "Sony VAIO", ALC262_AUTO), /* dig-only */
+	SND_PCI_QUIRK(0x104d, 0x9025, "Sony VAIO Z21MN", ALC262_TOSHIBA_S06),
 	SND_PCI_QUIRK_MASK(0x104d, 0xff00, 0x9000, "Sony VAIO",
 			   ALC262_SONY_ASSAMD),
 	SND_PCI_QUIRK(0x1179, 0x0001, "Toshiba dynabook SS RX1",
@@ -11122,6 +11133,7 @@ static struct alc_config_preset alc262_presets[] = {
 		.capsrc_nids = alc262_dmic_capsrc_nids,
 		.dac_nids = alc262_dac_nids,
 		.adc_nids = alc262_dmic_adc_nids, /* ADC0 */
+		.num_adc_nids = 1, /* single ADC */
 		.dig_out_nid = ALC262_DIGOUT_NID,
 		.num_channel_mode = ARRAY_SIZE(alc262_modes),
 		.channel_mode = alc262_modes,
@@ -11375,12 +11387,7 @@ static int alc268_acer_master_sw_put(struct snd_kcontrol *kcontrol,
 	long *valp = ucontrol->value.integer.value;
 	int change;
 
-	change = snd_hda_codec_amp_update(codec, 0x14, 0, HDA_OUTPUT, 0,
-					  HDA_AMP_MUTE,
-					  valp[0] ? 0 : HDA_AMP_MUTE);
-	change |= snd_hda_codec_amp_update(codec, 0x14, 1, HDA_OUTPUT, 0,
-					   HDA_AMP_MUTE,
-					   valp[1] ? 0 : HDA_AMP_MUTE);
+	change = amp_stereo_mute_update(codec, 0x14, HDA_OUTPUT, 0, valp);
 	if (change)
 		alc268_acer_automute(codec, 0);
 	return change;
@@ -13148,6 +13155,8 @@ static int patch_alc269(struct hda_codec *codec)
 	if (!spec->cap_mixer)
 		set_capture_mixer(spec);
 	set_beep_amp(spec, 0x0b, 0x04, HDA_INPUT);
+
+	spec->vmaster_nid = 0x02;
 
 	codec->patch_ops = alc_patch_ops;
 	if (board_config == ALC269_AUTO)
