@@ -37,27 +37,6 @@ typedef __u16 __bitwise __hc16;
 #define __hc16	__le16
 #endif
 
-/*
- * Some platforms have weird constraints when accessing memory.
- *
- * For example, the Nintendo Wii video game console is unable to perform
- * non-32 bit writes to non-cached memory for its second block of 64MB of RAM.
- * As this platform also requires CONFIG_NOT_COHERENT, all memory allocated
- * using the dma memory allocation functions can only be written using
- * 32-bit accesses.
- *
- * Because of this constraint, as a workaround, we make sure that all
- * fields in struct ehci_qh (which is allocated from a dma pool) are
- * always 32 bit fields.
- * Note that the remaining structs allocated from dma-able memory are already
- * 32 bit fields.
- */
-#ifdef CONFIG_USB_EHCI_HCD_MIPC
-#define ehci_fld(type)	u32
-#else
-#define ehci_fld(type)	type
-#endif
-
 /* statistics can be kept for for tuning/monitoring */
 struct ehci_stats {
 	/* irq usage */
@@ -356,23 +335,23 @@ struct ehci_qh {
 	u32			refcount;
 	unsigned		stamp;
 
-	ehci_fld(u8)		qh_state;
+	u8			qh_state;
 #define	QH_STATE_LINKED		1		/* HC sees this */
 #define	QH_STATE_UNLINK		2		/* HC may still see this */
 #define	QH_STATE_IDLE		3		/* HC doesn't see this */
 #define	QH_STATE_UNLINK_WAIT	4		/* LINKED and on reclaim q */
 #define	QH_STATE_COMPLETING	5		/* don't touch token.HALT */
 
-	ehci_fld(u8)		xacterrs;	/* XactErr retry counter */
+	u8			xacterrs;	/* XactErr retry counter */
 #define	QH_XACTERR_MAX		32		/* XactErr retry limit */
 
 	/* periodic schedule info */
-	ehci_fld(u8)		usecs;		/* intr bandwidth */
-	ehci_fld(u8)		gap_uf;		/* uframes split/csplit gap */
-	ehci_fld(u8)		c_usecs;	/* ... split completion bw */
-	ehci_fld(u16)		tt_usecs;	/* tt downstream bandwidth */
-	ehci_fld(unsigned short)	period;	/* polling interval */
-	ehci_fld(unsigned short)	start;	/* where polling starts */
+	u8			usecs;		/* intr bandwidth */
+	u8			gap_uf;		/* uframes split/csplit gap */
+	u8			c_usecs;	/* ... split completion bw */
+	u16			tt_usecs;	/* tt downstream bandwidth */
+	unsigned short		period;		/* polling interval */
+	unsigned short		start;		/* where polling starts */
 #define NO_FRAME ((unsigned short)~0)			/* pick new start */
 
 	struct usb_device	*dev;		/* access to TT */
@@ -611,24 +590,6 @@ ehci_port_speed(struct ehci_hcd *ehci, unsigned int portsc)
 #define ehci_big_endian_mmio(e)		0
 #endif
 
-#ifdef CONFIG_USB_EHCI_HCD_MIPC
-
-#include <asm/starlet-mini.h>
-
-static inline unsigned int ehci_readl(const struct ehci_hcd *ehci,
-				      __u32 __iomem *regs)
-{
-	return mipc_in_be32(regs);
-}
-
-static inline void ehci_writel(const struct ehci_hcd *ehci,
-			       const unsigned int val, __u32 __iomem *regs)
-{
-	mipc_out_be32(regs, val);
-}
-
-#else
-
 /*
  * Big-endian read/write functions are arch-specific.
  * Other arches can be added if/when they're needed.
@@ -661,8 +622,6 @@ static inline void ehci_writel(const struct ehci_hcd *ehci,
 	writel(val, regs);
 #endif
 }
-
-#endif /* CONFIG_USB_EHCI_HCD_MIPC */
 
 /*
  * On certain ppc-44x SoC there is a HW issue, that could only worked around with
