@@ -216,7 +216,7 @@ minstrel_get_next_sample(struct minstrel_sta_info *mi)
 	unsigned int sample_ndx;
 	sample_ndx = SAMPLE_TBL(mi, mi->sample_idx, mi->sample_column);
 	mi->sample_idx++;
-	if (mi->sample_idx > (mi->n_rates - 2)) {
+	if ((int) mi->sample_idx > (mi->n_rates - 2)) {
 		mi->sample_idx = 0;
 		mi->sample_column++;
 		if (mi->sample_column >= SAMPLE_COLUMNS)
@@ -476,8 +476,8 @@ minstrel_alloc_sta(void *priv, struct ieee80211_sta *sta, gfp_t gfp)
 		return NULL;
 
 	for (i = 0; i < IEEE80211_NUM_BANDS; i++) {
-		sband = hw->wiphy->bands[hw->conf.channel->band];
-		if (sband->n_bitrates > max_rates)
+		sband = hw->wiphy->bands[i];
+		if (sband && sband->n_bitrates > max_rates)
 			max_rates = sband->n_bitrates;
 	}
 

@@ -338,6 +338,7 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 	int dspbase = (pipe == 0 ? DSPAADDR : DSPBADDR);
 	int dspsurf = (pipe == 0 ? DSPASURF : DSPBSURF);
 	int dspstride = (pipe == 0) ? DSPASTRIDE : DSPBSTRIDE;
+	int dsptileoff = (pipe == 0 ? DSPATILEOFF : DSPBTILEOFF);
 	int dspcntr_reg = (pipe == 0) ? DSPACNTR : DSPBCNTR;
 	u32 dspcntr, alignment;
 	int ret;
@@ -414,6 +415,13 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 		mutex_unlock(&dev->struct_mutex);
 		return -EINVAL;
 	}
+	if (IS_I965G(dev)) {
+		if (obj_priv->tiling_mode != I915_TILING_NONE)
+			dspcntr |= DISPPLANE_TILED;
+		else
+			dspcntr &= ~DISPPLANE_TILED;
+	}
+
 	I915_WRITE(dspcntr_reg, dspcntr);
 
 	Start = obj_priv->gtt_offset;
@@ -426,6 +434,7 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 		I915_READ(dspbase);
 		I915_WRITE(dspsurf, Start);
 		I915_READ(dspsurf);
+		I915_WRITE(dsptileoff, (y << 16) | x);
 	} else {
 		I915_WRITE(dspbase, Start + Offset);
 		I915_READ(dspbase);
@@ -1474,13 +1483,21 @@ static void intel_setup_outputs(struct drm_device *dev)
 
 	if (IS_I9XX(dev)) {
 		int found;
+		u32 reg;
 
 		if (I915_READ(SDVOB) & SDVO_DETECTED) {
 			found = intel_sdvo_init(dev, SDVOB);
 			if (!found && SUPPORTS_INTEGRATED_HDMI(dev))
 				intel_hdmi_init(dev, SDVOB);
 		}
-		if (!IS_G4X(dev) || (I915_READ(SDVOB) & SDVO_DETECTED)) {
+
+		/* Before G4X SDVOC doesn't have its own detect register */
+		if (IS_G4X(dev))
+			reg = SDVOC;
+		else
+			reg = SDVOB;
+
+		if (I915_READ(reg) & SDVO_DETECTED) {
 			found = intel_sdvo_init(dev, SDVOC);
 			if (!found && SUPPORTS_INTEGRATED_HDMI(dev))
 				intel_hdmi_init(dev, SDVOC);

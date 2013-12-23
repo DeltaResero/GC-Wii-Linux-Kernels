@@ -676,38 +676,21 @@ fail_nomem:
 	return retval;
 }
 
-static struct fs_struct *__copy_fs_struct(struct fs_struct *old)
-{
-	struct fs_struct *fs = kmem_cache_alloc(fs_cachep, GFP_KERNEL);
-	/* We don't need to lock fs - think why ;-) */
-	if (fs) {
-		atomic_set(&fs->count, 1);
-		rwlock_init(&fs->lock);
-		fs->umask = old->umask;
-		read_lock(&old->lock);
-		fs->root = old->root;
-		path_get(&old->root);
-		fs->pwd = old->pwd;
-		path_get(&old->pwd);
-		read_unlock(&old->lock);
-	}
-	return fs;
-}
-
-struct fs_struct *copy_fs_struct(struct fs_struct *old)
-{
-	return __copy_fs_struct(old);
-}
-
-EXPORT_SYMBOL_GPL(copy_fs_struct);
-
 static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 {
+	struct fs_struct *fs = current->fs;
 	if (clone_flags & CLONE_FS) {
-		atomic_inc(&current->fs->count);
+		/* tsk->fs is already what we want */
+		write_lock(&fs->lock);
+		if (fs->in_exec) {
+			write_unlock(&fs->lock);
+			return -EAGAIN;
+		}
+		fs->users++;
+		write_unlock(&fs->lock);
 		return 0;
 	}
-	tsk->fs = __copy_fs_struct(current->fs);
+	tsk->fs = copy_fs_struct(fs);
 	if (!tsk->fs)
 		return -ENOMEM;
 	return 0;
@@ -808,6 +791,12 @@ static void posix_cpu_timers_init_group(struct signal_struct *sig)
 	sig->cputime_expires.virt_exp = cputime_zero;
 	sig->cputime_expires.sched_exp = 0;
 
+	if (sig->rlim[RLIMIT_CPU].rlim_cur != RLIM_INFINITY) {
+		sig->cputime_expires.prof_exp =
+			secs_to_cputime(sig->rlim[RLIMIT_CPU].rlim_cur);
+		sig->cputimer.running = 1;
+	}
+
 	/* The timer lists. */
 	INIT_LIST_HEAD(&sig->cpu_timers[0]);
 	INIT_LIST_HEAD(&sig->cpu_timers[1]);
@@ -823,11 +812,8 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 		atomic_inc(&current->signal->live);
 		return 0;
 	}
+
 	sig = kmem_cache_alloc(signal_cachep, GFP_KERNEL);
-
-	if (sig)
-		posix_cpu_timers_init_group(sig);
-
 	tsk->signal = sig;
 	if (!sig)
 		return -ENOMEM;
@@ -864,6 +850,8 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	task_lock(current->group_leader);
 	memcpy(sig->rlim, current->signal->rlim, sizeof sig->rlim);
 	task_unlock(current->group_leader);
+
+	posix_cpu_timers_init_group(sig);
 
 	acct_init_pacct(&sig->pacct);
 
@@ -1538,12 +1526,16 @@ static int unshare_fs(unsigned long unshare_flags, struct fs_struct **new_fsp)
 {
 	struct fs_struct *fs = current->fs;
 
-	if ((unshare_flags & CLONE_FS) &&
-	    (fs && atomic_read(&fs->count) > 1)) {
-		*new_fsp = __copy_fs_struct(current->fs);
-		if (!*new_fsp)
-			return -ENOMEM;
-	}
+	if (!(unshare_flags & CLONE_FS) || !fs)
+		return 0;
+
+	/* don't need lock here; in the worst case we'll do useless copy */
+	if (fs->users == 1)
+		return 0;
+
+	*new_fsp = copy_fs_struct(fs);
+	if (!*new_fsp)
+		return -ENOMEM;
 
 	return 0;
 }
@@ -1659,8 +1651,13 @@ SYSCALL_DEFINE1(unshare, unsigned long, unshare_flags)
 
 		if (new_fs) {
 			fs = current->fs;
+			write_lock(&fs->lock);
 			current->fs = new_fs;
-			new_fs = fs;
+			if (--fs->users)
+				new_fs = NULL;
+			else
+				new_fs = fs;
+			write_unlock(&fs->lock);
 		}
 
 		if (new_mm) {
@@ -1699,7 +1696,7 @@ bad_unshare_cleanup_sigh:
 
 bad_unshare_cleanup_fs:
 	if (new_fs)
-		put_fs_struct(new_fs);
+		free_fs_struct(new_fs);
 
 bad_unshare_cleanup_thread:
 bad_unshare_out:

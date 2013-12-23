@@ -1049,32 +1049,35 @@ EXPORT_SYMBOL(install_exec_creds);
  * - the caller must hold current->cred_exec_mutex to protect against
  *   PTRACE_ATTACH
  */
-void check_unsafe_exec(struct linux_binprm *bprm, struct files_struct *files)
+int check_unsafe_exec(struct linux_binprm *bprm)
 {
 	struct task_struct *p = current, *t;
-	unsigned long flags;
-	unsigned n_fs, n_files, n_sighand;
+	unsigned n_fs;
+	int res = 0;
 
 	bprm->unsafe = tracehook_unsafe_exec(p);
 
 	n_fs = 1;
-	n_files = 1;
-	n_sighand = 1;
-	lock_task_sighand(p, &flags);
+	write_lock(&p->fs->lock);
+	rcu_read_lock();
 	for (t = next_thread(p); t != p; t = next_thread(t)) {
 		if (t->fs == p->fs)
 			n_fs++;
-		if (t->files == files)
-			n_files++;
-		n_sighand++;
 	}
+	rcu_read_unlock();
 
-	if (atomic_read(&p->fs->count) > n_fs ||
-	    atomic_read(&p->files->count) > n_files ||
-	    atomic_read(&p->sighand->count) > n_sighand)
+	if (p->fs->users > n_fs) {
 		bprm->unsafe |= LSM_UNSAFE_SHARE;
+	} else {
+		res = -EAGAIN;
+		if (!p->fs->in_exec) {
+			p->fs->in_exec = 1;
+			res = 1;
+		}
+	}
+	write_unlock(&p->fs->lock);
 
-	unlock_task_sighand(p, &flags);
+	return res;
 }
 
 /* 
@@ -1270,6 +1273,7 @@ int do_execve(char * filename,
 	struct linux_binprm *bprm;
 	struct file *file;
 	struct files_struct *displaced;
+	bool clear_in_exec;
 	int retval;
 
 	retval = unshare_files(&displaced);
@@ -1289,12 +1293,16 @@ int do_execve(char * filename,
 	bprm->cred = prepare_exec_creds();
 	if (!bprm->cred)
 		goto out_unlock;
-	check_unsafe_exec(bprm, displaced);
+
+	retval = check_unsafe_exec(bprm);
+	if (retval < 0)
+		goto out_unlock;
+	clear_in_exec = retval;
 
 	file = open_exec(filename);
 	retval = PTR_ERR(file);
 	if (IS_ERR(file))
-		goto out_unlock;
+		goto out_unmark;
 
 	sched_exec();
 
@@ -1337,6 +1345,7 @@ int do_execve(char * filename,
 		goto out;
 
 	/* execve succeeded */
+	current->fs->in_exec = 0;
 	mutex_unlock(&current->cred_exec_mutex);
 	acct_update_integrals(current);
 	free_bprm(bprm);
@@ -1353,6 +1362,10 @@ out_file:
 		allow_write_access(bprm->file);
 		fput(bprm->file);
 	}
+
+out_unmark:
+	if (clear_in_exec)
+		current->fs->in_exec = 0;
 
 out_unlock:
 	mutex_unlock(&current->cred_exec_mutex);
