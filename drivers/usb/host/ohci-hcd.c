@@ -1061,6 +1061,11 @@ MODULE_LICENSE ("GPL");
 #define OF_PLATFORM_DRIVER	ohci_hcd_ppc_of_driver
 #endif
 
+#ifdef CONFIG_USB_OHCI_HCD_MIPC
+#include "ohci-mipc.c"
+#define OF_PLATFORM_DRIVER	ohci_hcd_mipc_driver
+#endif
+
 #ifdef CONFIG_PPC_PS3
 #include "ohci-ps3.c"
 #define PS3_SYSTEM_BUS_DRIVER	ps3_ohci_driver

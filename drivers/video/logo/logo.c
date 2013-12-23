@@ -27,6 +27,7 @@ extern const struct linux_logo logo_linux_clut224;
 extern const struct linux_logo logo_blackfin_vga16;
 extern const struct linux_logo logo_blackfin_clut224;
 extern const struct linux_logo logo_dec_clut224;
+extern const struct linux_logo logo_gcn_clut224;
 extern const struct linux_logo logo_mac_clut224;
 extern const struct linux_logo logo_parisc_clut224;
 extern const struct linux_logo logo_sgi_clut224;
@@ -89,6 +90,10 @@ const struct linux_logo * __init_refok fb_find_logo(int depth)
 #ifdef CONFIG_LOGO_DEC_CLUT224
 		/* DEC Linux logo on MIPS/MIPS64 or ALPHA */
 		logo = &logo_dec_clut224;
+#endif
+#ifdef CONFIG_LOGO_GAMECUBE_CLUT224
+		/* GameCube Linux logo */
+		logo = &logo_gcn_clut224;
 #endif
 #ifdef CONFIG_LOGO_MAC_CLUT224
 		/* Macintosh Linux logo on m68k */

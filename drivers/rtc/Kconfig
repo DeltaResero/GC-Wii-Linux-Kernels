@@ -526,6 +526,16 @@ config RTC_DRV_PCF50633
 	  If you say yes here you get support for the RTC subsystem of the
 	  NXP PCF50633 used in embedded systems.
 
+config RTC_DRV_GCN
+	bool "Nintendo GameCube/Wii Real Time Clock and SRAM"
+	depends on GAMECUBE_EXI
+	default y
+	help
+	  If you say yes to this option, support will be included for the
+	  Real Time Clock and SRAM of the Nintendo GameCube/Wii.
+
+	  If in doubt, say Y here.
+
 comment "on-CPU RTC drivers"
 
 config RTC_DRV_OMAP
