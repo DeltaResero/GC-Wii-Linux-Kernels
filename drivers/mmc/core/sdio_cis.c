@@ -123,8 +123,9 @@ static int cistpl_funce_func(struct sdio_func *func,
 	vsn = func->card->cccr.sdio_vsn;
 	min_size = (vsn == SDIO_SDIO_REV_1_00) ? 28 : 42;
 
+	/* let the SDIO driver take care of unknown tuples */
 	if (size < min_size || buf[0] != 1)
-		return -EINVAL;
+		return -EILSEQ;
 
 	/* TPLFE_MAX_BLK_SIZE */
 	func->max_blksize = buf[12] | (buf[13] << 8);
@@ -154,13 +155,7 @@ static int cistpl_funce(struct mmc_card *card, struct sdio_func *func,
 	else
 		ret = cistpl_funce_common(card, buf, size);
 
-	if (ret) {
-		printk(KERN_ERR "%s: bad CISTPL_FUNCE size %u "
-		       "type %u\n", mmc_hostname(card->host), size, buf[0]);
-		return ret;
-	}
-
-	return 0;
+	return ret;
 }
 
 typedef int (tpl_parse_t)(struct mmc_card *, struct sdio_func *,
@@ -253,7 +248,28 @@ static int sdio_read_cis(struct mmc_card *card, struct sdio_func *func)
 		for (i = 0; i < ARRAY_SIZE(cis_tpl_list); i++)
 			if (cis_tpl_list[i].code == tpl_code)
 				break;
-		if (i >= ARRAY_SIZE(cis_tpl_list)) {
+		if (i < ARRAY_SIZE(cis_tpl_list)) {
+			const struct cis_tpl *tpl = cis_tpl_list + i;
+			if (tpl_link < tpl->min_size) {
+				printk(KERN_ERR
+				       "%s: bad CIS tuple 0x%02x"
+				       " (length = %u, expected >= %u)\n",
+				       mmc_hostname(card->host),
+				       tpl_code, tpl_link, tpl->min_size);
+				ret = -EINVAL;
+			} else if (tpl->parse) {
+				ret = tpl->parse(card, func,
+						 this->data, tpl_link);
+			}
+			/* already successfully parsed, not needed anymore */
+			if (!ret)
+				kfree(this);
+		} else {
+			/* unknown tuple */
+			ret = -EILSEQ;
+		}
+
+		if (ret == -EILSEQ) {
 			/* this tuple is unknown to the core */
 			this->next = NULL;
 			this->code = tpl_code;
@@ -263,19 +279,8 @@ static int sdio_read_cis(struct mmc_card *card, struct sdio_func *func)
 			printk(KERN_DEBUG
 			       "%s: queuing CIS tuple 0x%02x length %u\n",
 			       mmc_hostname(card->host), tpl_code, tpl_link);
-		} else {
-			const struct cis_tpl *tpl = cis_tpl_list + i;
-			if (tpl_link < tpl->min_size) {
-				printk(KERN_ERR
-				       "%s: bad CIS tuple 0x%02x (length = %u, expected >= %u)\n",
-				       mmc_hostname(card->host),
-				       tpl_code, tpl_link, tpl->min_size);
-				ret = -EINVAL;
-			} else if (tpl->parse) {
-				ret = tpl->parse(card, func,
-						 this->data, tpl_link);
-			}
-			kfree(this);
+			/* keep on analyzing tuples */
+			ret = 0;
 		}
 
 		ptr += tpl_link;

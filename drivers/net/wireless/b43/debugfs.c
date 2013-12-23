@@ -127,7 +127,6 @@ static int shm16write__write_file(struct b43_wldev *dev,
 	unsigned int routing, addr, mask, set;
 	u16 val;
 	int res;
-	unsigned long flags;
 
 	res = sscanf(buf, "0x%X 0x%X 0x%X 0x%X",
 		     &routing, &addr, &mask, &set);
@@ -144,7 +143,7 @@ static int shm16write__write_file(struct b43_wldev *dev,
 	if ((mask > 0xFFFF) || (set > 0xFFFF))
 		return -E2BIG;
 
-	spin_lock_irqsave(&dev->wl->shm_lock, flags);
+	mutex_lock(&dev->wl->shm_mutex);
 	if (mask == 0)
 		val = 0;
 	else
@@ -152,7 +151,7 @@ static int shm16write__write_file(struct b43_wldev *dev,
 	val &= mask;
 	val |= set;
 	__b43_shm_write16(dev, routing, addr, val);
-	spin_unlock_irqrestore(&dev->wl->shm_lock, flags);
+	mutex_unlock(&dev->wl->shm_mutex);
 
 	return 0;
 }
@@ -206,7 +205,6 @@ static int shm32write__write_file(struct b43_wldev *dev,
 	unsigned int routing, addr, mask, set;
 	u32 val;
 	int res;
-	unsigned long flags;
 
 	res = sscanf(buf, "0x%X 0x%X 0x%X 0x%X",
 		     &routing, &addr, &mask, &set);
@@ -223,7 +221,7 @@ static int shm32write__write_file(struct b43_wldev *dev,
 	if ((mask > 0xFFFFFFFF) || (set > 0xFFFFFFFF))
 		return -E2BIG;
 
-	spin_lock_irqsave(&dev->wl->shm_lock, flags);
+	mutex_lock(&dev->wl->shm_mutex);
 	if (mask == 0)
 		val = 0;
 	else
@@ -231,7 +229,7 @@ static int shm32write__write_file(struct b43_wldev *dev,
 	val &= mask;
 	val |= set;
 	__b43_shm_write32(dev, routing, addr, val);
-	spin_unlock_irqrestore(&dev->wl->shm_lock, flags);
+	mutex_unlock(&dev->wl->shm_mutex);
 
 	return 0;
 }
@@ -556,10 +554,9 @@ static ssize_t b43_debugfs_read(struct file *file, char __user *userbuf,
 			goto out_unlock;
 		}
 		memset(buf, 0, bufsize);
+		/* FIXME, this has no sense on the threaded version */
 		if (dfops->take_irqlock) {
-			spin_lock_irq(&dev->wl->irq_lock);
 			ret = dfops->read(dev, buf, bufsize);
-			spin_unlock_irq(&dev->wl->irq_lock);
 		} else
 			ret = dfops->read(dev, buf, bufsize);
 		if (ret <= 0) {
@@ -623,10 +620,9 @@ static ssize_t b43_debugfs_write(struct file *file,
 		err = -EFAULT;
 		goto out_freepage;
 	}
+	/* FIXME, this has no sense on the threaded version */
 	if (dfops->take_irqlock) {
-		spin_lock_irq(&dev->wl->irq_lock);
 		err = dfops->write(dev, buf, count);
-		spin_unlock_irq(&dev->wl->irq_lock);
 	} else
 		err = dfops->write(dev, buf, count);
 	if (err)

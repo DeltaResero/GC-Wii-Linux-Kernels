@@ -597,15 +597,15 @@ struct b43_wl {
 	struct ieee80211_hw *hw;
 
 	struct mutex mutex;
-	spinlock_t irq_lock;
-	/* R/W lock for data transmission.
+
+	/* R/W semaphore for data transmission.
 	 * Transmissions on 2+ queues can run concurrently, but somebody else
-	 * might sync with TX by write_lock_irqsave()'ing. */
-	rwlock_t tx_lock;
-	/* Lock for LEDs access. */
-	spinlock_t leds_lock;
-	/* Lock for SHM access. */
-	spinlock_t shm_lock;
+	 * might sync with TX by down_write()'ing. */
+	struct rw_semaphore tx_rwsem;
+	/* Mutex for LEDs access. */
+	struct mutex leds_mutex;
+	/* Mutex for SHM access. */
+	struct mutex shm_mutex;
 
 	/* We can only have one operating interface (802.11 core)
 	 * at a time. General information about this interface follows.
@@ -653,6 +653,11 @@ struct b43_wl {
 	 * This is scheduled when we determine that the actual TX output
 	 * power doesn't match what we want. */
 	struct work_struct txpower_adjust_work;
+	/* Work for adjustment of the operational mode */
+	struct work_struct configure_filter_work;
+
+	/* Dedicated work for TX PIO */
+	struct workqueue_struct *tx_wq;
 };
 
 /* The type of the firmware file. */

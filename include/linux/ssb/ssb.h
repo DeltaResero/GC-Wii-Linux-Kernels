@@ -208,6 +208,7 @@ enum ssb_bustype {
 	SSB_BUSTYPE_SSB,	/* This SSB bus is the system bus */
 	SSB_BUSTYPE_PCI,	/* SSB is connected to PCI bus */
 	SSB_BUSTYPE_PCMCIA,	/* SSB is connected to PCMCIA bus */
+	SSB_BUSTYPE_SDIO,	/* SSB is connected to SDIO bus */
 };
 
 /* board_vendor */
@@ -252,6 +253,17 @@ struct ssb_bus {
 	struct pci_dev *host_pci;
 	/* Pointer to the PCMCIA device (only if bustype == SSB_BUSTYPE_PCMCIA). */
 	struct pcmcia_device *host_pcmcia;
+
+	unsigned int quirks;
+
+/* card requires performing a read after writing a 32-bit value */
+#define SSB_QUIRK_SDIO_READ_AFTER_WRITE32	(1<<0)
+
+	/* Pointer to the SDIO device (only if bustype == SSB_BUSTYPE_SDIO). */
+	struct sdio_func *sdio_func;
+
+	/* Current SSB base address window for SDIO. */
+	u32	sbaddr;
 
 #ifdef CONFIG_SSB_SPROM
 	/* Mutex to protect the SPROM writing. */
@@ -336,6 +348,12 @@ extern int ssb_bus_pcmciabus_register(struct ssb_bus *bus,
 				      struct pcmcia_device *pcmcia_dev,
 				      unsigned long baseaddr);
 #endif /* CONFIG_SSB_PCMCIAHOST */
+#ifdef CONFIG_SSB_SDIOHOST
+extern int ssb_bus_sdiobus_register(struct ssb_bus *bus,
+				    struct sdio_func *sdio_func,
+				    unsigned int quirks);
+#endif /* CONFIG_SSB_SDIOHOST */
+
 
 extern void ssb_bus_unregister(struct ssb_bus *bus);
 
@@ -435,6 +453,8 @@ static inline int ssb_dma_mapping_error(struct ssb_device *dev, dma_addr_t addr)
 		return pci_dma_mapping_error(dev->bus->host_pci, addr);
 #endif
 		break;
+	case SSB_BUSTYPE_SDIO:
+		/* FALL THROUGH */
 	case SSB_BUSTYPE_SSB:
 		return dma_mapping_error(dev->dev, addr);
 	default:
@@ -453,6 +473,8 @@ static inline dma_addr_t ssb_dma_map_single(struct ssb_device *dev, void *p,
 		return pci_map_single(dev->bus->host_pci, p, size, dir);
 #endif
 		break;
+	case SSB_BUSTYPE_SDIO:
+		/* FALL THROUGH */
 	case SSB_BUSTYPE_SSB:
 		return dma_map_single(dev->dev, p, size, dir);
 	default:
@@ -472,6 +494,8 @@ static inline void ssb_dma_unmap_single(struct ssb_device *dev, dma_addr_t dma_a
 		return;
 #endif
 		break;
+	case SSB_BUSTYPE_SDIO:
+		/* FALL THROUGH */
 	case SSB_BUSTYPE_SSB:
 		dma_unmap_single(dev->dev, dma_addr, size, dir);
 		return;
@@ -494,6 +518,8 @@ static inline void ssb_dma_sync_single_for_cpu(struct ssb_device *dev,
 		return;
 #endif
 		break;
+	case SSB_BUSTYPE_SDIO:
+		/* FALL THROUGH */
 	case SSB_BUSTYPE_SSB:
 		dma_sync_single_for_cpu(dev->dev, dma_addr, size, dir);
 		return;
@@ -516,6 +542,8 @@ static inline void ssb_dma_sync_single_for_device(struct ssb_device *dev,
 		return;
 #endif
 		break;
+	case SSB_BUSTYPE_SDIO:
+		/* FALL THROUGH */
 	case SSB_BUSTYPE_SSB:
 		dma_sync_single_for_device(dev->dev, dma_addr, size, dir);
 		return;
@@ -540,6 +568,8 @@ static inline void ssb_dma_sync_single_range_for_cpu(struct ssb_device *dev,
 		return;
 #endif
 		break;
+	case SSB_BUSTYPE_SDIO:
+		/* FALL THROUGH */
 	case SSB_BUSTYPE_SSB:
 		dma_sync_single_range_for_cpu(dev->dev, dma_addr, offset,
 					      size, dir);
@@ -565,6 +595,8 @@ static inline void ssb_dma_sync_single_range_for_device(struct ssb_device *dev,
 		return;
 #endif
 		break;
+	case SSB_BUSTYPE_SDIO:
+		/* FALL THROUGH */
 	case SSB_BUSTYPE_SSB:
 		dma_sync_single_range_for_device(dev->dev, dma_addr, offset,
 						 size, dir);

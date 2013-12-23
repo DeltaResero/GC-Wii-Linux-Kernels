@@ -868,6 +868,7 @@ void mmc_rescan(struct work_struct *work)
 		mmc_claim_host(host);
 
 		mmc_power_up(host);
+		sdio_go_idle(host);
 		mmc_go_idle(host);
 
 		mmc_send_if_cond(host, host->ocr_avail);

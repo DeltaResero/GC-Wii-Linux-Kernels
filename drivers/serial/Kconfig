@@ -1433,4 +1433,17 @@ config SPORT_BAUD_RATE
 	default 19200 if (SERIAL_SPORT_BAUD_RATE_19200)
 	default 9600 if (SERIAL_SPORT_BAUD_RATE_9600)
 
+config SERIAL_USBGECKO
+	bool "USBGecko adapter on the Nintendo GameCube/Wii"
+	depends on GAMECUBE_EXI
+	select SERIAL_CORE
+	help
+	  This is a driver for the USB Gecko adapter for the Nintendo GameCube
+	  and Wii gaming consoles. It provides a console and a tty interface.
+
+	  If you have an adapter like this, say Y here, otherwise say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called usbgecko.
+
 endmenu

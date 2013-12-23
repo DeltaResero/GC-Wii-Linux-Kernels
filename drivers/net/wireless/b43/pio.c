@@ -6,6 +6,9 @@
 
   Copyright (c) 2005-2008 Michael Buesch <mb@bu3sch.de>
 
+  SDIO support
+  Copyright (c) 2009 Albert Herranz <albert_herranz@yahoo.es>
+
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2 of the License, or
@@ -23,6 +26,8 @@
 
 */
 
+#define b43fmt(fmt) "%s: " fmt, __func__
+
 #include "b43.h"
 #include "pio.h"
 #include "dma.h"
@@ -32,7 +37,7 @@
 #include <linux/delay.h>
 
 
-static void b43_pio_rx_work(struct work_struct *work);
+static void b43_pio_tx_work(struct work_struct *work);
 
 
 static u16 generate_cookie(struct b43_pio_txqueue *q,
@@ -80,7 +85,7 @@ struct b43_pio_txqueue *parse_cookie(struct b43_wldev *dev,
 		q = pio->tx_queue_mcast;
 		break;
 	}
-	if (B43_WARN_ON(!q))
+	if (!q)
 		return NULL;
 	pack_index = (cookie & 0x0FFF);
 	if (B43_WARN_ON(pack_index >= ARRAY_SIZE(q->packets)))
@@ -167,6 +172,9 @@ static struct b43_pio_txqueue *b43_setup_pioqueue_tx(struct b43_wldev *dev,
 		p->queue = q;
 		list_add(&p->list, &q->packets_list);
 	}
+	mutex_init(&q->tx_mutex);
+	INIT_WORK(&q->tx_work, b43_pio_tx_work);
+	skb_queue_head_init(&q->tx_queue);
 
 	return q;
 }
@@ -179,12 +187,11 @@ static struct b43_pio_rxqueue *b43_setup_pioqueue_rx(struct b43_wldev *dev,
 	q = kzalloc(sizeof(*q), GFP_KERNEL);
 	if (!q)
 		return NULL;
-	spin_lock_init(&q->lock);
 	q->dev = dev;
 	q->rev = dev->dev->id.revision;
 	q->mmio_base = index_to_pioqueue_base(dev, index) +
 		       pio_rxqueue_offset(dev);
-	INIT_WORK(&q->rx_work, b43_pio_rx_work);
+	mutex_init(&q->rx_mutex);
 
 	/* Enable Direct FIFO RX (PIO) on the engine. */
 	b43_dma_direct_fifo_rx(dev, index, 1);
@@ -253,7 +260,11 @@ void b43_pio_stop(struct b43_wldev *dev)
 {
 	if (!b43_using_pio_transfers(dev))
 		return;
-	cancel_work_sync(&dev->pio.rx_queue->rx_work);
+	cancel_work_sync(&dev->pio.tx_queue_AC_BK->tx_work);
+	cancel_work_sync(&dev->pio.tx_queue_AC_BE->tx_work);
+	cancel_work_sync(&dev->pio.tx_queue_AC_VI->tx_work);
+	cancel_work_sync(&dev->pio.tx_queue_AC_VO->tx_work);
+	cancel_work_sync(&dev->pio.tx_queue_mcast->tx_work);
 }
 
 int b43_pio_init(struct b43_wldev *dev)
@@ -383,21 +394,28 @@ static void pio_tx_frame_2byte_queue(struct b43_pio_txpacket *pack,
 	b43_piotx_write16(q, B43_PIO_TXCTL, ctl);
 }
 
+static void piotx_block_write32(struct b43_pio_txqueue *q, const void *buf,
+				size_t len, u16 offset)
+{
+	u32 *p = (u32 *)buf;
+
+	B43_WARN_ON(len & 3);
+	ssb_block_write(q->dev->dev, p, len,
+			q->mmio_base + B43_PIO8_TXDATA, sizeof(u32));
+}
+
 static u32 tx_write_4byte_queue(struct b43_pio_txqueue *q,
 				u32 ctl,
 				const void *_data,
 				unsigned int data_len)
 {
-	struct b43_wldev *dev = q->dev;
 	const u8 *data = _data;
 
 	ctl |= B43_PIO8_TXCTL_0_7 | B43_PIO8_TXCTL_8_15 |
 	       B43_PIO8_TXCTL_16_23 | B43_PIO8_TXCTL_24_31;
 	b43_piotx_write32(q, B43_PIO8_TXCTL, ctl);
+	piotx_block_write32(q, data, (data_len & ~3), B43_PIO8_TXDATA);
 
-	ssb_block_write(dev->dev, data, (data_len & ~3),
-			q->mmio_base + B43_PIO8_TXDATA,
-			sizeof(u32));
 	if (data_len & 3) {
 		u32 value = 0;
 
@@ -418,7 +436,9 @@ static u32 tx_write_4byte_queue(struct b43_pio_txqueue *q,
 			value |= (u32)(*data);
 		}
 		b43_piotx_write32(q, B43_PIO8_TXCTL, ctl);
-		b43_piotx_write32(q, B43_PIO8_TXDATA, value);
+		/* yes, this is needed on a BE platform */
+		value = swab32(value);
+		piotx_block_write32(q, &value, 4, B43_PIO8_TXDATA);
 	}
 
 	return ctl;
@@ -445,26 +465,86 @@ static void pio_tx_frame_4byte_queue(struct b43_pio_txpacket *pack,
 	b43_piotx_write32(q, B43_PIO_TXCTL, ctl);
 }
 
-static int pio_tx_frame(struct b43_pio_txqueue *q,
-			struct sk_buff *skb)
+/* &pack->queue->lock held, interrupts disabled */
+static int pio_fill_packet(struct b43_pio_txpacket *pack,
+			   struct sk_buff *skb)
 {
-	struct b43_pio_txpacket *pack;
-	struct b43_txhdr txhdr;
-	u16 cookie;
-	int err;
+	struct b43_pio_txqueue *q = pack->queue;
 	unsigned int hdrlen;
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	int error = 0;
 
-	B43_WARN_ON(list_empty(&q->packets_list));
-	pack = list_entry(q->packets_list.next,
-			  struct b43_pio_txpacket, list);
+	if (B43_WARN_ON(pack->skb)) {
+		error = -EINVAL;
+		goto out;
+	}
+
+	/* Update the queue statistics. */
+	hdrlen = b43_txhdr_size(q->dev);
+	q->buffer_used += roundup(skb->len + hdrlen, 4);
+	q->free_packet_slots -= 1;
+
+	pack->skb = skb;
+out:
+	if (error)
+		b43dbg(q->dev->wl, b43fmt("error %d\n"), error);
+	return error;
+}
+
+/* &pack->queue->lock held, interrupts disabled */
+static int pio_unfill_packet(struct b43_pio_txpacket *pack)
+{
+	struct b43_pio_txqueue *q = pack->queue;
+	unsigned int hdrlen;
+	int error = 0;
+
+	if (B43_WARN_ON(!pack->skb)) {
+		error = -EINVAL;
+		goto out;
+	}
+
+	/* Update the queue statistics. */
+	hdrlen = b43_txhdr_size(q->dev);
+	q->buffer_used -= roundup(pack->skb->len + hdrlen, 4);
+	q->free_packet_slots += 1;
+
+	pack->skb = NULL;
+
+out:
+	if (error)
+		b43dbg(q->dev->wl, b43fmt("error %d\n"), error);
+	return error;
+
+}
+
+static int pio_tx_packet(struct b43_pio_txqueue *q,
+			 struct b43_pio_txpacket *pack)
+{
+	struct b43_wl *wl = q->dev->wl;
+	struct sk_buff *skb = pack->skb;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	struct b43_txhdr txhdr;
+	unsigned int hdrlen;
+	u16 cookie;
+	unsigned long flags;
+	int error;
+
+	hdrlen = b43_txhdr_size(q->dev);
+
+	spin_lock_irqsave(&q->lock, flags);
 
 	cookie = generate_cookie(q, pack);
-	hdrlen = b43_txhdr_size(q->dev);
-	err = b43_generate_txhdr(q->dev, (u8 *)&txhdr, skb->data,
-				 skb->len, info, cookie);
-	if (err)
-		return err;
+	error = b43_generate_txhdr(q->dev, (u8 *)&txhdr, skb->data,
+				   skb->len, info, cookie);
+	if (error) {
+		/* -ENOKEY */
+		b43dbg(wl, b43fmt("no key!\n"));
+		goto out_unlock;
+	}
+
+	spin_unlock_irqrestore(&q->lock, flags);
+
+	down_read(&wl->tx_rwsem);
+	mutex_lock(&q->tx_mutex);
 
 	if (info->flags & IEEE80211_TX_CTL_SEND_AFTER_DTIM) {
 		/* Tell the firmware about the cookie of the last
@@ -473,31 +553,157 @@ static int pio_tx_frame(struct b43_pio_txqueue *q,
 				B43_SHM_SH_MCASTCOOKIE, cookie);
 	}
 
-	pack->skb = skb;
 	if (q->rev >= 8)
 		pio_tx_frame_4byte_queue(pack, (const u8 *)&txhdr, hdrlen);
 	else
 		pio_tx_frame_2byte_queue(pack, (const u8 *)&txhdr, hdrlen);
 
+	mutex_unlock(&q->tx_mutex);
+	up_read(&wl->tx_rwsem);
+
+	spin_lock_irqsave(&q->lock, flags);
+
+	q->nr_tx_packets++;
+
+	B43_WARN_ON(q->buffer_used > q->buffer_size);
+
+out_unlock:
+	spin_unlock_irqrestore(&q->lock, flags);
+	if (error < 0)
+		b43dbg(wl, b43fmt("error %d\n"), error);
+	return error;
+}
+
+/* &q->lock held, interrupts disabled */
+static int pio_tx_check_fifo_avail(struct b43_pio_txqueue *q,
+				   struct sk_buff *skb)
+{
+	struct b43_wl *wl = q->dev->wl;
+	unsigned int hdrlen, total_len;
+	int error = 0;
+
+	hdrlen = b43_txhdr_size(q->dev);
+	total_len = roundup(skb->len + hdrlen, 4);
+
+	if (unlikely(total_len > q->buffer_size)) {
+		error = -ENOBUFS;
+		b43dbg(wl, "PIO: TX packet longer than queue.\n");
+		goto out;
+	}
+	if (unlikely(q->free_packet_slots == 0)) {
+		error = -ENOBUFS;
+		b43warn(wl, "PIO: TX packet overflow.\n");
+		goto out;
+	}
+	B43_WARN_ON(q->buffer_used > q->buffer_size);
+
+	if (total_len > (q->buffer_size - q->buffer_used)) {
+		/* Not enough memory on the queue. */
+		error = -EBUSY;
+		goto out;
+	}
+
+out:
+	return error;
+}
+
+/* &q->lock held, interrupts disabled */
+static struct b43_pio_txpacket *
+pio_tx_prepare_packet(struct b43_pio_txqueue *q, struct sk_buff *skb)
+{
+	struct b43_pio_txpacket *pack;
+
+	B43_WARN_ON(list_empty(&q->packets_list));
+	pack = list_entry(q->packets_list.next,
+			  struct b43_pio_txpacket, list);
+
 	/* Remove it from the list of available packet slots.
 	 * It will be put back when we receive the status report. */
-	list_del(&pack->list);
+	list_del_init(&pack->list);
 
-	/* Update the queue statistics. */
-	q->buffer_used += roundup(skb->len + hdrlen, 4);
-	q->free_packet_slots -= 1;
+	pio_fill_packet(pack, skb);
 
-	return 0;
+	return pack;
+}
+
+static int pio_tx_try_skb(struct b43_pio_txqueue *q, struct sk_buff *skb)
+{
+	struct b43_wl *wl = q->dev->wl;
+	struct b43_pio_txpacket *pack;
+	unsigned long flags;
+	int error;
+
+	spin_lock_irqsave(&q->lock, flags);
+	error = pio_tx_check_fifo_avail(q, skb);
+	if (error) {
+		ieee80211_stop_queue(wl->hw, skb_get_queue_mapping(skb));
+		q->stopped = 1;
+		spin_unlock_irqrestore(&q->lock, flags);
+		goto out;
+	}
+
+	pack = pio_tx_prepare_packet(q, skb);
+	spin_unlock_irqrestore(&q->lock, flags);
+	error = pio_tx_packet(q, pack);
+
+out:
+	return error;
+}
+
+static int pio_tx_process_pending(struct b43_pio_txqueue *q)
+{
+	unsigned int budget = 5;
+	struct sk_buff *skb;
+	unsigned long flags;
+	int error = 0;
+
+	skb = skb_dequeue(&q->tx_queue);
+	if (!skb)
+		goto out;
+
+	while (skb) {
+		error = pio_tx_try_skb(q, skb);
+		if (error) {
+			switch (error) {
+			case -EBUSY:
+				skb_queue_head(&q->tx_queue, skb);
+				goto out;
+				break;
+			default:
+				dev_kfree_skb(skb);
+			}
+		}
+		budget--;
+		if (!budget)
+			break;
+		cond_resched();
+		skb = skb_dequeue(&q->tx_queue);
+	}
+	spin_lock_irqsave(&q->lock, flags);
+	if (q->stopped) {
+		ieee80211_wake_queue(q->dev->wl->hw, q->queue_prio);
+		q->stopped = 0;
+	}
+	spin_unlock_irqrestore(&q->lock, flags);
+out:
+	return error;
+}
+
+static void b43_pio_tx_work(struct work_struct *work)
+{
+	struct b43_pio_txqueue *q = container_of(work, struct b43_pio_txqueue,
+						 tx_work);
+	pio_tx_process_pending(q);
 }
 
 int b43_pio_tx(struct b43_wldev *dev, struct sk_buff *skb)
 {
+	struct b43_wl *wl = dev->wl;
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
 	struct b43_pio_txqueue *q;
 	struct ieee80211_hdr *hdr;
 	unsigned long flags;
-	unsigned int hdrlen, total_len;
-	int err = 0;
-	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	int error = 0;
 
 	hdr = (struct ieee80211_hdr *)skb->data;
 
@@ -514,97 +720,86 @@ int b43_pio_tx(struct b43_wldev *dev, struct sk_buff *skb)
 
 	spin_lock_irqsave(&q->lock, flags);
 
-	hdrlen = b43_txhdr_size(dev);
-	total_len = roundup(skb->len + hdrlen, 4);
-
-	if (unlikely(total_len > q->buffer_size)) {
-		err = -ENOBUFS;
-		b43dbg(dev->wl, "PIO: TX packet longer than queue.\n");
-		goto out_unlock;
-	}
-	if (unlikely(q->free_packet_slots == 0)) {
-		err = -ENOBUFS;
-		b43warn(dev->wl, "PIO: TX packet overflow.\n");
-		goto out_unlock;
-	}
-	B43_WARN_ON(q->buffer_used > q->buffer_size);
-
-	if (total_len > (q->buffer_size - q->buffer_used)) {
-		/* Not enough memory on the queue. */
-		err = -EBUSY;
-		ieee80211_stop_queue(dev->wl->hw, skb_get_queue_mapping(skb));
-		q->stopped = 1;
-		goto out_unlock;
-	}
-
 	/* Assign the queue number to the ring (if not already done before)
 	 * so TX status handling can use it. The mac80211-queue to b43-queue
 	 * mapping is static, so we don't need to store it per frame. */
 	q->queue_prio = skb_get_queue_mapping(skb);
 
-	err = pio_tx_frame(q, skb);
-	if (unlikely(err == -ENOKEY)) {
-		/* Drop this packet, as we don't have the encryption key
-		 * anymore and must not transmit it unencrypted. */
-		dev_kfree_skb_any(skb);
-		err = 0;
-		goto out_unlock;
-	}
-	if (unlikely(err)) {
-		b43err(dev->wl, "PIO transmission failure\n");
-		goto out_unlock;
-	}
-	q->nr_tx_packets++;
+	skb_queue_tail(&q->tx_queue, skb);
 
-	B43_WARN_ON(q->buffer_used > q->buffer_size);
-	if (((q->buffer_size - q->buffer_used) < roundup(2 + 2 + 6, 4)) ||
-	    (q->free_packet_slots == 0)) {
-		/* The queue is full. */
-		ieee80211_stop_queue(dev->wl->hw, skb_get_queue_mapping(skb));
-		q->stopped = 1;
+	/*
+	 * Start TX work only if there are no pending TX statuses.
+	 * Otherwise, the TX status handler will take care of it.
+	 */
+	if (q->free_packet_slots == B43_PIO_MAX_NR_TXPACKETS)
+		queue_work(wl->tx_wq, &q->tx_work);
+
+	spin_unlock_irqrestore(&q->lock, flags);
+
+	if (error)
+		b43dbg(wl, b43fmt("error %d\n"), error);
+	if (!error)
+		error = NETDEV_TX_OK;
+	return error;
+}
+
+/* NOTE: Not called with IRQs disabled on the threaded version. */
+void b43_pio_handle_txstatus(struct b43_wldev *dev,
+			     const struct b43_txstatus *status)
+{
+	struct b43_pio_txpacket *pack = NULL;
+	struct sk_buff *skb;
+	struct b43_pio_txqueue *q;
+	struct ieee80211_tx_info *info;
+	unsigned long flags;
+
+	q = parse_cookie(dev, status->cookie, &pack);
+	if (unlikely(!q)) {
+		b43dbg(dev->wl, b43fmt("no queue from cookie!\n"));
+		/*
+		 * REVISIT
+		 * Maybe process here pending work on all queues to
+		 * avoid a queue stall due to a lost TX status report.
+		 */
+		goto out;
+	}
+
+	if (B43_WARN_ON(!pack))
+		goto out;
+
+	spin_lock_irqsave(&q->lock, flags);
+
+	if (!pack->skb) {
+		b43dbg(dev->wl, b43fmt("no skb!\n"));
+		goto out_unlock;
+	}
+
+	skb = pack->skb;
+	info = IEEE80211_SKB_CB(skb);
+
+	b43_fill_txstatus_report(dev, info, status);
+	pio_unfill_packet(pack);
+	list_add(&pack->list, &q->packets_list);
+
+	ieee80211_tx_status_irqsafe(dev->wl->hw, skb);
+
+	/* Request new TX work if there are still pending packets. */
+	if (skb_queue_len(&q->tx_queue) > 0)
+		queue_work(dev->wl->tx_wq, &q->tx_work);
+
+	/*
+	 * REVISIT
+	 * Maybe wake up the queue only if there are available TX resources.
+	 */
+	if (q->stopped) {
+		ieee80211_wake_queue(q->dev->wl->hw, q->queue_prio);
+		q->stopped = 0;
 	}
 
 out_unlock:
 	spin_unlock_irqrestore(&q->lock, flags);
-
-	return err;
-}
-
-/* Called with IRQs disabled. */
-void b43_pio_handle_txstatus(struct b43_wldev *dev,
-			     const struct b43_txstatus *status)
-{
-	struct b43_pio_txqueue *q;
-	struct b43_pio_txpacket *pack = NULL;
-	unsigned int total_len;
-	struct ieee80211_tx_info *info;
-
-	q = parse_cookie(dev, status->cookie, &pack);
-	if (unlikely(!q))
-		return;
-	B43_WARN_ON(!pack);
-
-	spin_lock(&q->lock); /* IRQs are already disabled. */
-
-	info = IEEE80211_SKB_CB(pack->skb);
-
-	b43_fill_txstatus_report(dev, info, status);
-
-	total_len = pack->skb->len + b43_txhdr_size(dev);
-	total_len = roundup(total_len, 4);
-	q->buffer_used -= total_len;
-	q->free_packet_slots += 1;
-
-	ieee80211_tx_status_irqsafe(dev->wl->hw, pack->skb);
-	pack->skb = NULL;
-	list_add(&pack->list, &q->packets_list);
-
-	if (q->stopped) {
-		ieee80211_wake_queue(dev->wl->hw, q->queue_prio);
-		q->stopped = 0;
-	}
-
-	spin_unlock(&q->lock);
+out:
+	return;
 }
 
 void b43_pio_get_tx_stats(struct b43_wldev *dev,
@@ -636,6 +831,7 @@ static bool pio_rx_frame(struct b43_pio_rxqueue *q)
 	unsigned int i, padding;
 	struct sk_buff *skb;
 	const char *err_msg = NULL;
+	int retval;
 
 	memset(&rxhdr, 0, sizeof(rxhdr));
 
@@ -644,8 +840,10 @@ static bool pio_rx_frame(struct b43_pio_rxqueue *q)
 		u32 ctl;
 
 		ctl = b43_piorx_read32(q, B43_PIO8_RXCTL);
-		if (!(ctl & B43_PIO8_RXCTL_FRAMERDY))
-			return 0;
+		if (!(ctl & B43_PIO8_RXCTL_FRAMERDY)) {
+			retval = 0;
+			goto out;
+		}
 		b43_piorx_write32(q, B43_PIO8_RXCTL,
 				  B43_PIO8_RXCTL_FRAMERDY);
 		for (i = 0; i < 10; i++) {
@@ -658,8 +856,10 @@ static bool pio_rx_frame(struct b43_pio_rxqueue *q)
 		u16 ctl;
 
 		ctl = b43_piorx_read16(q, B43_PIO_RXCTL);
-		if (!(ctl & B43_PIO_RXCTL_FRAMERDY))
-			return 0;
+		if (!(ctl & B43_PIO_RXCTL_FRAMERDY)) {
+			retval = 0;
+			goto out;
+		}
 		b43_piorx_write16(q, B43_PIO_RXCTL,
 				  B43_PIO_RXCTL_FRAMERDY);
 		for (i = 0; i < 10; i++) {
@@ -670,7 +870,8 @@ static bool pio_rx_frame(struct b43_pio_rxqueue *q)
 		}
 	}
 	b43dbg(q->dev->wl, "PIO RX timed out\n");
-	return 1;
+	retval = 1;
+	goto out;
 data_ready:
 
 	/* Get the preamble (RX header) */
@@ -723,7 +924,10 @@ data_ready:
 			char *data;
 
 			/* Read the last few bytes. */
-			value = b43_piorx_read32(q, B43_PIO8_RXDATA);
+			ssb_block_read(dev->dev, &value, 4,
+				       q->mmio_base + B43_PIO8_RXDATA,
+				       sizeof(u32));
+			value = swab32(value);
 			data = &(skb->data[len + padding - 1]);
 			switch (len & 3) {
 			case 3:
@@ -751,46 +955,38 @@ data_ready:
 
 	b43_rx(q->dev, skb, &rxhdr);
 
-	return 1;
+	retval = 1;
+	goto out;
 
 rx_error:
 	if (err_msg)
 		b43dbg(q->dev->wl, "PIO RX error: %s\n", err_msg);
 	b43_piorx_write16(q, B43_PIO_RXCTL, B43_PIO_RXCTL_DATARDY);
-	return 1;
-}
+	retval = 1;
 
-/* RX workqueue. We can sleep, yay! */
-static void b43_pio_rx_work(struct work_struct *work)
-{
-	struct b43_pio_rxqueue *q = container_of(work, struct b43_pio_rxqueue,
-						 rx_work);
-	unsigned int budget = 50;
-	bool stop;
+out:
+	return retval;
 
-	do {
-		spin_lock_irq(&q->lock);
-		stop = (pio_rx_frame(q) == 0);
-		spin_unlock_irq(&q->lock);
-		cond_resched();
-		if (stop)
-			break;
-	} while (--budget);
 }
 
 /* Called with IRQs disabled. */
 void b43_pio_rx(struct b43_pio_rxqueue *q)
 {
-	/* Due to latency issues we must run the RX path in
-	 * a workqueue to be able to schedule between packets. */
-	queue_work(q->dev->wl->hw->workqueue, &q->rx_work);
+	unsigned int budget = 50;
+	bool stop;
+
+	do {
+		stop = (pio_rx_frame(q) == 0);
+		if (stop)
+			break;
+	} while (--budget);
 }
 
 static void b43_pio_tx_suspend_queue(struct b43_pio_txqueue *q)
 {
-	unsigned long flags;
+	struct b43_wl *wl = q->dev->wl;
 
-	spin_lock_irqsave(&q->lock, flags);
+	down_write(&wl->tx_rwsem);
 	if (q->rev >= 8) {
 		b43_piotx_write32(q, B43_PIO8_TXCTL,
 				  b43_piotx_read32(q, B43_PIO8_TXCTL)
@@ -800,14 +996,14 @@ static void b43_pio_tx_suspend_queue(struct b43_pio_txqueue *q)
 				  b43_piotx_read16(q, B43_PIO_TXCTL)
 				  | B43_PIO_TXCTL_SUSPREQ);
 	}
-	spin_unlock_irqrestore(&q->lock, flags);
+	up_write(&wl->tx_rwsem);
 }
 
 static void b43_pio_tx_resume_queue(struct b43_pio_txqueue *q)
 {
-	unsigned long flags;
+	struct b43_wl *wl = q->dev->wl;
 
-	spin_lock_irqsave(&q->lock, flags);
+	down_write(&wl->tx_rwsem);
 	if (q->rev >= 8) {
 		b43_piotx_write32(q, B43_PIO8_TXCTL,
 				  b43_piotx_read32(q, B43_PIO8_TXCTL)
@@ -817,7 +1013,7 @@ static void b43_pio_tx_resume_queue(struct b43_pio_txqueue *q)
 				  b43_piotx_read16(q, B43_PIO_TXCTL)
 				  & ~B43_PIO_TXCTL_SUSPREQ);
 	}
-	spin_unlock_irqrestore(&q->lock, flags);
+	up_write(&wl->tx_rwsem);
 }
 
 void b43_pio_tx_suspend(struct b43_wldev *dev)

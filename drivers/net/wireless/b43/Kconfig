@@ -62,11 +62,27 @@ config B43_PCMCIA
 
 	  If unsure, say N.
 
+config B43_SDIO
+	bool "Broadcom 43xx SDIO device support (EXPERIMENTAL)"
+	depends on B43 && MMC && EXPERIMENTAL
+	select B43_PIO
+	---help---
+	  Broadcom 43xx SDIO device support.
+
+	  With this config option you can drive b43 cards with a
+	  Secure Digital I/O interface.
+	  This includes the WLAN daughter card found on the Nintendo Wii
+	  video game console.
+
+	  It's safe to select Y here, even if you don't have a B43 SDIO device.
+
+	  If unsure, say N.
+
 # Data transfers to the device via PIO
 # This is only needed on PCMCIA devices. All others can do DMA properly.
 config B43_PIO
 	bool
-	depends on B43 && (B43_PCMCIA || B43_FORCE_PIO)
+	depends on B43 && (B43_SDIO || B43_PCMCIA || B43_FORCE_PIO)
 	select SSB_BLOCKIO
 	default y
 

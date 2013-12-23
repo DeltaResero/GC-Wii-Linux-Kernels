@@ -96,6 +96,16 @@ struct b43_pio_txqueue {
 	/* Total number of transmitted packets. */
 	unsigned int nr_tx_packets;
 
+	/* wl->tx_rwsem must be taken before using the device TX engine */
+	/* q->tx_mutex must be taken before accessing the queue TX FIFO */
+	struct mutex tx_mutex;
+
+	/* packets pending hardware transmission */
+	struct sk_buff_head tx_queue;
+
+	/* actual transmission takes place here */
+	struct work_struct tx_work;
+
 	/* Shortcut to the 802.11 core revision. This is to
 	 * avoid horrible pointer dereferencing in the fastpaths. */
 	u8 rev;
@@ -103,11 +113,10 @@ struct b43_pio_txqueue {
 
 struct b43_pio_rxqueue {
 	struct b43_wldev *dev;
-	spinlock_t lock;
 	u16 mmio_base;
 
-	/* Work to reduce latency issues on RX. */
-	struct work_struct rx_work;
+	/* q->rx_mutex must be taken before accessing the queue RX FIFO */
+	struct mutex rx_mutex;
 
 	/* Shortcut to the 802.11 core revision. This is to
 	 * avoid horrible pointer dereferencing in the fastpaths. */

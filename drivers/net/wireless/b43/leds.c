@@ -29,39 +29,41 @@
 #include "b43.h"
 #include "leds.h"
 
+/*
+ * FIXME, untested changes.
+ * The Nintendo Wii doesn't have LEDs for the WLAN daughter card.
+ */
 
 static void b43_led_turn_on(struct b43_wldev *dev, u8 led_index,
 			    bool activelow)
 {
 	struct b43_wl *wl = dev->wl;
-	unsigned long flags;
 	u16 ctl;
 
-	spin_lock_irqsave(&wl->leds_lock, flags);
+	mutex_lock(&wl->leds_mutex);
 	ctl = b43_read16(dev, B43_MMIO_GPIO_CONTROL);
 	if (activelow)
 		ctl &= ~(1 << led_index);
 	else
 		ctl |= (1 << led_index);
 	b43_write16(dev, B43_MMIO_GPIO_CONTROL, ctl);
-	spin_unlock_irqrestore(&wl->leds_lock, flags);
+	mutex_unlock(&wl->leds_mutex);
 }
 
 static void b43_led_turn_off(struct b43_wldev *dev, u8 led_index,
 			     bool activelow)
 {
 	struct b43_wl *wl = dev->wl;
-	unsigned long flags;
 	u16 ctl;
 
-	spin_lock_irqsave(&wl->leds_lock, flags);
+	mutex_lock(&wl->leds_mutex);
 	ctl = b43_read16(dev, B43_MMIO_GPIO_CONTROL);
 	if (activelow)
 		ctl |= (1 << led_index);
 	else
 		ctl &= ~(1 << led_index);
 	b43_write16(dev, B43_MMIO_GPIO_CONTROL, ctl);
-	spin_unlock_irqrestore(&wl->leds_lock, flags);
+	mutex_unlock(&wl->leds_mutex);
 }
 
 /* Callback from the LED subsystem. */

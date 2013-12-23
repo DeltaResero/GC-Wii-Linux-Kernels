@@ -225,6 +225,9 @@ asp834x-redboot)
     platformo="$object/fixed-head.o $object/redboot-83xx.o"
     binary=y
     ;;
+wii|gamecube)
+    link_address='0x500000'
+    ;;
 esac
 
 vmz="$tmpdir/`basename \"$kernel\"`.$ext"
