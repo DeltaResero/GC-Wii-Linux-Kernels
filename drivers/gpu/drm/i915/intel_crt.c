@@ -151,13 +151,10 @@ static bool intel_igdng_crt_detect_hotplug(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	u32 adpa, temp;
+	u32 adpa;
 	bool ret;
 
-	temp = adpa = I915_READ(PCH_ADPA);
-
-	adpa &= ~ADPA_DAC_ENABLE;
-	I915_WRITE(PCH_ADPA, adpa);
+	adpa = I915_READ(PCH_ADPA);
 
 	adpa &= ~ADPA_CRT_HOTPLUG_MASK;
 
@@ -184,8 +181,6 @@ static bool intel_igdng_crt_detect_hotplug(struct drm_connector *connector)
 	else
 		ret = false;
 
-	/* restore origin register */
-	I915_WRITE(PCH_ADPA, temp);
 	return ret;
 }
 
@@ -239,8 +234,8 @@ static bool intel_crt_detect_hotplug(struct drm_connector *connector)
 		} while (time_after(timeout, jiffies));
 	}
 
-	if ((I915_READ(PORT_HOTPLUG_STAT) & CRT_HOTPLUG_MONITOR_MASK) ==
-	    CRT_HOTPLUG_MONITOR_COLOR)
+	if ((I915_READ(PORT_HOTPLUG_STAT) & CRT_HOTPLUG_MONITOR_MASK) !=
+	    CRT_HOTPLUG_MONITOR_NONE)
 		return true;
 
 	return false;

@@ -60,6 +60,7 @@
 #define SrcImmByte  (6<<4)	/* 8-bit sign-extended immediate operand. */
 #define SrcOne      (7<<4)	/* Implied '1' */
 #define SrcImmUByte (8<<4)      /* 8-bit unsigned immediate operand. */
+#define SrcImmU     (9<<4)      /* Immediate operand, unsigned */
 #define SrcMask     (0xf<<4)
 /* Generic ModRM decode. */
 #define ModRM       (1<<8)
@@ -195,7 +196,7 @@ static u32 opcode_table[256] = {
 	ByteOp | SrcImmUByte, SrcImmUByte,
 	/* 0xE8 - 0xEF */
 	SrcImm | Stack, SrcImm | ImplicitOps,
-	SrcImm | Src2Imm16, SrcImmByte | ImplicitOps,
+	SrcImmU | Src2Imm16, SrcImmByte | ImplicitOps,
 	SrcNone | ByteOp | ImplicitOps, SrcNone | ImplicitOps,
 	SrcNone | ByteOp | ImplicitOps, SrcNone | ImplicitOps,
 	/* 0xF0 - 0xF7 */
@@ -605,6 +606,9 @@ static int do_insn_fetch(struct x86_emulate_ctxt *ctxt,
 {
 	int rc = 0;
 
+	/* x86 instructions are limited to 15 bytes. */
+	if (eip + size - ctxt->decode.eip_orig > 15)
+		return X86EMUL_UNHANDLEABLE;
 	eip += ctxt->cs_base;
 	while (size--) {
 		rc = do_fetch_insn_byte(ctxt, ops, eip++, dest++);
@@ -863,7 +867,7 @@ x86_decode_insn(struct x86_emulate_ctxt *ctxt, struct x86_emulate_ops *ops)
 	/* Shadow copy of register state. Committed on successful emulation. */
 
 	memset(c, 0, sizeof(struct decode_cache));
-	c->eip = kvm_rip_read(ctxt->vcpu);
+	c->eip = c->eip_orig = kvm_rip_read(ctxt->vcpu);
 	ctxt->cs_base = seg_base(ctxt, VCPU_SREG_CS);
 	memcpy(c->regs, ctxt->vcpu->arch.regs, sizeof c->regs);
 
@@ -1027,6 +1031,7 @@ done_prefixes:
 		c->src.type = OP_MEM;
 		break;
 	case SrcImm:
+	case SrcImmU:
 		c->src.type = OP_IMM;
 		c->src.ptr = (unsigned long *)c->eip;
 		c->src.bytes = (c->d & ByteOp) ? 1 : c->op_bytes;
@@ -1043,6 +1048,19 @@ done_prefixes:
 		case 4:
 			c->src.val = insn_fetch(s32, 4, c->eip);
 			break;
+		}
+		if ((c->d & SrcMask) == SrcImmU) {
+			switch (c->src.bytes) {
+			case 1:
+				c->src.val &= 0xff;
+				break;
+			case 2:
+				c->src.val &= 0xffff;
+				break;
+			case 4:
+				c->src.val &= 0xffffffff;
+				break;
+			}
 		}
 		break;
 	case SrcImmByte:

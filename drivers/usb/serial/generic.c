@@ -480,6 +480,8 @@ void usb_serial_generic_write_bulk_callback(struct urb *urb)
 	dbg("%s - port %d", __func__, port->number);
 
 	if (port->serial->type->max_in_flight_urbs) {
+		kfree(urb->transfer_buffer);
+
 		spin_lock_irqsave(&port->lock, flags);
 		--port->urbs_in_flight;
 		port->tx_bytes_flight -= urb->transfer_buffer_length;
@@ -530,7 +532,7 @@ void usb_serial_generic_unthrottle(struct tty_struct *tty)
 
 	if (was_throttled) {
 		/* Resume reading from device */
-		usb_serial_generic_resubmit_read_urb(port, GFP_KERNEL);
+		flush_and_resubmit_read_urb(port);
 	}
 }
 

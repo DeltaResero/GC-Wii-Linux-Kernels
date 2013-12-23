@@ -546,10 +546,8 @@ static void __purge_vmap_area_lazy(unsigned long *start, unsigned long *end,
 	}
 	rcu_read_unlock();
 
-	if (nr) {
-		BUG_ON(nr > atomic_read(&vmap_lazy_nr));
+	if (nr)
 		atomic_sub(nr, &vmap_lazy_nr);
-	}
 
 	if (nr || force_flush)
 		flush_tlb_kernel_range(*start, *end);
@@ -1368,7 +1366,7 @@ void *vmap(struct page **pages, unsigned int count,
 
 	might_sleep();
 
-	if (count > num_physpages)
+	if (count > totalram_pages)
 		return NULL;
 
 	area = get_vm_area_caller((count << PAGE_SHIFT), flags,
@@ -1475,7 +1473,7 @@ static void *__vmalloc_node(unsigned long size, gfp_t gfp_mask, pgprot_t prot,
 	unsigned long real_size = size;
 
 	size = PAGE_ALIGN(size);
-	if (!size || (size >> PAGE_SHIFT) > num_physpages)
+	if (!size || (size >> PAGE_SHIFT) > totalram_pages)
 		return NULL;
 
 	area = __get_vm_area_node(size, VM_ALLOC, VMALLOC_START, VMALLOC_END,

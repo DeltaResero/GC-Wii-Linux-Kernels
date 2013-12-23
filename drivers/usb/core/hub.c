@@ -439,7 +439,7 @@ resubmit:
 static inline int
 hub_clear_tt_buffer (struct usb_device *hdev, u16 devinfo, u16 tt)
 {
-	return usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
+	return usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
 			       HUB_CLEAR_TT_BUFFER, USB_RT_PORT, devinfo,
 			       tt, NULL, 0, 1000);
 }
@@ -3188,6 +3188,9 @@ static void hub_events(void)
 					USB_PORT_FEAT_C_SUSPEND);
 				udev = hdev->children[i-1];
 				if (udev) {
+					/* TRSMRCY = 10 msec */
+					msleep(10);
+
 					usb_lock_device(udev);
 					ret = remote_wakeup(hdev->
 							children[i-1]);

@@ -27,11 +27,11 @@ AS             := $(AS) -32
 LDFLAGS        := -m elf32_sparc
 CHECKFLAGS     += -D__sparc__
 export BITS    := 32
+UTS_MACHINE    := sparc
 
 #KBUILD_CFLAGS += -g -pipe -fcall-used-g5 -fcall-used-g7
 KBUILD_CFLAGS += -m32 -pipe -mno-fpu -fcall-used-g5 -fcall-used-g7
 KBUILD_AFLAGS += -m32
-CPPFLAGS_vmlinux.lds += -m32
 
 #LDFLAGS_vmlinux = -N -Ttext 0xf0004000
 #  Since 2.5.40, the first stage is left not btfix-ed.
@@ -49,11 +49,9 @@ else
 
 CHECKFLAGS      += -D__sparc__ -D__sparc_v9__ -D__arch64__ -m64
 
-# Undefine sparc when processing vmlinux.lds - it is used
-# And teach CPP we are doing 64 bit builds (for this case)
-CPPFLAGS_vmlinux.lds += -m64 -Usparc
 LDFLAGS              := -m elf64_sparc
 export BITS          := 64
+UTS_MACHINE          := sparc64
 
 KBUILD_CFLAGS += -m64 -pipe -mno-fpu -mcpu=ultrasparc -mcmodel=medlow   \
                  -ffixed-g4 -ffixed-g5 -fcall-used-g7 -Wno-sign-compare \

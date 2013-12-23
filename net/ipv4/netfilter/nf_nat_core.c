@@ -212,7 +212,7 @@ find_best_ips_proto(struct nf_conntrack_tuple *tuple,
 	maxip = ntohl(range->max_ip);
 	j = jhash_2words((__force u32)tuple->src.u3.ip,
 			 range->flags & IP_NAT_RANGE_PERSISTENT ?
-				(__force u32)tuple->dst.u3.ip : 0, 0);
+				0 : (__force u32)tuple->dst.u3.ip, 0);
 	j = ((u64)j * (maxip - minip + 1)) >> 32;
 	*var_ipp = htonl(minip + j);
 }
@@ -750,6 +750,8 @@ static int __init nf_nat_init(void)
 	BUG_ON(nfnetlink_parse_nat_setup_hook != NULL);
 	rcu_assign_pointer(nfnetlink_parse_nat_setup_hook,
 			   nfnetlink_parse_nat_setup);
+	BUG_ON(nf_ct_nat_offset != NULL);
+	rcu_assign_pointer(nf_ct_nat_offset, nf_nat_get_offset);
 	return 0;
 
  cleanup_extend:
@@ -764,6 +766,7 @@ static void __exit nf_nat_cleanup(void)
 	nf_ct_extend_unregister(&nat_extend);
 	rcu_assign_pointer(nf_nat_seq_adjust_hook, NULL);
 	rcu_assign_pointer(nfnetlink_parse_nat_setup_hook, NULL);
+	rcu_assign_pointer(nf_ct_nat_offset, NULL);
 	synchronize_net();
 }
 

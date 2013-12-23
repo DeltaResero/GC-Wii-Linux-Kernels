@@ -148,6 +148,7 @@ struct usb_serial {
 	struct usb_interface		*interface;
 	unsigned char			disconnected:1;
 	unsigned char			suspending:1;
+	unsigned char			attached:1;
 	unsigned char			minor;
 	unsigned char			num_ports;
 	unsigned char			num_port_pointers;
@@ -261,6 +262,9 @@ struct usb_serial_driver {
 	   be an attached tty at this point */
 	void (*dtr_rts)(struct usb_serial_port *port, int on);
 	int  (*carrier_raised)(struct usb_serial_port *port);
+	/* Called by the usb serial hooks to allow the user to rework the
+	   termios state */
+	void (*init_termios)(struct tty_struct *tty);
 	/* USB events */
 	void (*read_int_callback)(struct urb *urb);
 	void (*write_int_callback)(struct urb *urb);

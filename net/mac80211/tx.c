@@ -1478,7 +1478,7 @@ int ieee80211_master_start_xmit(struct sk_buff *skb, struct net_device *dev)
 				if (sdata->vif.type != NL80211_IFTYPE_AP)
 					continue;
 				if (compare_ether_addr(sdata->dev->dev_addr,
-						       hdr->addr2)) {
+						       hdr->addr2) == 0) {
 					dev_hold(sdata->dev);
 					dev_put(odev);
 					osdata = sdata;
@@ -1736,7 +1736,8 @@ int ieee80211_subif_start_xmit(struct sk_buff *skb,
 	if (!is_multicast_ether_addr(hdr.addr1)) {
 		rcu_read_lock();
 		sta = sta_info_get(local, hdr.addr1);
-		if (sta)
+		/* XXX: in the future, use sdata to look up the sta */
+		if (sta && sta->sdata == sdata)
 			sta_flags = get_sta_flags(sta);
 		rcu_read_unlock();
 	}

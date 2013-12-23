@@ -1184,6 +1184,7 @@ int tty_init_termios(struct tty_struct *tty)
 	tty->termios->c_ospeed = tty_termios_baud_rate(tty->termios);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(tty_init_termios);
 
 /**
  *	tty_driver_install_tty() - install a tty entry in the driver
@@ -1911,8 +1912,10 @@ static int tty_fasync(int fd, struct file *filp, int on)
 			pid = task_pid(current);
 			type = PIDTYPE_PID;
 		}
+		get_pid(pid);
 		spin_unlock_irqrestore(&tty->ctrl_lock, flags);
 		retval = __f_setown(filp, pid, type, 0);
+		put_pid(pid);
 		if (retval)
 			goto out;
 	} else {

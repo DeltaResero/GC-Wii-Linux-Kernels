@@ -197,14 +197,8 @@ do {							\
 	set_fs(USER_DS);				\
 } while (0)
 
-#define COMPAT_SET_PERSONALITY(ex)			\
-do {							\
-	if (test_thread_flag(TIF_IA32))			\
-		clear_thread_flag(TIF_ABI_PENDING);	\
-	else						\
-		set_thread_flag(TIF_ABI_PENDING);	\
-	current->personality |= force_personality32;	\
-} while (0)
+void set_personality_ia32(void);
+#define COMPAT_SET_PERSONALITY(ex) set_personality_ia32()
 
 #define COMPAT_ELF_PLATFORM			("i686")
 
@@ -298,6 +292,8 @@ do {									\
 } while (0)
 
 #ifdef CONFIG_X86_32
+
+#define STACK_RND_MASK (0x7ff)
 
 #define VDSO_HIGH_BASE		(__fix_to_virt(FIX_VDSO))
 

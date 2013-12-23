@@ -464,7 +464,7 @@ static u32 apic_get_tmcct(struct kvm_lapic *apic)
 	if (apic_get_reg(apic, APIC_TMICT) == 0)
 		return 0;
 
-	remaining = hrtimer_expires_remaining(&apic->lapic_timer.timer);
+	remaining = hrtimer_get_remaining(&apic->lapic_timer.timer);
 	if (ktime_to_ns(remaining) < 0)
 		remaining = ktime_set(0, 0);
 
@@ -567,12 +567,21 @@ static void start_apic_timer(struct kvm_lapic *apic)
 {
 	ktime_t now = apic->lapic_timer.timer.base->get_time();
 
-	apic->lapic_timer.period = apic_get_reg(apic, APIC_TMICT) *
+	apic->lapic_timer.period = (u64)apic_get_reg(apic, APIC_TMICT) *
 		    APIC_BUS_CYCLE_NS * apic->divide_count;
 	atomic_set(&apic->lapic_timer.pending, 0);
 
 	if (!apic->lapic_timer.period)
 		return;
+	/*
+	 * Do not allow the guest to program periodic timers with small
+	 * interval, since the hrtimers are not throttled by the host
+	 * scheduler.
+	 */
+	if (apic_lvtt_period(apic)) {
+		if (apic->lapic_timer.period < NSEC_PER_MSEC/2)
+			apic->lapic_timer.period = NSEC_PER_MSEC/2;
+	}
 
 	hrtimer_start(&apic->lapic_timer.timer,
 		      ktime_add_ns(now, apic->lapic_timer.period),
