@@ -1065,6 +1065,11 @@ MODULE_LICENSE ("GPL");
 #define OF_PLATFORM_DRIVER	ehci_hcd_ppc_of_driver
 #endif
 
+#ifdef CONFIG_USB_EHCI_HCD_MIPC
+#include "ehci-mipc.c"
+#define OF_PLATFORM_DRIVER	ehci_hcd_mipc_driver
+#endif
+
 #ifdef CONFIG_PLAT_ORION
 #include "ehci-orion.c"
 #define	PLATFORM_DRIVER		ehci_orion_driver

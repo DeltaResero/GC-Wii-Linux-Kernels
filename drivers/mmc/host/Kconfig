@@ -83,6 +83,17 @@ config MMC_SDHCI_OF
 
 	  If unsure, say N.
 
+config MMC_SDHCI_MIPC
+	tristate "Nintendo Wii SDHCI support via 'mini'"
+	depends on MMC_SDHCI && STARLET_MINI
+	select MMC_SDHCI_IO_ACCESSORS
+	help
+	  This selects the Nintendo Wii Secure Digital Host Controller
+	  Interface. The SDHC hardware is accessed via the 'mini' firmware
+	  replacement for Starlet.
+
+	  If unsure, say N.
+
 config MMC_OMAP
 	tristate "TI OMAP Multimedia Card Interface support"
 	depends on ARCH_OMAP
