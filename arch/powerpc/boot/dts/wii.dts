@@ -1,0 +1,188 @@
+/*
+ * arch/powerpc/boot/dts/wii.dts
+ *
+ * Nintendo Wii platform device tree source
+ * Copyright (C) 2008-2009 The GameCube Linux Team
+ * Copyright (C) 2008,2009 Albert Herranz
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ */
+
+
+/memreserve/ 01694000-01697fff; /* lowmem stub save area */
+/memreserve/ 01698000-017fffff;	/* framebuffer, see video@0c002000 */
+/memreserve/ 01800000-0fffffff;	/* memory hole */
+/memreserve/ 10000000-10003fff;	/* DSP */
+
+/ {
+	model = "NintendoWii";
+	compatible = "nintendo,wii";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen {
+		/* ramdisk */
+		/* bootargs = "nobats root=/dev/ram0 video=gcnfb:tv=NTSC ip=on force_keyboard_port=4"; */
+
+		/* nfsroot */
+		/* bootargs = "nobats root=/dev/nfs nfsroot=192.168.001.253:/nfsroot/cube ip=on video=gcnfb:tv=NTSC force_keyboard_port=4"; */
+
+		/* root filesystem on 2nd partition of SD card, whiite style  */
+		bootargs = "nobats root=/dev/rvlsda2 video=gcnfb force_keyboard_port=4 placeholder_for_additional_kernel_options_targetted_at_hexedit_lovers";
+		linux,stdout-path = "/exi@0d006800/usbgecko@0d006814";
+	};
+
+	lowmem-stub {
+		reg = <00000000 4000>;
+		save-area = <01694000>;	/* must be memreserve'd */
+	};
+
+	memory {
+		device_type = "memory";
+		/* mem1 + hole + mem2 - ioh */
+		reg = <00000000 133e0000>;
+	};
+
+	cpus {
+		#cpus = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		PowerPC,broadway@0 {
+			device_type = "cpu";
+			reg = <0>;
+			clock-frequency = <2b73a840>; /* 729MHz */
+			bus-frequency = <e7be2c0>; /* 243MHz core-to-bus 3x */
+			timebase-frequency = <39ef8b0>; /* 243MHz / 4 */
+			/* Following required by dtc but not used */
+			i-cache-line-size = <20>;
+			d-cache-line-size = <20>;
+			i-cache-size = <8000>;
+			d-cache-size = <8000>;
+		};
+	};
+
+	pic: pic@0c003000 {
+		#interrupt-cells = <1>;
+		compatible = "nintendo,flipper-pic";
+		reg = <0c003000 8>;
+		interrupt-controller;
+	};
+
+	/* External Interface bus */
+	exi@0d006800 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "nintendo,hollywood-exi";
+		reg = <0d006800 40>;
+		interrupts = <04>;
+		interrupt-parent = <&pic>;
+
+		udbg_console: usbgecko@0d006814 {
+			compatible = "usbgecko,usbgecko";
+			reg = <0d006814 14>;
+			virtual-reg = <cd006814>;
+		};
+	};
+
+	/* devices contained in the hollywood chipset */
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		#interrupt-cells = <1>;
+		model = "hollywood";
+		compatible = "nintendo,hollywood";
+		clock-frequency = <e7be2c0>; /* 243MHz */
+		ranges = <0c000000 0c000000 00010000
+			  0d000000 0d000000 00010000
+			  0d800000 0d800000 00001000
+			  133e0000 133e0000 00020000>;
+
+		video@0c002000 {
+			compatible = "nintendo,hollywood-video";
+			reg = <0c002000 100>;
+			interrupts = <08>;
+			interrupt-parent = <&pic>;
+			xfb-start = <01698000>; /* end-of-mem1 - xfb-size */
+			xfb-size = <168000>;	/* 640x576x2 x 2 bytes */
+		};
+
+		resetswitch@0c003000 {
+			compatible = "nintendo,hollywood-resetswitch";
+			reg = <0c003000 4>;
+			interrupts = <01>;
+			interrupt-parent = <&pic>;
+		};
+
+		audio@0c005000 {
+			compatible = "nintendo,hollywood-audio";
+			reg = <0c005000 200	/* DSP */
+			       0d006c00 20>;	/* AI */
+			interrupts = <06>;
+			interrupt-parent = <&pic>;
+		};
+
+		serial@0d006400 {
+			compatible = "nintendo,hollywood-serial";
+			reg = <0d006400 100>;
+			interrupts = <03>;
+			interrupt-parent = <&pic>;
+		};
+
+		gpio0: starlet-gpio@0d8000c0 {
+			compatible = "nintendo,starlet-gpio";
+			reg = <0d8000c0 4>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		starlet-ipc@0d000000 {
+			compatible = "nintendo,starlet-ipc";
+			reg = <0d000000 40	/* IPC */
+			       133e0000 20000>;	/* MEM2 ioh 128K */
+			interrupts = <0e>;
+			interrupt-parent = <&pic>;
+
+		};
+
+		starlet-es {
+			compatible = "nintendo,starlet-es";
+		};
+
+		starlet-sd {
+			compatible = "nintendo,starlet-sd";
+		};
+
+		starlet-keyboard {
+			compatible = "nintendo,starlet-keyboard";
+		};
+
+		starlet-hcd {
+			compatible = "nintendo,starlet-hcd";
+		};
+
+		i2c-video {
+			#address-cells = <1>;
+			#size-cells = <0>;
+		        compatible = "virtual,i2c-gpio";
+
+		        gpios = <&gpio0  10 0 /* 0x10 = 31 - 15 */
+		                 &gpio0  11 0 /* 0x11 = 31 - 14 */
+				>;
+		        sda-is-open-drain = <1>;
+		        sda-enforce-dir = <1>;
+		        scl-is-open-drain = <1>;
+		        scl-is-output-only = <1>;
+		        udelay = <2>;
+
+		        audio-video-encoder {
+		                compatible = "nintendo,wii-ave-rvl";
+		                reg = <70>;
+		        };
+		};
+	};
+};
