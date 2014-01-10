@@ -241,6 +241,7 @@ static void dentry_lru_add(struct dentry *dentry)
 static void __dentry_lru_del(struct dentry *dentry)
 {
 	list_del_init(&dentry->d_lru);
+	dentry->d_flags &= ~DCACHE_SHRINK_LIST;
 	dentry->d_sb->s_nr_dentry_unused--;
 	dentry_stat.nr_unused--;
 }
@@ -289,7 +290,7 @@ static struct dentry *d_kill(struct dentry *dentry, struct dentry *parent)
 	 * Inform try_to_ascend() that we are no longer attached to the
 	 * dentry tree
 	 */
-	dentry->d_flags |= DCACHE_DISCONNECTED;
+	dentry->d_flags |= DCACHE_DENTRY_KILLED;
 	if (parent)
 		spin_unlock(&parent->d_lock);
 	dentry_iput(dentry);
@@ -753,6 +754,7 @@ relock:
 			spin_unlock(&dentry->d_lock);
 		} else {
 			list_move_tail(&dentry->d_lru, &tmp);
+			dentry->d_flags |= DCACHE_SHRINK_LIST;
 			spin_unlock(&dentry->d_lock);
 			if (!--cnt)
 				break;
@@ -1013,7 +1015,7 @@ static struct dentry *try_to_ascend(struct dentry *old, int locked, unsigned seq
 	 * or deletion
 	 */
 	if (new != old->d_parent ||
-		 (old->d_flags & DCACHE_DISCONNECTED) ||
+		 (old->d_flags & DCACHE_DENTRY_KILLED) ||
 		 (!locked && read_seqretry(&rename_lock, seq))) {
 		spin_unlock(&new->d_lock);
 		new = NULL;
@@ -1099,6 +1101,8 @@ positive:
 	return 1;
 
 rename_retry:
+	if (locked)
+		goto again;
 	locked = 1;
 	write_seqlock(&rename_lock);
 	goto again;
@@ -1144,14 +1148,18 @@ resume:
 		/* 
 		 * move only zero ref count dentries to the end 
 		 * of the unused list for prune_dcache
+		 *
+		 * Those which are presently on the shrink list, being processed
+		 * by shrink_dentry_list(), shouldn't be moved.  Otherwise the
+		 * loop in shrink_dcache_parent() might not make any progress
+		 * and loop forever.
 		 */
-		if (!dentry->d_count) {
+		if (dentry->d_count) {
+			dentry_lru_del(dentry);
+		} else if (!(dentry->d_flags & DCACHE_SHRINK_LIST)) {
 			dentry_lru_move_tail(dentry);
 			found++;
-		} else {
-			dentry_lru_del(dentry);
 		}
-
 		/*
 		 * We can return to the caller if we have found some (this
 		 * ensures forward progress). We'll be coming back to find
@@ -1197,6 +1205,8 @@ out:
 rename_retry:
 	if (found)
 		return found;
+	if (locked)
+		goto again;
 	locked = 1;
 	write_seqlock(&rename_lock);
 	goto again;
@@ -1553,7 +1563,7 @@ static struct dentry * d_find_any_alias(struct inode *inode)
  */
 struct dentry *d_obtain_alias(struct inode *inode)
 {
-	static const struct qstr anonstring = { .name = "" };
+	static const struct qstr anonstring = { .name = "/", .len = 1 };
 	struct dentry *tmp;
 	struct dentry *res;
 
@@ -2427,6 +2437,7 @@ struct dentry *d_materialise_unique(struct dentry *dentry, struct inode *inode)
 			if (d_ancestor(alias, dentry)) {
 				/* Check for loops */
 				actual = ERR_PTR(-ELOOP);
+				spin_unlock(&inode->i_lock);
 			} else if (IS_ROOT(alias)) {
 				/* Is this an anonymous mountpoint that we
 				 * could splice into our tree? */
@@ -2436,7 +2447,7 @@ struct dentry *d_materialise_unique(struct dentry *dentry, struct inode *inode)
 				goto found;
 			} else {
 				/* Nope, but we must(!) avoid directory
-				 * aliasing */
+				 * aliasing. This drops inode->i_lock */
 				actual = __d_unalias(inode, dentry, alias);
 			}
 			write_sequnlock(&rename_lock);
@@ -2487,16 +2498,14 @@ static int prepend_name(char **buffer, int *buflen, struct qstr *name)
 /**
  * prepend_path - Prepend path string to a buffer
  * @path: the dentry/vfsmount to report
- * @root: root vfsmnt/dentry (may be modified by this function)
+ * @root: root vfsmnt/dentry
  * @buffer: pointer to the end of the buffer
  * @buflen: pointer to buffer length
  *
  * Caller holds the rename_lock.
- *
- * If path is not reachable from the supplied root, then the value of
- * root is changed (without modifying refcounts).
  */
-static int prepend_path(const struct path *path, struct path *root,
+static int prepend_path(const struct path *path,
+			const struct path *root,
 			char **buffer, int *buflen)
 {
 	struct dentry *dentry = path->dentry;
@@ -2531,10 +2540,10 @@ static int prepend_path(const struct path *path, struct path *root,
 		dentry = parent;
 	}
 
-out:
 	if (!error && !slash)
 		error = prepend(buffer, buflen, "/", 1);
 
+out:
 	br_read_unlock(vfsmount_lock);
 	return error;
 
@@ -2548,15 +2557,17 @@ global_root:
 		WARN(1, "Root dentry has weird name <%.*s>\n",
 		     (int) dentry->d_name.len, dentry->d_name.name);
 	}
-	root->mnt = vfsmnt;
-	root->dentry = dentry;
+	if (!slash)
+		error = prepend(buffer, buflen, "/", 1);
+	if (!error)
+		error = vfsmnt->mnt_ns ? 1 : 2;
 	goto out;
 }
 
 /**
  * __d_path - return the path of a dentry
  * @path: the dentry/vfsmount to report
- * @root: root vfsmnt/dentry (may be modified by this function)
+ * @root: root vfsmnt/dentry
  * @buf: buffer to return value in
  * @buflen: buffer length
  *
@@ -2567,10 +2578,10 @@ global_root:
  *
  * "buflen" should be positive.
  *
- * If path is not reachable from the supplied root, then the value of
- * root is changed (without modifying refcounts).
+ * If the path is not reachable from the supplied root, return %NULL.
  */
-char *__d_path(const struct path *path, struct path *root,
+char *__d_path(const struct path *path,
+	       const struct path *root,
 	       char *buf, int buflen)
 {
 	char *res = buf + buflen;
@@ -2581,7 +2592,28 @@ char *__d_path(const struct path *path, struct path *root,
 	error = prepend_path(path, root, &res, &buflen);
 	write_sequnlock(&rename_lock);
 
-	if (error)
+	if (error < 0)
+		return ERR_PTR(error);
+	if (error > 0)
+		return NULL;
+	return res;
+}
+
+char *d_absolute_path(const struct path *path,
+	       char *buf, int buflen)
+{
+	struct path root = {};
+	char *res = buf + buflen;
+	int error;
+
+	prepend(&res, &buflen, "\0", 1);
+	write_seqlock(&rename_lock);
+	error = prepend_path(path, &root, &res, &buflen);
+	write_sequnlock(&rename_lock);
+
+	if (error > 1)
+		error = -EINVAL;
+	if (error < 0)
 		return ERR_PTR(error);
 	return res;
 }
@@ -2589,8 +2621,9 @@ char *__d_path(const struct path *path, struct path *root,
 /*
  * same as __d_path but appends "(deleted)" for unlinked files.
  */
-static int path_with_deleted(const struct path *path, struct path *root,
-				 char **buf, int *buflen)
+static int path_with_deleted(const struct path *path,
+			     const struct path *root,
+			     char **buf, int *buflen)
 {
 	prepend(buf, buflen, "\0", 1);
 	if (d_unlinked(path->dentry)) {
@@ -2627,7 +2660,6 @@ char *d_path(const struct path *path, char *buf, int buflen)
 {
 	char *res = buf + buflen;
 	struct path root;
-	struct path tmp;
 	int error;
 
 	/*
@@ -2642,9 +2674,8 @@ char *d_path(const struct path *path, char *buf, int buflen)
 
 	get_fs_root(current->fs, &root);
 	write_seqlock(&rename_lock);
-	tmp = root;
-	error = path_with_deleted(path, &tmp, &res, &buflen);
-	if (error)
+	error = path_with_deleted(path, &root, &res, &buflen);
+	if (error < 0)
 		res = ERR_PTR(error);
 	write_sequnlock(&rename_lock);
 	path_put(&root);
@@ -2665,7 +2696,6 @@ char *d_path_with_unreachable(const struct path *path, char *buf, int buflen)
 {
 	char *res = buf + buflen;
 	struct path root;
-	struct path tmp;
 	int error;
 
 	if (path->dentry->d_op && path->dentry->d_op->d_dname)
@@ -2673,9 +2703,8 @@ char *d_path_with_unreachable(const struct path *path, char *buf, int buflen)
 
 	get_fs_root(current->fs, &root);
 	write_seqlock(&rename_lock);
-	tmp = root;
-	error = path_with_deleted(path, &tmp, &res, &buflen);
-	if (!error && !path_equal(&tmp, &root))
+	error = path_with_deleted(path, &root, &res, &buflen);
+	if (error > 0)
 		error = prepend_unreachable(&res, &buflen);
 	write_sequnlock(&rename_lock);
 	path_put(&root);
@@ -2806,19 +2835,18 @@ SYSCALL_DEFINE2(getcwd, char __user *, buf, unsigned long, size)
 	write_seqlock(&rename_lock);
 	if (!d_unlinked(pwd.dentry)) {
 		unsigned long len;
-		struct path tmp = root;
 		char *cwd = page + PAGE_SIZE;
 		int buflen = PAGE_SIZE;
 
 		prepend(&cwd, &buflen, "\0", 1);
-		error = prepend_path(&pwd, &tmp, &cwd, &buflen);
+		error = prepend_path(&pwd, &root, &cwd, &buflen);
 		write_sequnlock(&rename_lock);
 
-		if (error)
+		if (error < 0)
 			goto out;
 
 		/* Unreachable from current root */
-		if (!path_equal(&tmp, &root)) {
+		if (error > 0) {
 			error = prepend_unreachable(&cwd, &buflen);
 			if (error)
 				goto out;
@@ -2966,6 +2994,8 @@ resume:
 	return;
 
 rename_retry:
+	if (locked)
+		goto again;
 	locked = 1;
 	write_seqlock(&rename_lock);
 	goto again;

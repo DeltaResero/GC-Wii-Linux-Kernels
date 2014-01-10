@@ -221,7 +221,7 @@ int __node_distance(int a, int b)
 	int distance = LOCAL_DISTANCE;
 
 	if (!form1_affinity)
-		return distance;
+		return ((a == b) ? LOCAL_DISTANCE : REMOTE_DISTANCE);
 
 	for (i = 0; i < distance_ref_points_depth; i++) {
 		if (distance_lookup_table[a][i] == distance_lookup_table[b][i])
@@ -1214,10 +1214,11 @@ int hot_add_node_scn_to_nid(unsigned long scn_addr)
 			break;
 		}
 
-		of_node_put(memory);
 		if (nid >= 0)
 			break;
 	}
+
+	of_node_put(memory);
 
 	return nid;
 }

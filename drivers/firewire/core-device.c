@@ -455,15 +455,20 @@ static struct device_attribute fw_device_attributes[] = {
 static int read_rom(struct fw_device *device,
 		    int generation, int index, u32 *data)
 {
-	int rcode;
+	u64 offset = (CSR_REGISTER_BASE | CSR_CONFIG_ROM) + index * 4;
+	int i, rcode;
 
 	/* device->node_id, accessed below, must not be older than generation */
 	smp_rmb();
 
-	rcode = fw_run_transaction(device->card, TCODE_READ_QUADLET_REQUEST,
-			device->node_id, generation, device->max_speed,
-			(CSR_REGISTER_BASE | CSR_CONFIG_ROM) + index * 4,
-			data, 4);
+	for (i = 10; i < 100; i += 10) {
+		rcode = fw_run_transaction(device->card,
+				TCODE_READ_QUADLET_REQUEST, device->node_id,
+				generation, device->max_speed, offset, data, 4);
+		if (rcode != RCODE_BUSY)
+			break;
+		msleep(i);
+	}
 	be32_to_cpus(data);
 
 	return rcode;
@@ -990,6 +995,10 @@ static void fw_device_init(struct work_struct *work)
 	ret = idr_pre_get(&fw_device_idr, GFP_KERNEL) ?
 	      idr_get_new(&fw_device_idr, device, &minor) :
 	      -ENOMEM;
+	if (minor >= 1 << MINORBITS) {
+		idr_remove(&fw_device_idr, minor);
+		minor = -ENOSPC;
+	}
 	up_write(&fw_device_rwsem);
 
 	if (ret < 0)

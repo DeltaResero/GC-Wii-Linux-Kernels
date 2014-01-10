@@ -1784,6 +1784,9 @@ static int btrfs_discard_extent(struct btrfs_root *root, u64 bytenr,
 
 
 		for (i = 0; i < multi->num_stripes; i++, stripe++) {
+			if (!stripe->dev->can_discard)
+				continue;
+
 			ret = btrfs_issue_discard(stripe->dev->bdev,
 						  stripe->physical,
 						  stripe->length);
@@ -1791,11 +1794,16 @@ static int btrfs_discard_extent(struct btrfs_root *root, u64 bytenr,
 				discarded_bytes += stripe->length;
 			else if (ret != -EOPNOTSUPP)
 				break;
+
+			/*
+			 * Just in case we get back EOPNOTSUPP for some reason,
+			 * just ignore the return value so we don't screw up
+			 * people calling discard_extent.
+			 */
+			ret = 0;
 		}
 		kfree(multi);
 	}
-	if (discarded_bytes && ret == -EOPNOTSUPP)
-		ret = 0;
 
 	if (actual_bytes)
 		*actual_bytes = discarded_bytes;
@@ -3778,7 +3786,7 @@ static void update_global_block_rsv(struct btrfs_fs_info *fs_info)
 	spin_lock(&block_rsv->lock);
 	spin_lock(&sinfo->lock);
 
-	block_rsv->size = num_bytes;
+	block_rsv->size = min_t(u64, num_bytes, 512 * 1024 * 1024);
 
 	num_bytes = sinfo->bytes_used + sinfo->bytes_pinned +
 		    sinfo->bytes_reserved + sinfo->bytes_readonly +

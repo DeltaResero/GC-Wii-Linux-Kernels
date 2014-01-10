@@ -119,6 +119,8 @@ struct efivar_attribute {
 	ssize_t (*store)(struct efivar_entry *entry, const char *buf, size_t count);
 };
 
+static struct efivars __efivars;
+static struct efivar_operations ops;
 
 #define EFIVAR_ATTR(_name, _mode, _show, _store) \
 struct efivar_attribute efivar_attr_##_name = { \
@@ -141,13 +143,19 @@ efivar_create_sysfs_entry(struct efivars *efivars,
 
 /* Return the number of unicode characters in data */
 static unsigned long
-utf8_strlen(efi_char16_t *data, unsigned long maxlength)
+utf16_strnlen(efi_char16_t *s, size_t maxlength)
 {
 	unsigned long length = 0;
 
-	while (*data++ != 0 && length < maxlength)
+	while (*s++ != 0 && length < maxlength)
 		length++;
 	return length;
+}
+
+static inline unsigned long
+utf16_strlen(efi_char16_t *s)
+{
+	return utf16_strnlen(s, ~0UL);
 }
 
 /*
@@ -155,9 +163,193 @@ utf8_strlen(efi_char16_t *data, unsigned long maxlength)
  * Note: this is NOT the same as the number of unicode characters
  */
 static inline unsigned long
-utf8_strsize(efi_char16_t *data, unsigned long maxlength)
+utf16_strsize(efi_char16_t *data, unsigned long maxlength)
 {
-	return utf8_strlen(data, maxlength/sizeof(efi_char16_t)) * sizeof(efi_char16_t);
+	return utf16_strnlen(data, maxlength/sizeof(efi_char16_t)) * sizeof(efi_char16_t);
+}
+
+static bool
+validate_device_path(struct efi_variable *var, int match, u8 *buffer,
+		     unsigned long len)
+{
+	struct efi_generic_dev_path *node;
+	int offset = 0;
+
+	node = (struct efi_generic_dev_path *)buffer;
+
+	if (len < sizeof(*node))
+		return false;
+
+	while (offset <= len - sizeof(*node) &&
+	       node->length >= sizeof(*node) &&
+		node->length <= len - offset) {
+		offset += node->length;
+
+		if ((node->type == EFI_DEV_END_PATH ||
+		     node->type == EFI_DEV_END_PATH2) &&
+		    node->sub_type == EFI_DEV_END_ENTIRE)
+			return true;
+
+		node = (struct efi_generic_dev_path *)(buffer + offset);
+	}
+
+	/*
+	 * If we're here then either node->length pointed past the end
+	 * of the buffer or we reached the end of the buffer without
+	 * finding a device path end node.
+	 */
+	return false;
+}
+
+static bool
+validate_boot_order(struct efi_variable *var, int match, u8 *buffer,
+		    unsigned long len)
+{
+	/* An array of 16-bit integers */
+	if ((len % 2) != 0)
+		return false;
+
+	return true;
+}
+
+static bool
+validate_load_option(struct efi_variable *var, int match, u8 *buffer,
+		     unsigned long len)
+{
+	u16 filepathlength;
+	int i, desclength = 0, namelen;
+
+	namelen = utf16_strnlen(var->VariableName, sizeof(var->VariableName));
+
+	/* Either "Boot" or "Driver" followed by four digits of hex */
+	for (i = match; i < match+4; i++) {
+		if (var->VariableName[i] > 127 ||
+		    hex_to_bin(var->VariableName[i] & 0xff) < 0)
+			return true;
+	}
+
+	/* Reject it if there's 4 digits of hex and then further content */
+	if (namelen > match + 4)
+		return false;
+
+	/* A valid entry must be at least 8 bytes */
+	if (len < 8)
+		return false;
+
+	filepathlength = buffer[4] | buffer[5] << 8;
+
+	/*
+	 * There's no stored length for the description, so it has to be
+	 * found by hand
+	 */
+	desclength = utf16_strsize((efi_char16_t *)(buffer + 6), len - 6) + 2;
+
+	/* Each boot entry must have a descriptor */
+	if (!desclength)
+		return false;
+
+	/*
+	 * If the sum of the length of the description, the claimed filepath
+	 * length and the original header are greater than the length of the
+	 * variable, it's malformed
+	 */
+	if ((desclength + filepathlength + 6) > len)
+		return false;
+
+	/*
+	 * And, finally, check the filepath
+	 */
+	return validate_device_path(var, match, buffer + desclength + 6,
+				    filepathlength);
+}
+
+static bool
+validate_uint16(struct efi_variable *var, int match, u8 *buffer,
+		unsigned long len)
+{
+	/* A single 16-bit integer */
+	if (len != 2)
+		return false;
+
+	return true;
+}
+
+static bool
+validate_ascii_string(struct efi_variable *var, int match, u8 *buffer,
+		      unsigned long len)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		if (buffer[i] > 127)
+			return false;
+
+		if (buffer[i] == 0)
+			return true;
+	}
+
+	return false;
+}
+
+struct variable_validate {
+	char *name;
+	bool (*validate)(struct efi_variable *var, int match, u8 *data,
+			 unsigned long len);
+};
+
+static const struct variable_validate variable_validate[] = {
+	{ "BootNext", validate_uint16 },
+	{ "BootOrder", validate_boot_order },
+	{ "DriverOrder", validate_boot_order },
+	{ "Boot*", validate_load_option },
+	{ "Driver*", validate_load_option },
+	{ "ConIn", validate_device_path },
+	{ "ConInDev", validate_device_path },
+	{ "ConOut", validate_device_path },
+	{ "ConOutDev", validate_device_path },
+	{ "ErrOut", validate_device_path },
+	{ "ErrOutDev", validate_device_path },
+	{ "Timeout", validate_uint16 },
+	{ "Lang", validate_ascii_string },
+	{ "PlatformLang", validate_ascii_string },
+	{ "", NULL },
+};
+
+static bool
+validate_var(struct efi_variable *var, u8 *data, unsigned long len)
+{
+	int i;
+	u16 *unicode_name = var->VariableName;
+
+	for (i = 0; variable_validate[i].validate != NULL; i++) {
+		const char *name = variable_validate[i].name;
+		int match;
+
+		for (match = 0; ; match++) {
+			char c = name[match];
+			u16 u = unicode_name[match];
+
+			/* All special variables are plain ascii */
+			if (u > 127)
+				return true;
+
+			/* Wildcard in the matching name means we've matched */
+			if (c == '*')
+				return variable_validate[i].validate(var,
+							     match, data, len);
+
+			/* Case sensitive match */
+			if (c != u)
+				break;
+
+			/* Reached the end of the string while matching */
+			if (!c)
+				return variable_validate[i].validate(var,
+							     match, data, len);
+		}
+	}
+
+	return true;
 }
 
 static efi_status_t
@@ -210,12 +402,23 @@ efivar_attr_read(struct efivar_entry *entry, char *buf)
 	if (status != EFI_SUCCESS)
 		return -EIO;
 
-	if (var->Attributes & 0x1)
+	if (var->Attributes & EFI_VARIABLE_NON_VOLATILE)
 		str += sprintf(str, "EFI_VARIABLE_NON_VOLATILE\n");
-	if (var->Attributes & 0x2)
+	if (var->Attributes & EFI_VARIABLE_BOOTSERVICE_ACCESS)
 		str += sprintf(str, "EFI_VARIABLE_BOOTSERVICE_ACCESS\n");
-	if (var->Attributes & 0x4)
+	if (var->Attributes & EFI_VARIABLE_RUNTIME_ACCESS)
 		str += sprintf(str, "EFI_VARIABLE_RUNTIME_ACCESS\n");
+	if (var->Attributes & EFI_VARIABLE_HARDWARE_ERROR_RECORD)
+		str += sprintf(str, "EFI_VARIABLE_HARDWARE_ERROR_RECORD\n");
+	if (var->Attributes & EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS)
+		str += sprintf(str,
+			"EFI_VARIABLE_AUTHENTICATED_WRITE_ACCESS\n");
+	if (var->Attributes &
+			EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS)
+		str += sprintf(str,
+			"EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS\n");
+	if (var->Attributes & EFI_VARIABLE_APPEND_WRITE)
+		str += sprintf(str, "EFI_VARIABLE_APPEND_WRITE\n");
 	return str - buf;
 }
 
@@ -280,6 +483,12 @@ efivar_store_raw(struct efivar_entry *entry, const char *buf, size_t count)
 
 	if ((new_var->DataSize <= 0) || (new_var->Attributes == 0)){
 		printk(KERN_ERR "efivars: DataSize & Attributes must be valid!\n");
+		return -EINVAL;
+	}
+
+	if ((new_var->Attributes & ~EFI_VARIABLE_MASK) != 0 ||
+	    validate_var(new_var, new_var->Data, new_var->DataSize) == false) {
+		printk(KERN_ERR "efivars: Malformed variable content\n");
 		return -EINVAL;
 	}
 
@@ -408,14 +617,20 @@ static ssize_t efivar_create(struct file *filp, struct kobject *kobj,
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
 
+	if ((new_var->Attributes & ~EFI_VARIABLE_MASK) != 0 ||
+	    validate_var(new_var, new_var->Data, new_var->DataSize) == false) {
+		printk(KERN_ERR "efivars: Malformed variable content\n");
+		return -EINVAL;
+	}
+
 	spin_lock(&efivars->lock);
 
 	/*
 	 * Does this variable already exist?
 	 */
 	list_for_each_entry_safe(search_efivar, n, &efivars->list, list) {
-		strsize1 = utf8_strsize(search_efivar->var.VariableName, 1024);
-		strsize2 = utf8_strsize(new_var->VariableName, 1024);
+		strsize1 = utf16_strsize(search_efivar->var.VariableName, 1024);
+		strsize2 = utf16_strsize(new_var->VariableName, 1024);
 		if (strsize1 == strsize2 &&
 			!memcmp(&(search_efivar->var.VariableName),
 				new_var->VariableName, strsize1) &&
@@ -447,8 +662,8 @@ static ssize_t efivar_create(struct file *filp, struct kobject *kobj,
 
 	/* Create the entry in sysfs.  Locking is not required here */
 	status = efivar_create_sysfs_entry(efivars,
-					   utf8_strsize(new_var->VariableName,
-							1024),
+					   utf16_strsize(new_var->VariableName,
+							 1024),
 					   new_var->VariableName,
 					   &new_var->VendorGuid);
 	if (status) {
@@ -477,8 +692,8 @@ static ssize_t efivar_delete(struct file *filp, struct kobject *kobj,
 	 * Does this variable already exist?
 	 */
 	list_for_each_entry_safe(search_efivar, n, &efivars->list, list) {
-		strsize1 = utf8_strsize(search_efivar->var.VariableName, 1024);
-		strsize2 = utf8_strsize(del_var->VariableName, 1024);
+		strsize1 = utf16_strsize(search_efivar->var.VariableName, 1024);
+		strsize2 = utf16_strsize(del_var->VariableName, 1024);
 		if (strsize1 == strsize2 &&
 			!memcmp(&(search_efivar->var.VariableName),
 				del_var->VariableName, strsize1) &&
@@ -515,6 +730,53 @@ static ssize_t efivar_delete(struct file *filp, struct kobject *kobj,
 
 	/* It's dead Jim.... */
 	return count;
+}
+
+static bool variable_is_present(efi_char16_t *variable_name, efi_guid_t *vendor)
+{
+	struct efivar_entry *entry, *n;
+	struct efivars *efivars = &__efivars;
+	unsigned long strsize1, strsize2;
+	bool found = false;
+
+	strsize1 = utf16_strsize(variable_name, 1024);
+	list_for_each_entry_safe(entry, n, &efivars->list, list) {
+		strsize2 = utf16_strsize(entry->var.VariableName, 1024);
+		if (strsize1 == strsize2 &&
+			!memcmp(variable_name, &(entry->var.VariableName),
+				strsize2) &&
+			!efi_guidcmp(entry->var.VendorGuid,
+				*vendor)) {
+			found = true;
+			break;
+		}
+	}
+	return found;
+}
+
+/*
+ * Returns the size of variable_name, in bytes, including the
+ * terminating NULL character, or variable_name_size if no NULL
+ * character is found among the first variable_name_size bytes.
+ */
+static unsigned long var_name_strnsize(efi_char16_t *variable_name,
+				       unsigned long variable_name_size)
+{
+	unsigned long len;
+	efi_char16_t c;
+
+	/*
+	 * The variable name is, by definition, a NULL-terminated
+	 * string, so make absolutely sure that variable_name_size is
+	 * the value we expect it to be. If not, return the real size.
+	 */
+	for (len = 2; len <= variable_name_size; len += sizeof(c)) {
+		c = variable_name[(len / sizeof(c)) - 1];
+		if (!c)
+			break;
+	}
+
+	return min(len, variable_name_size);
 }
 
 /*
@@ -704,6 +966,28 @@ void unregister_efivars(struct efivars *efivars)
 }
 EXPORT_SYMBOL_GPL(unregister_efivars);
 
+/*
+ * Print a warning when duplicate EFI variables are encountered and
+ * disable the sysfs workqueue since the firmware is buggy.
+ */
+static void dup_variable_bug(efi_char16_t *s16, efi_guid_t *vendor_guid,
+			     unsigned long len16)
+{
+	size_t i, len8 = len16 / sizeof(efi_char16_t);
+	char *s8;
+
+	s8 = kzalloc(len8, GFP_KERNEL);
+	if (!s8)
+		return;
+
+	for (i = 0; i < len8; i++)
+		s8[i] = s16[i];
+
+	printk(KERN_WARNING "efivars: duplicate variable: %s-%pUl\n",
+	       s8, vendor_guid);
+	kfree(s8);
+}
+
 int register_efivars(struct efivars *efivars,
 		     const struct efivar_operations *ops,
 		     struct kobject *parent_kobj)
@@ -744,6 +1028,24 @@ int register_efivars(struct efivars *efivars,
 						&vendor_guid);
 		switch (status) {
 		case EFI_SUCCESS:
+			variable_name_size = var_name_strnsize(variable_name,
+							       variable_name_size);
+
+			/*
+			 * Some firmware implementations return the
+			 * same variable name on multiple calls to
+			 * get_next_variable(). Terminate the loop
+			 * immediately as there is no guarantee that
+			 * we'll ever see a different variable name,
+			 * and may end up looping here forever.
+			 */
+			if (variable_is_present(variable_name, &vendor_guid)) {
+				dup_variable_bug(variable_name, &vendor_guid,
+						 variable_name_size);
+				status = EFI_NOT_FOUND;
+				break;
+			}
+
 			efivar_create_sysfs_entry(efivars,
 						  variable_name_size,
 						  variable_name,
@@ -769,9 +1071,6 @@ out:
 	return error;
 }
 EXPORT_SYMBOL_GPL(register_efivars);
-
-static struct efivars __efivars;
-static struct efivar_operations ops;
 
 /*
  * For now we register the efi subsystem with the firmware subsystem

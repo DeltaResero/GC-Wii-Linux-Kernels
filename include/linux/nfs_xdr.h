@@ -262,7 +262,7 @@ struct nfs4_layoutcommit_res {
 struct nfs4_layoutcommit_data {
 	struct rpc_task task;
 	struct nfs_fattr fattr;
-	struct pnfs_layout_segment *lseg;
+	struct list_head lseg_list;
 	struct rpc_cred *cred;
 	struct nfs4_layoutcommit_args args;
 	struct nfs4_layoutcommit_res res;
@@ -591,8 +591,13 @@ struct nfs_getaclargs {
 	struct nfs4_sequence_args 	seq_args;
 };
 
+/* getxattr ACL interface flags */
+#define NFS4_ACL_LEN_REQUEST	0x0001	/* zero length getxattr buffer */
 struct nfs_getaclres {
 	size_t				acl_len;
+	size_t				acl_data_offset;
+	int				acl_flags;
+	struct page *			acl_scratch;
 	struct nfs4_sequence_res	seq_res;
 };
 
@@ -1149,6 +1154,7 @@ struct nfs_rpc_ops {
 	const struct dentry_operations *dentry_ops;
 	const struct inode_operations *dir_inode_ops;
 	const struct inode_operations *file_inode_ops;
+	const struct file_operations *file_ops;
 
 	int	(*getroot) (struct nfs_server *, struct nfs_fh *,
 			    struct nfs_fsinfo *);

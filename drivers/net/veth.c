@@ -262,6 +262,8 @@ static void veth_setup(struct net_device *dev)
 {
 	ether_setup(dev);
 
+	dev->priv_flags &= ~IFF_TX_SKB_SHARING;
+
 	dev->netdev_ops = &veth_netdev_ops;
 	dev->ethtool_ops = &veth_ethtool_ops;
 	dev->features |= NETIF_F_LLTX;
@@ -419,7 +421,9 @@ static void veth_dellink(struct net_device *dev, struct list_head *head)
 	unregister_netdevice_queue(peer, head);
 }
 
-static const struct nla_policy veth_policy[VETH_INFO_MAX + 1];
+static const struct nla_policy veth_policy[VETH_INFO_MAX + 1] = {
+	[VETH_INFO_PEER]	= { .len = sizeof(struct ifinfomsg) },
+};
 
 static struct rtnl_link_ops veth_link_ops = {
 	.kind		= DRV_NAME,

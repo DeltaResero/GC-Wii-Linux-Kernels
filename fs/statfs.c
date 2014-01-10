@@ -76,7 +76,7 @@ EXPORT_SYMBOL(vfs_statfs);
 int user_statfs(const char __user *pathname, struct kstatfs *st)
 {
 	struct path path;
-	int error = user_path(pathname, &path);
+	int error = user_path_at(AT_FDCWD, pathname, LOOKUP_FOLLOW|LOOKUP_AUTOMOUNT, &path);
 	if (!error) {
 		error = vfs_statfs(&path, st);
 		path_put(&path);
@@ -86,7 +86,7 @@ int user_statfs(const char __user *pathname, struct kstatfs *st)
 
 int fd_statfs(int fd, struct kstatfs *st)
 {
-	struct file *file = fget(fd);
+	struct file *file = fget_raw(fd);
 	int error = -EBADF;
 	if (file) {
 		error = vfs_statfs(&file->f_path, st);

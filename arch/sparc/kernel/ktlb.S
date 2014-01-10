@@ -25,11 +25,10 @@ kvmap_itlb:
 	 */
 kvmap_itlb_4v:
 
-kvmap_itlb_nonlinear:
 	/* Catch kernel NULL pointer calls.  */
 	sethi		%hi(PAGE_SIZE), %g5
 	cmp		%g4, %g5
-	bleu,pn		%xcc, kvmap_dtlb_longpath
+	blu,pn		%xcc, kvmap_itlb_longpath
 	 nop
 
 	KERN_TSB_LOOKUP_TL1(%g4, %g6, %g5, %g1, %g2, %g3, kvmap_itlb_load)
@@ -47,16 +46,16 @@ kvmap_itlb_tsb_miss:
 kvmap_itlb_vmalloc_addr:
 	KERN_PGTABLE_WALK(%g4, %g5, %g2, kvmap_itlb_longpath)
 
-	KTSB_LOCK_TAG(%g1, %g2, %g7)
+	TSB_LOCK_TAG(%g1, %g2, %g7)
 
 	/* Load and check PTE.  */
 	ldxa		[%g5] ASI_PHYS_USE_EC, %g5
 	mov		1, %g7
 	sllx		%g7, TSB_TAG_INVALID_BIT, %g7
 	brgez,a,pn	%g5, kvmap_itlb_longpath
-	 KTSB_STORE(%g1, %g7)
+	 TSB_STORE(%g1, %g7)
 
-	KTSB_WRITE(%g1, %g5, %g6)
+	TSB_WRITE(%g1, %g5, %g6)
 
 	/* fallthrough to TLB load */
 
@@ -102,9 +101,9 @@ kvmap_itlb_longpath:
 kvmap_itlb_obp:
 	OBP_TRANS_LOOKUP(%g4, %g5, %g2, %g3, kvmap_itlb_longpath)
 
-	KTSB_LOCK_TAG(%g1, %g2, %g7)
+	TSB_LOCK_TAG(%g1, %g2, %g7)
 
-	KTSB_WRITE(%g1, %g5, %g6)
+	TSB_WRITE(%g1, %g5, %g6)
 
 	ba,pt		%xcc, kvmap_itlb_load
 	 nop
@@ -112,17 +111,17 @@ kvmap_itlb_obp:
 kvmap_dtlb_obp:
 	OBP_TRANS_LOOKUP(%g4, %g5, %g2, %g3, kvmap_dtlb_longpath)
 
-	KTSB_LOCK_TAG(%g1, %g2, %g7)
+	TSB_LOCK_TAG(%g1, %g2, %g7)
 
-	KTSB_WRITE(%g1, %g5, %g6)
+	TSB_WRITE(%g1, %g5, %g6)
 
 	ba,pt		%xcc, kvmap_dtlb_load
 	 nop
 
 	.align		32
 kvmap_dtlb_tsb4m_load:
-	KTSB_LOCK_TAG(%g1, %g2, %g7)
-	KTSB_WRITE(%g1, %g5, %g6)
+	TSB_LOCK_TAG(%g1, %g2, %g7)
+	TSB_WRITE(%g1, %g5, %g6)
 	ba,pt		%xcc, kvmap_dtlb_load
 	 nop
 
@@ -222,16 +221,16 @@ kvmap_linear_patch:
 kvmap_dtlb_vmalloc_addr:
 	KERN_PGTABLE_WALK(%g4, %g5, %g2, kvmap_dtlb_longpath)
 
-	KTSB_LOCK_TAG(%g1, %g2, %g7)
+	TSB_LOCK_TAG(%g1, %g2, %g7)
 
 	/* Load and check PTE.  */
 	ldxa		[%g5] ASI_PHYS_USE_EC, %g5
 	mov		1, %g7
 	sllx		%g7, TSB_TAG_INVALID_BIT, %g7
 	brgez,a,pn	%g5, kvmap_dtlb_longpath
-	 KTSB_STORE(%g1, %g7)
+	 TSB_STORE(%g1, %g7)
 
-	KTSB_WRITE(%g1, %g5, %g6)
+	TSB_WRITE(%g1, %g5, %g6)
 
 	/* fallthrough to TLB load */
 

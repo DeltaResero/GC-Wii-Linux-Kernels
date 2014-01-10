@@ -193,14 +193,9 @@ static void set_alarm(struct etsects *etsects)
 /* Caller must hold etsects->lock. */
 static void set_fipers(struct etsects *etsects)
 {
-	u32 tmr_ctrl = gfar_read(&etsects->regs->tmr_ctrl);
-
-	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl & (~TE));
-	gfar_write(&etsects->regs->tmr_prsc,   etsects->tmr_prsc);
+	set_alarm(etsects);
 	gfar_write(&etsects->regs->tmr_fiper1, etsects->tmr_fiper1);
 	gfar_write(&etsects->regs->tmr_fiper2, etsects->tmr_fiper2);
-	set_alarm(etsects);
-	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|TE);
 }
 
 /*
@@ -511,7 +506,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
 	gfar_write(&etsects->regs->tmr_fiper1, etsects->tmr_fiper1);
 	gfar_write(&etsects->regs->tmr_fiper2, etsects->tmr_fiper2);
 	set_alarm(etsects);
-	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|FS|RTPE|TE);
+	gfar_write(&etsects->regs->tmr_ctrl,   tmr_ctrl|FS|RTPE|TE|FRD);
 
 	spin_unlock_irqrestore(&etsects->lock, flags);
 
@@ -526,6 +521,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
 	return 0;
 
 no_clock:
+	iounmap(etsects->regs);
 no_ioremap:
 	release_resource(etsects->rsrc);
 no_resource:

@@ -1618,7 +1618,7 @@ static void bnx2fc_parse_fcp_rsp(struct bnx2fc_cmd *io_req,
 			fcp_sns_len = SCSI_SENSE_BUFFERSIZE;
 		}
 
-		memset(sc_cmd->sense_buffer, 0, sizeof(sc_cmd->sense_buffer));
+		memset(sc_cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
 		if (fcp_sns_len)
 			memcpy(sc_cmd->sense_buffer, rq_data, fcp_sns_len);
 
@@ -1734,7 +1734,6 @@ void bnx2fc_process_scsi_cmd_compl(struct bnx2fc_cmd *io_req,
 		printk(KERN_ERR PFX "SCp.ptr is NULL\n");
 		return;
 	}
-	io_req->sc_cmd = NULL;
 
 	if (io_req->on_active_queue) {
 		list_del_init(&io_req->link);
@@ -1754,6 +1753,7 @@ void bnx2fc_process_scsi_cmd_compl(struct bnx2fc_cmd *io_req,
 	}
 
 	bnx2fc_unmap_sg_list(io_req);
+	io_req->sc_cmd = NULL;
 
 	switch (io_req->fcp_status) {
 	case FC_GOOD:

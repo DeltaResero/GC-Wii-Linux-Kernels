@@ -558,6 +558,9 @@ static void chase_port(struct edgeport_port *port, unsigned long timeout,
 	wait_queue_t wait;
 	unsigned long flags;
 
+	if (!tty)
+		return;
+
 	if (!timeout)
 		timeout = (HZ * EDGE_CLOSING_WAIT)/100;
 
@@ -2677,15 +2680,7 @@ cleanup:
 
 static void edge_disconnect(struct usb_serial *serial)
 {
-	int i;
-	struct edgeport_port *edge_port;
-
 	dbg("%s", __func__);
-
-	for (i = 0; i < serial->num_ports; ++i) {
-		edge_port = usb_get_serial_port_data(serial->port[i]);
-		edge_remove_sysfs_attrs(edge_port->port);
-	}
 }
 
 static void edge_release(struct usb_serial *serial)
@@ -2764,6 +2759,7 @@ static struct usb_serial_driver edgeport_1port_device = {
 	.disconnect		= edge_disconnect,
 	.release		= edge_release,
 	.port_probe		= edge_create_sysfs_attrs,
+	.port_remove		= edge_remove_sysfs_attrs,
 	.ioctl			= edge_ioctl,
 	.set_termios		= edge_set_termios,
 	.tiocmget		= edge_tiocmget,
@@ -2795,10 +2791,12 @@ static struct usb_serial_driver edgeport_2port_device = {
 	.disconnect		= edge_disconnect,
 	.release		= edge_release,
 	.port_probe		= edge_create_sysfs_attrs,
+	.port_remove		= edge_remove_sysfs_attrs,
 	.ioctl			= edge_ioctl,
 	.set_termios		= edge_set_termios,
 	.tiocmget		= edge_tiocmget,
 	.tiocmset		= edge_tiocmset,
+	.get_icount		= edge_get_icount,
 	.write			= edge_write,
 	.write_room		= edge_write_room,
 	.chars_in_buffer	= edge_chars_in_buffer,

@@ -69,10 +69,10 @@
 #ifndef SCSI_OSD_MAJOR
 #  define SCSI_OSD_MAJOR 260
 #endif
-#define SCSI_OSD_MAX_MINOR 64
+#define SCSI_OSD_MAX_MINOR MINORMASK
 
 static const char osd_name[] = "osd";
-static const char *osd_version_string = "open-osd 0.2.0";
+static const char *osd_version_string = "open-osd 0.2.1";
 
 MODULE_AUTHOR("Boaz Harrosh <bharrosh@panasas.com>");
 MODULE_DESCRIPTION("open-osd Upper-Layer-Driver osd.ko");
@@ -465,7 +465,7 @@ static int osd_probe(struct device *dev)
 	oud->class_dev.class = &osd_uld_class;
 	oud->class_dev.parent = dev;
 	oud->class_dev.release = __remove;
-	error = dev_set_name(&oud->class_dev, disk->disk_name);
+	error = dev_set_name(&oud->class_dev, "%s", disk->disk_name);
 	if (error) {
 		OSD_ERR("dev_set_name failed => %d\n", error);
 		goto err_put_cdev;

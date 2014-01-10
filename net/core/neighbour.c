@@ -237,7 +237,7 @@ static void neigh_flush_dev(struct neigh_table *tbl, struct net_device *dev)
 				   we must kill timers etc. and move
 				   it to safe state.
 				 */
-				skb_queue_purge(&n->arp_queue);
+				__skb_queue_purge(&n->arp_queue);
 				n->output = neigh_blackhole;
 				if (n->nud_state & NUD_VALID)
 					n->nud_state = NUD_NOARP;
@@ -291,7 +291,7 @@ static struct neighbour *neigh_alloc(struct neigh_table *tbl)
 	if (!n)
 		goto out_entries;
 
-	skb_queue_head_init(&n->arp_queue);
+	__skb_queue_head_init(&n->arp_queue);
 	rwlock_init(&n->lock);
 	seqlock_init(&n->ha_lock);
 	n->updated	  = n->used = now;
@@ -712,7 +712,9 @@ void neigh_destroy(struct neighbour *neigh)
 		hh_cache_put(hh);
 	}
 
-	skb_queue_purge(&neigh->arp_queue);
+	write_lock_bh(&neigh->lock);
+	__skb_queue_purge(&neigh->arp_queue);
+	write_unlock_bh(&neigh->lock);
 
 	dev_put(neigh->dev);
 	neigh_parms_put(neigh->parms);
@@ -823,6 +825,8 @@ next_elt:
 		write_unlock_bh(&tbl->lock);
 		cond_resched();
 		write_lock_bh(&tbl->lock);
+		nht = rcu_dereference_protected(tbl->nht,
+						lockdep_is_held(&tbl->lock));
 	}
 	/* Cycle through all hash buckets every base_reachable_time/2 ticks.
 	 * ARP entry timeouts range from 1/2 base_reachable_time to 3/2
@@ -862,7 +866,7 @@ static void neigh_invalidate(struct neighbour *neigh)
 		neigh->ops->error_report(neigh, skb);
 		write_lock(&neigh->lock);
 	}
-	skb_queue_purge(&neigh->arp_queue);
+	__skb_queue_purge(&neigh->arp_queue);
 }
 
 /* Called when a timer expires for a neighbour entry. */
@@ -1173,15 +1177,20 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
 
 		while (neigh->nud_state & NUD_VALID &&
 		       (skb = __skb_dequeue(&neigh->arp_queue)) != NULL) {
-			struct neighbour *n1 = neigh;
+			struct dst_entry *dst = skb_dst(skb);
+			struct neighbour *n2, *n1 = neigh;
 			write_unlock_bh(&neigh->lock);
+
+			rcu_read_lock();
 			/* On shaper/eql skb->dst->neighbour != neigh :( */
-			if (skb_dst(skb) && skb_dst(skb)->neighbour)
-				n1 = skb_dst(skb)->neighbour;
+			if (dst && (n2 = dst_get_neighbour(dst)) != NULL)
+				n1 = n2;
 			n1->output(skb);
+			rcu_read_unlock();
+
 			write_lock_bh(&neigh->lock);
 		}
-		skb_queue_purge(&neigh->arp_queue);
+		__skb_queue_purge(&neigh->arp_queue);
 	}
 out:
 	if (update_isrouter) {
@@ -1300,13 +1309,11 @@ EXPORT_SYMBOL(neigh_compat_output);
 int neigh_resolve_output(struct sk_buff *skb)
 {
 	struct dst_entry *dst = skb_dst(skb);
-	struct neighbour *neigh;
+	struct neighbour *neigh = dst_get_neighbour(dst);
 	int rc = 0;
 
-	if (!dst || !(neigh = dst->neighbour))
+	if (!dst)
 		goto discard;
-
-	__skb_pull(skb, skb_network_offset(skb));
 
 	if (!neigh_event_send(neigh, skb)) {
 		int err;
@@ -1319,6 +1326,7 @@ int neigh_resolve_output(struct sk_buff *skb)
 			neigh_hh_init(neigh, dst, dst->ops->protocol);
 
 		do {
+			__skb_pull(skb, skb_network_offset(skb));
 			seq = read_seqbegin(&neigh->ha_lock);
 			err = dev_hard_header(skb, dev, ntohs(skb->protocol),
 					      neigh->ha, NULL, skb->len);
@@ -1333,7 +1341,7 @@ out:
 	return rc;
 discard:
 	NEIGH_PRINTK1("neigh_resolve_output: dst=%p neigh=%p\n",
-		      dst, dst ? dst->neighbour : NULL);
+		      dst, neigh);
 out_kfree_skb:
 	rc = -EINVAL;
 	kfree_skb(skb);
@@ -1347,13 +1355,12 @@ int neigh_connected_output(struct sk_buff *skb)
 {
 	int err;
 	struct dst_entry *dst = skb_dst(skb);
-	struct neighbour *neigh = dst->neighbour;
+	struct neighbour *neigh = dst_get_neighbour(dst);
 	struct net_device *dev = neigh->dev;
 	unsigned int seq;
 
-	__skb_pull(skb, skb_network_offset(skb));
-
 	do {
+		__skb_pull(skb, skb_network_offset(skb));
 		seq = read_seqbegin(&neigh->ha_lock);
 		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
 				      neigh->ha, NULL, skb->len);
@@ -1383,11 +1390,15 @@ static void neigh_proxy_process(unsigned long arg)
 
 		if (tdif <= 0) {
 			struct net_device *dev = skb->dev;
+
 			__skb_unlink(skb, &tbl->proxy_queue);
-			if (tbl->proxy_redo && netif_running(dev))
+			if (tbl->proxy_redo && netif_running(dev)) {
+				rcu_read_lock();
 				tbl->proxy_redo(skb);
-			else
+				rcu_read_unlock();
+			} else {
 				kfree_skb(skb);
+			}
 
 			dev_put(dev);
 		} else if (!sched_next || tdif < sched_next)
@@ -2909,12 +2920,13 @@ EXPORT_SYMBOL(neigh_sysctl_unregister);
 
 static int __init neigh_init(void)
 {
-	rtnl_register(PF_UNSPEC, RTM_NEWNEIGH, neigh_add, NULL);
-	rtnl_register(PF_UNSPEC, RTM_DELNEIGH, neigh_delete, NULL);
-	rtnl_register(PF_UNSPEC, RTM_GETNEIGH, NULL, neigh_dump_info);
+	rtnl_register(PF_UNSPEC, RTM_NEWNEIGH, neigh_add, NULL, NULL);
+	rtnl_register(PF_UNSPEC, RTM_DELNEIGH, neigh_delete, NULL, NULL);
+	rtnl_register(PF_UNSPEC, RTM_GETNEIGH, NULL, neigh_dump_info, NULL);
 
-	rtnl_register(PF_UNSPEC, RTM_GETNEIGHTBL, NULL, neightbl_dump_info);
-	rtnl_register(PF_UNSPEC, RTM_SETNEIGHTBL, neightbl_set, NULL);
+	rtnl_register(PF_UNSPEC, RTM_GETNEIGHTBL, NULL, neightbl_dump_info,
+		      NULL);
+	rtnl_register(PF_UNSPEC, RTM_SETNEIGHTBL, neightbl_set, NULL, NULL);
 
 	return 0;
 }

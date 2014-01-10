@@ -84,6 +84,18 @@ target_emulate_inquiry_std(struct se_cmd *cmd)
 	buf[2] = dev->transport->get_device_rev(dev);
 
 	/*
+	 * NORMACA and HISUP = 0, RESPONSE DATA FORMAT = 2
+	 *
+	 * SPC4 says:
+	 *   A RESPONSE DATA FORMAT field set to 2h indicates that the
+	 *   standard INQUIRY data is in the format defined in this
+	 *   standard. Response data format values less than 2h are
+	 *   obsolete. Response data format values greater than 2h are
+	 *   reserved.
+	 */
+	buf[3] = 2;
+
+	/*
 	 * Enable SCCS and TPGS fields for Emulated ALUA
 	 */
 	if (T10_ALUA(dev->se_sub_dev)->alua_type == SPC3_ALUA_EMULATED)
@@ -94,7 +106,7 @@ target_emulate_inquiry_std(struct se_cmd *cmd)
 		return 0;
 	}
 
-	buf[7] = 0x32; /* Sync=1 and CmdQue=1 */
+	buf[7] = 0x2; /* CmdQue=1 */
 
 	/*
 	 * Do not include vendor, product, reversion info in INQUIRY
@@ -105,11 +117,12 @@ target_emulate_inquiry_std(struct se_cmd *cmd)
 		return 0;
 	}
 
-	snprintf((unsigned char *)&buf[8], 8, "LIO-ORG");
-	snprintf((unsigned char *)&buf[16], 16, "%s",
-		 &DEV_T10_WWN(dev)->model[0]);
-	snprintf((unsigned char *)&buf[32], 4, "%s",
-		 &DEV_T10_WWN(dev)->revision[0]);
+	memcpy(&buf[8], "LIO-ORG ", 8);
+	memset(&buf[16], 0x20, 16);
+	memcpy(&buf[16], dev->se_sub_dev->t10_wwn.model,
+	       min_t(size_t, strlen(dev->se_sub_dev->t10_wwn.model), 16));
+	memcpy(&buf[32], dev->se_sub_dev->t10_wwn.revision,
+	       min_t(size_t, strlen(dev->se_sub_dev->t10_wwn.revision), 4));
 	buf[4] = 31; /* Set additional length to 31 */
 	return 0;
 }
