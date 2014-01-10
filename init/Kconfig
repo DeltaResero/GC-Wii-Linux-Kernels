@@ -1117,6 +1117,15 @@ config CHRDEV_MAJOR_HASH_SIZE
 
 	  For a normal desktop machine, 64 should be a preferred value.
 
+config MAX_USER_RT_PRIO
+	int "Number of realtime priority levels" if EXPERT
+	range 1 100 if EMBEDDED
+	range 5 100
+	default 5 if EMBEDDED
+	default 100
+	help
+	  This option allows reducing the size of the O(1) scheduler arrays.
+
 config SHMEM
 	bool "Use full shmem filesystem" if EXPERT
 	default y
