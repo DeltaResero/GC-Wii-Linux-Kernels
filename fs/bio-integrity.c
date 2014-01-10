@@ -92,7 +92,7 @@ struct bio_integrity_payload *bio_integrity_alloc_bioset(struct bio *bio,
 
 	/* Lower order allocations come straight from slab */
 	if (!use_bip_pool(idx))
-		bip = kmem_cache_alloc(bip_slab[idx].slab, gfp_mask);
+		bip = kmem_cache_zalloc(bip_slab[idx].slab, gfp_mask);
 
 	/* Use mempool if lower order alloc failed or max vecs were requested */
 	if (bip == NULL) {
@@ -104,8 +104,6 @@ struct bio_integrity_payload *bio_integrity_alloc_bioset(struct bio *bio,
 			return NULL;
 		}
 	}
-
-	memset(bip, 0, sizeof(*bip));
 
 	bip->bip_slab = idx;
 	bip->bip_bio = bio;
