@@ -1080,6 +1080,17 @@ config MAX_NR_CON_DRIVER
 
 	  For embedded systems, a lower number may be preferred value.
 
+config BLKDEV_MAJOR_HASH_SIZE
+	int "Config major hash size of blkdev" if EXPERT
+	range 1 255
+	default 128 if EMBEDDED
+	default 255
+	depends on BLOCK
+	help
+	  Allows to configure the size of the major_names[] array.
+
+	  For a normal desktop machine, 128 should be a preferred value.
+
 config SHMEM
 	bool "Use full shmem filesystem" if EXPERT
 	default y
