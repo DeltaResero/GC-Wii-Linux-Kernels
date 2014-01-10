@@ -1141,6 +1141,14 @@ config MAX_SWAPFILES_SHIFT
 	help
 	  Select the maximum number of swapfiles (5 for default).
 
+config BINFMT_SCRIPT
+	default y
+	bool "Enable support for executable shell scripts" if EXPERT
+	help
+	  Enable support for standard #!-style shell scripts.
+
+	  For a normal desktop machine, this should not normally be disabled.
+
 config SHMEM
 	bool "Use full shmem filesystem" if EXPERT
 	default y
