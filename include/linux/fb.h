@@ -38,6 +38,11 @@
 #define FBIOGET_HWCINFO         0x4616
 #define FBIOPUT_MODEINFO        0x4617
 #define FBIOGET_DISPINFO        0x4618
+#define FBIOWAITRETRACE         0x4619
+#define FBIOWAITPEFINISH        0x4620
+#define FBIOVIRTTOPHYS          0x4621
+#define FBIOFLIP                0x4622
+#define FBIOFLIPHACK            0x4623 /* libsdl */
 #define FBIO_WAITFORVSYNC	_IOW('F', 0x20, __u32)
 
 #define FB_TYPE_PACKED_PIXELS		0	/* Packed Pixels	*/
@@ -945,7 +950,13 @@ static inline struct apertures_struct *alloc_apertures(unsigned int max_num) {
 #define fb_readq __raw_readq
 #define fb_writeb __raw_writeb
 #define fb_writew __raw_writew
-#define fb_writel __raw_writel
+#ifndef CONFIG_FB_GAMECUBE	/* XXX Why? O' why? */
+#  define fb_writel __raw_writel
+#else
+   extern unsigned int vifb_writel(unsigned int, void *);
+#  define fb_writel(b, addr) vifb_writel(b, addr)
+#  define fb_writel_real(b, addr) (*(/*volatile*/ u32 __iomem *)(addr) = (b))
+#endif
 #define fb_writeq __raw_writeq
 #define fb_memset memset_io
 #define fb_memcpy_fromfb memcpy_fromio

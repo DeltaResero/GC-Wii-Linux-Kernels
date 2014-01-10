@@ -259,6 +259,7 @@ pasemi_mac_driver-objs := pasemi_mac.o pasemi_mac_ethtool.o
 obj-$(CONFIG_MLX4_CORE) += mlx4/
 obj-$(CONFIG_ENC28J60) += enc28j60.o
 obj-$(CONFIG_ETHOC) += ethoc.o
+obj-$(CONFIG_GAMECUBE_BBA) += gcn-bba.o
 obj-$(CONFIG_GRETH) += greth.o
 obj-$(CONFIG_LANTIQ_ETOP) += lantiq_etop.o
 
