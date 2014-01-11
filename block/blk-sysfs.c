@@ -264,8 +264,9 @@ static ssize_t queue_nomerges_store(struct request_queue *q, const char *page,
 static ssize_t queue_rq_affinity_show(struct request_queue *q, char *page)
 {
 	bool set = test_bit(QUEUE_FLAG_SAME_COMP, &q->queue_flags);
+	bool force = test_bit(QUEUE_FLAG_SAME_FORCE, &q->queue_flags);
 
-	return queue_var_show(set, page);
+	return queue_var_show(set << force, page);
 }
 
 static ssize_t
@@ -280,10 +281,14 @@ queue_rq_affinity_store(struct request_queue *q, const char *page, size_t count)
 		return ret;
 
 	spin_lock_irq(q->queue_lock);
-	if (val)
+	if (val) {
 		queue_flag_set(QUEUE_FLAG_SAME_COMP, q);
-	else
-		queue_flag_clear(QUEUE_FLAG_SAME_COMP,  q);
+		if (val == 2)
+			queue_flag_set(QUEUE_FLAG_SAME_FORCE, q);
+	} else {
+		queue_flag_clear(QUEUE_FLAG_SAME_COMP, q);
+		queue_flag_clear(QUEUE_FLAG_SAME_FORCE, q);
+	}
 	spin_unlock_irq(q->queue_lock);
 #endif
 	return ret;
