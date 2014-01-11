@@ -219,14 +219,14 @@ rwsem_down_failed_common(struct rw_semaphore *sem,
 		if (!waiter.task)
 			break;
 
-		raw_spin_lock_irq(&sem->wait_lock);
+		spin_lock_irq(&sem->wait_lock);
 		/* try to get the writer sem, may steal from the head writer */
 		if (flags == RWSEM_WAITING_FOR_WRITE)
 			if (try_get_writer_sem(sem, &waiter)) {
-				raw_spin_unlock_irq(&sem->wait_lock);
+				spin_unlock_irq(&sem->wait_lock);
 				return sem;
 			}
-		raw_spin_unlock_irq(&sem->wait_lock);
+		spin_unlock_irq(&sem->wait_lock);
 		schedule();
 		set_task_state(tsk, TASK_UNINTERRUPTIBLE);
 	}
