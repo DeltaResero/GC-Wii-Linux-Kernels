@@ -23,6 +23,7 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/dmi.h>
+#include <linux/console.h>
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -98,6 +99,13 @@ NORET_TYPE void panic(const char * fmt, ...)
 	smp_send_stop();
 
 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
+
+	/*
+	 * Unlock the console anyway here, in case it's occupied by another
+	 * one which has no chance to unlock the console thus prevents the
+	 * panic log prints on the console.
+	 */
+	console_unlock();
 
 	bust_spinlocks(0);
 
