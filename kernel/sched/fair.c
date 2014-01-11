@@ -3156,13 +3156,28 @@ done:
 static inline bool is_buddy_busy(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
+	volatile u32 *psum = &rq->avg.runnable_avg_sum;
+	volatile u32 *pperiod = &rq->avg.runnable_avg_period;
+	u32 sum, new_sum, period, new_period;
+	int timeout = 10;
+
+	while (timeout) {
+		sum = *psum;
+		period = *pperiod;
+		new_sum = *psum;
+		new_period = *pperiod;
+
+		if ((sum == new_sum) && (period == new_period))
+			break;
+
+		timeout--;
+	}
 
 	/*
 	 * A busy buddy is a CPU with a high load or a small load with a lot of
 	 * running tasks.
 	 */
-	return ((rq->avg.usage_avg_sum << rq->nr_running) >
-			rq->avg.runnable_avg_period);
+	return ((new_sum << rq->nr_running) > new_period);
 }
 
 static inline bool is_light_task(struct task_struct *p)
