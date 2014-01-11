@@ -1391,13 +1391,8 @@ int random_int_secret_init(void)
 DEFINE_PER_CPU(__u32 [MD5_DIGEST_WORDS], get_random_int_hash);
 unsigned int get_random_int(void)
 {
-	__u32 *hash;
+	__u32 *hash = get_cpu_var(get_random_int_hash);
 	unsigned int ret;
-
-	if (arch_get_random_int(&ret))
-		return ret;
-
-	hash = get_cpu_var(get_random_int_hash);
 
 	hash[0] += current->pid + jiffies + get_cycles();
 	md5_transform(hash, random_int_secret);
