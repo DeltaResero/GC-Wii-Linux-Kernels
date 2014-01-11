@@ -30,6 +30,12 @@ config ZRAM_NUM_DEVICES
 	  Select default number of zram devices. You can override this value
 	  using 'num_devices' module parameter.
 
+config ZRAM_DEFAULT_DISKSIZE
+	int "Default size of zram in bytes"
+	depends on ZRAM
+	default 33554432
+	help
+	  Set default zram disk size (default ~ 32MB)
 
 config ZRAM_DEBUG
 	bool "Compressed RAM block device debug support"

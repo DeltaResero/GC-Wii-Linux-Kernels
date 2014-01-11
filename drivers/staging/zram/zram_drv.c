@@ -106,8 +106,11 @@ static int page_zero_filled(void *ptr)
 
 static u64 zram_default_disksize_bytes(void)
 {
+#if 0
 	return ((totalram_pages << PAGE_SHIFT) *
 		default_disksize_perc_ram / 100) & PAGE_MASK;
+#endif
+	return CONFIG_ZRAM_DEFAULT_DISKSIZE;
 }
 
 static void zram_set_disksize(struct zram *zram, u64 size_bytes)
