@@ -21,7 +21,7 @@
 #include <linux/fcntl.h>	/* O_ACCMODE */
 #include <linux/hdreg.h>	/* HDIO_GETGEO */
 #include <linux/io.h>
-#include <linux/slab.h>		/* kzalloc and kfree */
+#include <linux/slab.h>
 
 
 #define DRV_MODULE_NAME "rvl-mem2"
@@ -319,7 +319,7 @@ static int mem2_do_remove(struct device *dev)
 /*
  * Driver model probe function.
  */
-static int mem2_of_probe(struct platform_device *odev)
+static int __init mem2_of_probe(struct platform_device *odev)
 
 {
 	struct resource res;
@@ -349,7 +349,7 @@ static struct of_device_id mem2_of_match[] = {
 
 MODULE_DEVICE_TABLE(of, mem2_of_match);
 
-static struct platform_driver mem2_of_driver = {
+static struct platform_driver mem2_of_driver __refdata = {
 	.driver = {
 		.name = DRV_MODULE_NAME,
 		.owner = THIS_MODULE,

@@ -121,13 +121,13 @@ static const struct of_device_id i2c_gpio_of_match[] = {
 MODULE_DEVICE_TABLE(of, i2c_gpio_of_match);
 
 static struct platform_driver i2c_gpio_of_driver = {
-	.probe		= i2c_gpio_of_probe,
-	.remove		= __devexit_p(i2c_gpio_of_remove),
-	.driver		= {
-		.owner	= THIS_MODULE,
-		.name	= DRV_MODULE_NAME,
+	.driver = {
+		.name = DRV_MODULE_NAME,
+		.owner = THIS_MODULE,
 		.of_match_table = i2c_gpio_of_match,
 	},
+	.probe = i2c_gpio_of_probe,
+	.remove = __devexit_p(i2c_gpio_of_remove),
 };
 
 static int __init i2c_gpio_of_init(void)

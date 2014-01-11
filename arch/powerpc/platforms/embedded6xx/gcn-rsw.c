@@ -31,10 +31,10 @@
 #define FLIPPER_ICR		0x00
 #define FLIPPER_ICR_RSS		(1<<16) /* reset switch state */
 
-#define DRV_MODULE_NAME      "gcn-rsw"
-#define DRV_DESCRIPTION      "Nintendo GameCube/Wii Reset SWitch (RSW) driver"
-#define DRV_AUTHOR           "Stefan Esser <se@nopiracy.de>, " \
-			     "Albert Herranz"
+#define DRV_MODULE_NAME	"gcn-rsw"
+#define DRV_DESCRIPTION	"Nintendo GameCube/Wii Reset SWitch (RSW) driver"
+#define DRV_AUTHOR			"Stefan Esser <se@nopiracy.de>, " \
+							"Albert Herranz"
 
 static char rsw_driver_version[] = "1.0i";
 
@@ -249,7 +249,7 @@ static int rsw_do_remove(struct device *dev)
  *
  */
 
-static int rsw_of_probe(struct platform_device *odev)
+static int __init rsw_of_probe(struct platform_device *odev)
 
 {
 	struct resource mem;
@@ -278,7 +278,7 @@ static struct of_device_id rsw_of_match[] = {
 
 MODULE_DEVICE_TABLE(of, rsw_of_match);
 
-static struct platform_driver rsw_of_driver = {
+static struct platform_driver rsw_of_driver __refdata = {
 	.driver = {
 		.name = DRV_MODULE_NAME,
 		.owner = THIS_MODULE,

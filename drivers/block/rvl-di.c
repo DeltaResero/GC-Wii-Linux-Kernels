@@ -1800,7 +1800,7 @@ static int di_do_shutdown(struct device *dev)
  *
  */
 
-static int di_of_probe(struct platform_device *odev)
+static int __init di_of_probe(struct platform_device *odev)
 
 {
 	struct resource res;
@@ -1836,7 +1836,7 @@ static struct of_device_id di_of_match[] = {
 
 MODULE_DEVICE_TABLE(of, di_of_match);
 
-static struct platform_driver di_of_driver = {
+static struct platform_driver di_of_driver __refdata = {
 	.driver = {
 		.name = DRV_MODULE_NAME,
 		.owner = THIS_MODULE,

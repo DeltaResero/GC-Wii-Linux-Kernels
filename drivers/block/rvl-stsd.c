@@ -2249,7 +2249,7 @@ static struct of_device_id stsd_of_match[] = {
 
 MODULE_DEVICE_TABLE(of, stsd_of_match);
 
-static struct platform_driver stsd_of_driver = {
+static struct platform_driver stsd_of_driver __refdata = {
 	.driver = {
 		.name = DRV_MODULE_NAME,
 		.owner = THIS_MODULE,

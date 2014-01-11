@@ -52,23 +52,23 @@
 
 #define SD_DEBUG
 
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/slab.h>
+#include <linux/blkdev.h>
+#include <linux/crc-ccitt.h>
 #include <linux/delay.h>
+#include <linux/hdreg.h>
+#include <linux/init.h>	
+#include <linux/kernel.h>
 #include <linux/kthread.h>
 #include <linux/major.h>
-#include <linux/blkdev.h>
-#include <linux/hdreg.h>
-#include <linux/crc-ccitt.h>
+#include <linux/module.h>
+#include <linux/slab.h>
 
 /*
  * The existing Linux MMC layer does not support SPI operation yet.
  * Anyway, we try to recycle here some common code.
  */
-#include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
+#include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 
@@ -1814,7 +1814,9 @@ static struct exi_device_id sd_eid_table[] = {
 };
 
 static struct exi_driver sd_driver = {
-	.name = DRV_MODULE_NAME,
+	.driver		= {
+		.name = DRV_MODULE_NAME,
+	},
 	.eid_table = sd_eid_table,
 	.frequency = SD_SPI_CLK_IDX,
 	.probe = sd_probe,

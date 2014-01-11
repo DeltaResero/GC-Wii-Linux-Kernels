@@ -254,7 +254,7 @@ static void __iomem *vi_setup_io_base(struct device_node *np)
 /* OF bindings */
 static struct of_device_id gcnvi_udbg_ids[] __initdata = {
 	{ .compatible = "nintendo,hollywood-vi", },
-	{ .compatible = "nintendo,gamecube-vi", }, // flipper-vi instead?
+	{ .compatible = "nintendo,flipper-vi", },
 };
 
 static struct console_data gcnvi_udbg_console;

@@ -2291,7 +2291,7 @@ static int di_do_shutdown(struct device *dev)
  *
  */
 
-static int di_of_probe(struct platform_device *odev)
+static int __init di_of_probe(struct platform_device *odev)
 
 {
 	struct resource res;
