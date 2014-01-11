@@ -184,23 +184,28 @@ void update_packing_domain(int cpu)
 	while (sd) {
 		struct sched_group *sg = sd->groups;
 		struct sched_group *pack = sg;
-		struct sched_group *tmp = sg->next;
+		struct sched_group *tmp;
 
-		/* 1st CPU of the sched domain is a good candidate */
-		if (id == -1)
-			id = cpumask_first(sched_domain_span(sd));
+		/* The 1st CPU of the local group is a good candidate */
+		id = cpumask_first(sched_group_cpus(pack));
 
 		/* loop the sched groups to find the best one */
-		while (tmp != sg) {
-			if (tmp->sgp->power * sg->group_weight <
-					sg->sgp->power * tmp->group_weight)
-				pack = tmp;
-			tmp = tmp->next;
-		}
+		for (tmp = sg->next; tmp != sg; tmp = tmp->next) {
+			if (tmp->sgp->power * pack->group_weight >
+					pack->sgp->power * tmp->group_weight)
+				continue;
 
-		/* we have found a better group */
-		if (pack != sg)
+			if ((tmp->sgp->power * pack->group_weight ==
+					pack->sgp->power * tmp->group_weight)
+			 && (cpumask_first(sched_group_cpus(tmp)) >= id))
+				continue;
+
+			/* we have found a better group */
+			pack = tmp;
+
+			/* Take the 1st CPU of the new group */
 			id = cpumask_first(sched_group_cpus(pack));
+		}
 
 		/* Look for another CPU than itself */
 		if ((id != cpu)
