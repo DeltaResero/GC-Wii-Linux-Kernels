@@ -2681,6 +2681,10 @@ static void init_once(void *foo)
 
 static int init_inodecache(void)
 {
+#ifdef CONFIG_TMPFS_ROOT
+	if (shmem_inode_cachep)
+		return 0;
+#endif
 	shmem_inode_cachep = kmem_cache_create("shmem_inode_cache",
 				sizeof(struct shmem_inode_info),
 				0, SLAB_PANIC, init_once);
@@ -3035,6 +3039,27 @@ void shmem_set_file(struct vm_area_struct *vma, struct file *file)
 	vma->vm_ops = &shmem_vm_ops;
 	vma->vm_flags |= VM_CAN_NONLINEAR;
 }
+
+#ifdef CONFIG_TMPFS_ROOT
+static struct dentry *rootfs_mount(struct file_system_type *fs_type,
+	int flags, const char *dev_name, void *data)
+{
+	return mount_nodev(fs_type, flags, data, shmem_fill_super);
+}
+
+static struct file_system_type rootfs_fs_type = {
+	.name		= "rootfs",
+	.mount		= rootfs_mount,
+	.kill_sb	= kill_litter_super,
+};
+
+int __init init_rootfs(void)
+{
+	if (init_inodecache())
+		panic("Can't initialize shm inode cache");
+	return register_filesystem(&rootfs_fs_type);
+}
+#endif
 
 /**
  * shmem_zero_setup - setup a shared anonymous mapping
