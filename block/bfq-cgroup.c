@@ -7,6 +7,8 @@
  * Copyright (C) 2008 Fabio Checconi <fabio@gandalf.sssup.it>
  *		      Paolo Valente <paolo.valente@unimore.it>
  *
+ * Copyright (C) 2010 Paolo Valente <paolo.valente@unimore.it>
+ *
  * Licensed under the GPL-2 as detailed in the accompanying COPYING.BFQ file.
  */
 
@@ -59,11 +61,22 @@ static inline void bfq_group_init_entity(struct bfqio_cgroup *bgrp,
 {
 	struct bfq_entity *entity = &bfqg->entity;
 
-	entity->weight = entity->new_weight = bgrp->weight;
-	entity->orig_weight = entity->new_weight;
-	entity->ioprio = entity->new_ioprio = bgrp->ioprio;
+	/*
+	 * If the weight of the entity has never been set via the sysfs
+	 * interface, then bgrp->weight == 0. In this case we initialize
+	 * the weight from the current ioprio value. Otherwise, the group
+	 * weight, if set, has priority over the ioprio value.
+	 */
+	if (bgrp->weight == 0) {
+		entity->new_weight = bfq_ioprio_to_weight(bgrp->ioprio);
+		entity->new_ioprio = bgrp->ioprio;
+	} else {
+		entity->new_weight = bgrp->weight;
+		entity->new_ioprio = bfq_weight_to_ioprio(bgrp->weight);
+	}
+	entity->orig_weight = entity->weight = entity->new_weight;
+	entity->ioprio = entity->new_ioprio;
 	entity->ioprio_class = entity->new_ioprio_class = bgrp->ioprio_class;
-	entity->ioprio_changed = 1;
 	entity->my_sched_data = &bfqg->sched_data;
 }
 
@@ -276,6 +289,9 @@ static void bfq_bfqq_move(struct bfq_data *bfqd, struct bfq_queue *bfqq,
 
 	if (busy && resume)
 		bfq_activate_bfqq(bfqd, bfqq);
+
+	if (bfqd->active_queue == NULL && !bfqd->rq_in_driver)
+		bfq_schedule_dispatch(bfqd);
 }
 
 /**
@@ -295,10 +311,15 @@ static struct bfq_group *__bfq_cic_change_cgroup(struct bfq_data *bfqd,
 						 struct cfq_io_context *cic,
 						 struct cgroup *cgroup)
 {
-	struct bfq_queue *async_bfqq = cic_to_bfqq(cic, 0);
-	struct bfq_queue *sync_bfqq = cic_to_bfqq(cic, 1);
+	struct bfq_queue *async_bfqq;
+	struct bfq_queue *sync_bfqq;
 	struct bfq_entity *entity;
 	struct bfq_group *bfqg;
+
+	spin_lock(&bfqd->eqm_lock);
+
+	async_bfqq = cic_to_bfqq(cic, 0);
+	sync_bfqq = cic_to_bfqq(cic, 1);
 
 	bfqg = bfq_find_alloc_group(bfqd, cgroup);
 	if (async_bfqq != NULL) {
@@ -318,6 +339,8 @@ static struct bfq_group *__bfq_cic_change_cgroup(struct bfq_data *bfqd,
 		if (entity->sched_data != &bfqg->sched_data)
 			bfq_bfqq_move(bfqd, sync_bfqq, entity, bfqg);
 	}
+
+	spin_unlock(&bfqd->eqm_lock);
 
 	return bfqg;
 }
@@ -513,6 +536,15 @@ static void bfq_destroy_group(struct bfqio_cgroup *bgrp, struct bfq_group *bfqg)
 	kfree(bfqg);
 }
 
+static void bfq_end_raising_async(struct bfq_data *bfqd)
+{
+	struct hlist_node *pos, *n;
+	struct bfq_group *bfqg;
+
+	hlist_for_each_entry_safe(bfqg, pos, n, &bfqd->group_list, bfqd_node)
+		bfq_end_raising_async_queues(bfqd, bfqg);
+}
+
 /**
  * bfq_disconnect_groups - diconnect @bfqd from all its groups.
  * @bfqd: the device descriptor being exited.
@@ -633,9 +665,17 @@ static int bfqio_cgroup_##__VAR##_write(struct cgroup *cgroup,		\
 	spin_lock_irq(&bgrp->lock);					\
 	bgrp->__VAR = (unsigned short)val;				\
 	hlist_for_each_entry(bfqg, n, &bgrp->group_data, group_node) {	\
-		bfqg->entity.new_##__VAR = (unsigned short)val;		\
-		smp_wmb();						\
-		bfqg->entity.ioprio_changed = 1;			\
+		/*                                                      \
+		 * Setting the ioprio_changed flag of the entity        \
+		 * to 1 with new_##__VAR == ##__VAR would re-set        \
+		 * the value of the weight to its ioprio mapping.       \
+		 * Set the flag only if necessary.                      \
+		 */                                                     \
+		if ((unsigned short)val != bfqg->entity.new_##__VAR) {  \
+			bfqg->entity.new_##__VAR = (unsigned short)val; \
+			smp_wmb();                                      \
+			bfqg->entity.ioprio_changed = 1;                \
+		}                                                       \
 	}								\
 	spin_unlock_irq(&bgrp->lock);					\
 									\
@@ -694,7 +734,7 @@ static struct cgroup_subsys_state *bfqio_create(struct cgroup_subsys *subsys,
 }
 
 /*
- * We cannot support shared io contexts, as we have no mean to support
+ * We cannot support shared io contexts, as we have no means to support
  * two tasks with the same ioc in two different groups without major rework
  * of the main cic/bfqq data structures.  By now we allow a task to change
  * its cgroup only if it's the only owner of its ioc; the drawback of this
@@ -802,6 +842,11 @@ static inline void bfq_bfqq_move(struct bfq_data *bfqd,
 				 struct bfq_entity *entity,
 				 struct bfq_group *bfqg)
 {
+}
+
+static void bfq_end_raising_async(struct bfq_data *bfqd)
+{
+	bfq_end_raising_async_queues(bfqd, bfqd->root_group);
 }
 
 static inline void bfq_disconnect_groups(struct bfq_data *bfqd)
