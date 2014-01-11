@@ -866,7 +866,6 @@ static int vfat_unlink(struct inode *dir, struct dentry *dentry)
 		goto out;
 	clear_nlink(inode);
 	inode->i_mtime = inode->i_atime = CURRENT_TIME_SEC;
-	fat_detach(inode);
 out:
 	unlock_super(sb);
 
