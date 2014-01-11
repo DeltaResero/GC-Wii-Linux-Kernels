@@ -39,7 +39,9 @@
 #else
 # define tobe(x) (x)
 #endif
+#ifdef CONFIG_CRC32_TABLES
 #include "crc32table.h"
+#endif
 
 MODULE_AUTHOR("Matt Domsch <Matt_Domsch@dell.com>");
 MODULE_DESCRIPTION("Ethernet CRC32 calculations");

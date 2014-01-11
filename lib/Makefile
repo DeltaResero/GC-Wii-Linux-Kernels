@@ -116,7 +116,9 @@ obj-$(CONFIG_CPU_RMAP) += cpu_rmap.o
 hostprogs-y	:= gen_crc32table
 clean-files	:= crc32table.h
 
+ifeq ($(CONFIG_CRC32_TABLES),y)
 $(obj)/crc32.o: $(obj)/crc32table.h
+endif
 
 quiet_cmd_crc32 = GEN     $@
       cmd_crc32 = $< > $@
