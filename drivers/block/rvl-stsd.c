@@ -2195,9 +2195,6 @@ static int __devinit stsd_do_probe(struct device *dev)
 	struct stsd_host *host;
 	int error;
 
-	if (starlet_get_ipc_flavour() != STARLET_IPC_IOS)
-		return -ENODEV;
-
 	host = kzalloc(sizeof(*host), GFP_KERNEL);
 	if (!host) {
 		drv_printk(KERN_ERR, "%s: failed to allocate stsd_host\n",
