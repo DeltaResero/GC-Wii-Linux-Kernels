@@ -29,6 +29,7 @@ BSS_STACK(8192);
 #define MEM2_TOP		(0x10000000 + 64*1024*1024)
 #define FIRMWARE_DEFAULT_SIZE	(12*1024*1024)
 
+#define MEM2_DMA_DEFAULT_SIZE	(512*1024)
 
 static int save_lowmem_stub(void)
 {
@@ -137,6 +138,42 @@ out:
 
 }
 
+static char tmp_cmdline[COMMAND_LINE_SIZE];
+
+static void mem2_fixups(u32 *top, u32 *reg)
+{
+	/* ' mem2_dma=' + nnnnnnn + 'K@0x' + aaaaaaaa */
+	const int max_param_len = 10 + 7 + 4 + 8;
+	void *chosen;
+	u32 dma_base, dma_size;
+	char *p;
+
+	chosen = finddevice("/chosen");
+	if (!chosen)
+		fatal("Can't find chosen node\n");
+
+	/* the MEM2 DMA region must fit within MEM2 */
+	dma_size = MEM2_DMA_DEFAULT_SIZE;
+	if (dma_size > reg[3])
+		dma_size = reg[3];
+	/* reserve the region from the top of MEM2 */
+	*top -= dma_size;
+	dma_base = *top;
+	printf("mem2_dma: %uk@0x%08x\n", dma_size >> 10, dma_base);
+
+	/*
+	 * Finally, add the MEM2 DMA region location information to the
+	 * kernel command line. The wii-dma driver will pick this info up.
+	 */
+	getprop(chosen, "bootargs", tmp_cmdline, COMMAND_LINE_SIZE-1);
+	p = strchr(tmp_cmdline, 0);
+	if (p - tmp_cmdline + max_param_len >= COMMAND_LINE_SIZE)
+		fatal("No space left for mem2_dma param\n");
+
+	sprintf(p, " mem2_dma=%uk@0x%08x", dma_size >> 10, dma_base);
+	setprop_str(chosen, "bootargs", tmp_cmdline);
+}
+
 static void platform_fixups(void)
 {
 	void *mem;
@@ -163,9 +200,16 @@ static void platform_fixups(void)
 		mem2_boundary = MEM2_TOP - FIRMWARE_DEFAULT_SIZE;
 	}
 
+	mem2_fixups(&mem2_boundary, reg);
+
 	if (mem2_boundary > reg[2] && mem2_boundary < reg[2] + reg[3]) {
 		reg[3] = mem2_boundary - reg[2];
 		printf("top of MEM2 @ %08X\n", reg[2] + reg[3]);
+		/*
+		 * Find again the memory node as it may have changed its
+		 * position after adding some non-existing properties.
+		 */
+		mem = finddevice("/memory");
 		setprop(mem, "reg", reg, sizeof(reg));
 	}
 
