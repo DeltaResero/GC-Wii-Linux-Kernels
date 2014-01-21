@@ -2,8 +2,8 @@
  * drivers/usb/host/ehci-hlwd.c
  *
  * Nintendo Wii (Hollywood) USB Enhanced Host Controller Interface.
- * Copyright (C) 2009 The GameCube Linux Team
- * Copyright (C) 2009 Albert Herranz
+ * Copyright (C) 2009-2010 The GameCube Linux Team
+ * Copyright (C) 2009,2010 Albert Herranz
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,24 +26,25 @@
  */
 
 #include <linux/signal.h>
-
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <asm/starlet.h>
+#include <asm/wii.h>
 
 #define DRV_MODULE_NAME "ehci-hlwd"
 #define DRV_DESCRIPTION "Nintendo Wii EHCI Host Controller"
 #define DRV_AUTHOR      "Albert Herranz"
 
-#define HLWD_EHCI_CTL		0x0d0400cc
-#define HLWD_EHCI_CTL_INTE	(1<<15)
-
+/*
+ * Non-standard registers.
+ */
+#define HLWD_EHCI_CTL		0x00cc	/* Controller Control */
+#define HLWD_EHCI_CTL_INTE	(1<<15)	/* Notify EHCI interrupts */
 
 /* called during probe() after chip reset completes */
 static int ehci_hlwd_reset(struct usb_hcd *hcd)
 {
 	struct ehci_hcd	*ehci = hcd_to_ehci(hcd);
-	void __iomem *ehci_ctl;
 	int error;
 
 	dbg_hcs_params(ehci, "reset");
@@ -57,16 +58,8 @@ static int ehci_hlwd_reset(struct usb_hcd *hcd)
 	if (error)
 		goto out;
 
-	ehci_ctl = ioremap(HLWD_EHCI_CTL, 4);
-	if (!ehci_ctl) {
-		printk(KERN_ERR __FILE__ ": ioremap failed\n");
-		error = -EBUSY;
-		goto out;
-	}
-
 	/* enable notification of EHCI interrupts */
-	out_be32(ehci_ctl, in_be32(ehci_ctl) | HLWD_EHCI_CTL_INTE);
-	iounmap(ehci_ctl);
+	setbits32(hcd->regs + HLWD_EHCI_CTL, HLWD_EHCI_CTL_INTE);
 
 	ehci->sbrn = 0x20;
 	error = ehci_reset(ehci);
@@ -84,7 +77,7 @@ static const struct hc_driver ehci_hlwd_hc_driver = {
 	 * generic hardware linkage
 	 */
 	.irq			= ehci_irq,
-	.flags			= HCD_USB2,
+	.flags			= HCD_USB2 | HCD_NO_COHERENT_MEM,
 
 	/*
 	 * basic lifecycle operations
@@ -122,7 +115,6 @@ static const struct hc_driver ehci_hlwd_hc_driver = {
 	.clear_tt_buffer_complete	= ehci_clear_tt_buffer_complete,
 };
 
-
 static int __devinit
 ehci_hcd_hlwd_probe(struct of_device *op, const struct of_device_id *match)
 {
@@ -130,15 +122,10 @@ ehci_hcd_hlwd_probe(struct of_device *op, const struct of_device_id *match)
 	struct usb_hcd *hcd;
 	struct ehci_hcd	*ehci = NULL;
 	struct resource res;
-	dma_addr_t coherent_mem_addr;
-	size_t coherent_mem_size;
 	int irq;
 	int error = -ENODEV;
 
 	if (usb_disabled())
-		goto out;
-
-	if (starlet_get_ipc_flavour() != STARLET_IPC_MINI)
 		goto out;
 
 	dev_dbg(&op->dev, "initializing " DRV_MODULE_NAME " USB Controller\n");
@@ -156,26 +143,6 @@ ehci_hcd_hlwd_probe(struct of_device *op, const struct of_device_id *match)
 	hcd->rsrc_start = res.start;
 	hcd->rsrc_len = resource_size(&res);
 
-	error = of_address_to_resource(dn, 1, &res);
-	if (error) {
-		/* satisfy coherent memory allocations from mem1 or mem2 */
-		dev_warn(&op->dev, "using normal memory\n");
-	} else {
-		coherent_mem_addr = res.start;
-		coherent_mem_size = res.end - res.start + 1;
-		if (!dma_declare_coherent_memory(&op->dev, coherent_mem_addr,
-						 coherent_mem_addr,
-						 coherent_mem_size,
-						 DMA_MEMORY_MAP |
-						 DMA_MEMORY_EXCLUSIVE)) {
-			dev_err(&op->dev, "error declaring %u bytes of"
-				" coherent memory at 0x%p\n",
-				coherent_mem_size, (void *)coherent_mem_addr);
-			error = -EBUSY;
-			goto err_decl_coherent;
-		}
-	}
-
 	irq = irq_of_parse_and_map(dn, 0);
 	if (irq == NO_IRQ) {
 		printk(KERN_ERR __FILE__ ": irq_of_parse_and_map failed\n");
@@ -190,6 +157,11 @@ ehci_hcd_hlwd_probe(struct of_device *op, const struct of_device_id *match)
 		goto err_ioremap;
 	}
 
+	/* this device requires MEM2 DMA buffers */
+	error = wii_set_mem2_dma_constraints(&op->dev);
+	if (error)
+		goto err_mem2_constraints;
+
 	ehci = hcd_to_ehci(hcd);
 	ehci->caps = hcd->regs;
 	ehci->regs = hcd->regs +
@@ -202,12 +174,11 @@ ehci_hcd_hlwd_probe(struct of_device *op, const struct of_device_id *match)
 	if (error == 0)
 		return 0;
 
+err_mem2_constraints:
 	iounmap(hcd->regs);
 err_ioremap:
 	irq_dispose_mapping(irq);
 err_irq:
-	dma_release_declared_memory(&op->dev);
-err_decl_coherent:
 	usb_put_hcd(hcd);
 out:
 	return error;
@@ -223,9 +194,9 @@ static int ehci_hcd_hlwd_remove(struct of_device *op)
 	dev_dbg(&op->dev, "stopping " DRV_MODULE_NAME " USB Controller\n");
 
 	usb_remove_hcd(hcd);
+	wii_clear_mem2_dma_constraints(&op->dev);
 	iounmap(hcd->regs);
 	irq_dispose_mapping(hcd->irq);
-	dma_release_declared_memory(&op->dev);
 	usb_put_hcd(hcd);
 
 	return 0;
@@ -244,9 +215,7 @@ static int ehci_hcd_hlwd_shutdown(struct of_device *op)
 
 
 static struct of_device_id ehci_hcd_hlwd_match[] = {
-	{
-		.compatible = "nintendo,hollywood-usb-ehci",
-	},
+	{ .compatible = "nintendo,hollywood-usb-ehci", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, ehci_hcd_hlwd_match);
