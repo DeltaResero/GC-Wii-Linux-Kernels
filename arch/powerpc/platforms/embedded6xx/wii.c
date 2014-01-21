@@ -172,6 +172,7 @@ static void __init wii_setup_arch(void)
 		clrbits32(hw_gpio + HW_GPIO_OUT(0),
 			  HW_GPIO_SLOT_LED | HW_GPIO_SENSOR_BAR);
 	}
+	ppc_swiotlb_enable = 1;
 
 	ug_udbg_init();
 	gcnvi_udbg_init();
