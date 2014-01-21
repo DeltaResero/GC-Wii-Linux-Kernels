@@ -612,6 +612,29 @@ ehci_port_speed(struct ehci_hcd *ehci, unsigned int portsc)
 #define ehci_big_endian_mmio(e)		0
 #endif
 
+#ifdef CONFIG_USB_EHCI_HCD_HLWD
+
+#include <asm/starlet-mini.h>
+
+/*
+ * The Nintendo Wii video game console has no PCI hardware.
+ * The USB controllers are part of the "Hollywood" chipset and are
+ * accessed via the platform internal I/O accessors.
+ */
+static inline unsigned int ehci_readl(const struct ehci_hcd *ehci,
+				      __u32 __iomem *regs)
+{
+	return in_be32(regs);
+}
+
+static inline void ehci_writel(const struct ehci_hcd *ehci,
+			       const unsigned int val, __u32 __iomem *regs)
+{
+	out_be32(regs, val);
+}
+
+#else
+
 /*
  * Big-endian read/write functions are arch-specific.
  * Other arches can be added if/when they're needed.
@@ -644,6 +667,8 @@ static inline void ehci_writel(const struct ehci_hcd *ehci,
 	writel(val, regs);
 #endif
 }
+
+#endif /* CONFIG_USB_EHCI_HCD_HLWD */
 
 /*
  * On certain ppc-44x SoC there is a HW issue, that could only worked around with

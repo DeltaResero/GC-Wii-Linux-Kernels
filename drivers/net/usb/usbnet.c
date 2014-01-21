@@ -582,7 +582,9 @@ static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
 
 		// during some PM-driven resume scenarios,
 		// these (async) unlinks complete immediately
+		spin_unlock(&q->lock);
 		retval = usb_unlink_urb (urb);
+		spin_lock(&q->lock);
 		if (retval != -EINPROGRESS && retval != 0)
 			netdev_dbg(dev->net, "unlink urb err, %d\n", retval);
 		else

@@ -77,7 +77,7 @@ static void hlwd_pic_unmask(unsigned int virq)
 
 
 static struct irq_chip hlwd_pic = {
-	.name		= "hlwd-pic",
+	.typename	= "hlwd-pic",
 	.ack		= hlwd_pic_ack,
 	.mask_ack	= hlwd_pic_mask_and_ack,
 	.mask		= hlwd_pic_mask,

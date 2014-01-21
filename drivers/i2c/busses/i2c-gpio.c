@@ -7,14 +7,15 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+
 #include <linux/i2c.h>
 #include <linux/i2c-algo-bit.h>
 #include <linux/i2c-gpio.h>
+#include "i2c-gpio-common.h"
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
-
 #include <asm/gpio.h>
 
 /* Toggle SDA by changing the direction of the pin */
