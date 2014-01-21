@@ -190,6 +190,8 @@ static inline bool dma_capable(struct device *dev, dma_addr_t addr, size_t size)
 
 	if (sd->max_direct_dma_addr && addr + size > sd->max_direct_dma_addr)
 		return 0;
+	if (sd->min_direct_dma_addr && addr < sd->min_direct_dma_addr)
+		return 0;
 #endif
 
 	if (!dev->dma_mask)

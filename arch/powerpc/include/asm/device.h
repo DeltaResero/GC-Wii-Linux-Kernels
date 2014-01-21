@@ -27,6 +27,7 @@ struct dev_archdata {
 
 #ifdef CONFIG_SWIOTLB
 	dma_addr_t		max_direct_dma_addr;
+	dma_addr_t		min_direct_dma_addr;
 #endif
 };
 
