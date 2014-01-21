@@ -135,6 +135,11 @@ void swiotlb_print_info(void)
 	       (unsigned long long)pend);
 }
 
+void * __weak __init swiotlb_alloc_boot(size_t size, unsigned long nslabs)
+{
+	return alloc_bootmem_low_pages(size);
+}
+
 /*
  * Statically reserve bounce buffer space and initialize bounce buffer data
  * structures for the software IO TLB used to implement the DMA API.
@@ -154,7 +159,7 @@ swiotlb_init_with_default_size(size_t default_size, int verbose)
 	/*
 	 * Get IO TLB memory from the low pages
 	 */
-	swiotlb_tbl_start = alloc_bootmem_low_pages(bytes);
+	swiotlb_tbl_start = swiotlb_alloc_boot(bytes, swiotlb_tbl_nslabs);
 	if (!swiotlb_tbl_start)
 		panic("Cannot allocate SWIOTLB buffer");
 	io_tlb_end = swiotlb_tbl_start + bytes;
@@ -174,7 +179,8 @@ swiotlb_init_with_default_size(size_t default_size, int verbose)
 	/*
 	 * Get the overflow emergency buffer
 	 */
-	io_tlb_overflow_buffer = alloc_bootmem_low(io_tlb_overflow);
+	io_tlb_overflow_buffer = swiotlb_alloc_boot(io_tlb_overflow,
+						    swiotlb_tbl_nslabs);
 	if (!io_tlb_overflow_buffer)
 		panic("Cannot allocate SWIOTLB overflow buffer!\n");
 	if (verbose)

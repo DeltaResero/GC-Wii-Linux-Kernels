@@ -54,6 +54,7 @@ extern void swiotlb_bounce(phys_addr_t phys, char *dma_addr, size_t size,
 extern void swiotlb_full(struct device *dev, size_t size,
 			 enum dma_data_direction dir, int do_panic);
 
+extern void __init *swiotlb_alloc_boot(size_t bytes, unsigned long nslabs);
 #endif
 
 /* swiotlb.c: dma_ops functions. */
