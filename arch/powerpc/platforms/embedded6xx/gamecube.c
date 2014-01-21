@@ -82,7 +82,7 @@ static int __init gamecube_probe(void)
 
 static void gamecube_shutdown(void)
 {
-	/* currently not used */
+	flipper_quiesce();
 }
 
 #ifdef CONFIG_KEXEC
@@ -112,11 +112,11 @@ define_machine(gamecube) {
 	.machine_kexec		= default_machine_kexec,
 #endif
 };
-+
-+
-+static struct of_device_id gamecube_of_bus[] = {
-+	{ .compatible = "nintendo,flipper", },
-+	{ },
+
+
+static struct of_device_id gamecube_of_bus[] = {
+	{ .compatible = "nintendo,flipper", },
+	{ },
  };
  
 static int __init gamecube_device_probe(void)
