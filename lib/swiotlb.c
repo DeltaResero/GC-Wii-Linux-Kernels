@@ -59,12 +59,14 @@ int swiotlb_force;
  */
 char *swiotlb_tbl_start;
 static char *io_tlb_end;
+EXPORT_SYMBOL_GPL(swiotlb_tbl_start);
 
 /*
  * The number of IO TLB blocks (in groups of 64) betweeen swiotlb_tbl_start and
  * io_tlb_end.  This is command line adjustable via setup_io_tlb_npages.
  */
 unsigned long swiotlb_tbl_nslabs;
+EXPORT_SYMBOL_GPL(swiotlb_tbl_nslabs);
 
 /*
  * When the IOMMU overflows we return a fallback buffer. This sets the size.
@@ -314,6 +316,7 @@ int is_swiotlb_buffer(phys_addr_t paddr)
 	return paddr >= virt_to_phys(swiotlb_tbl_start) &&
 		paddr < virt_to_phys(io_tlb_end);
 }
+EXPORT_SYMBOL_GPL(is_swiotlb_buffer);
 
 /*
  * Bounce: copy the swiotlb buffer back to the original dma location
@@ -355,6 +358,7 @@ void swiotlb_bounce(phys_addr_t phys, char *dma_addr, size_t size,
 			memcpy(phys_to_virt(phys), dma_addr, size);
 	}
 }
+EXPORT_SYMBOL_GPL(swiotlb_bounce);
 
 /*
  * Allocates bounce buffer and returns its kernel virtual address.
@@ -462,6 +466,7 @@ found:
 
 	return dma_addr;
 }
+EXPORT_SYMBOL_GPL(swiotlb_tbl_map_single);
 
 /*
  * dma_addr is the kernel virtual address of the bounce buffer to unmap.
@@ -507,6 +512,7 @@ swiotlb_tbl_unmap_single(struct device *hwdev, char *dma_addr, size_t size,
 	}
 	spin_unlock_irqrestore(&io_tlb_lock, flags);
 }
+EXPORT_SYMBOL_GPL(swiotlb_tbl_unmap_single);
 
 void
 swiotlb_tbl_sync_single(struct device *hwdev, char *dma_addr, size_t size,
@@ -535,6 +541,7 @@ swiotlb_tbl_sync_single(struct device *hwdev, char *dma_addr, size_t size,
 		BUG();
 	}
 }
+EXPORT_SYMBOL_GPL(swiotlb_tbl_sync_single);
 
 void *
 swiotlb_alloc_coherent(struct device *hwdev, size_t size,
@@ -627,6 +634,7 @@ swiotlb_full(struct device *dev, size_t size, enum dma_data_direction dir,
 	if (dir == DMA_TO_DEVICE)
 		panic("DMA: Random memory could be DMA read\n");
 }
+EXPORT_SYMBOL_GPL(swiotlb_full);
 
 /*
  * Map a single buffer of the indicated size for DMA in streaming mode.  The
