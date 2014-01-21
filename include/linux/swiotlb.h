@@ -24,6 +24,39 @@ extern int swiotlb_force;
 
 extern void swiotlb_init(int verbose);
 
+/* Internal book-keeping functions. Must be linked against the library
+ * to take advantage of them.*/
+#ifdef CONFIG_SWIOTLB
+/*
+ * Enumeration for sync targets
+ */
+enum dma_sync_target {
+	SYNC_FOR_CPU = 0,
+	SYNC_FOR_DEVICE = 1,
+};
+extern char *swiotlb_tbl_start;
+extern unsigned long swiotlb_tbl_nslabs;
+extern int is_swiotlb_buffer(phys_addr_t paddr);
+extern void *swiotlb_tbl_map_single(struct device *hwdev, phys_addr_t phys,
+				    unsigned long start_dma_addr, size_t size,
+				    enum dma_data_direction dir);
+
+extern void swiotlb_tbl_unmap_single(struct device *hwdev, char *dma_addr,
+				     size_t size, enum dma_data_direction dir);
+
+extern void swiotlb_tbl_sync_single(struct device *hwdev, char *dma_addr,
+				    size_t size, enum dma_data_direction dir,
+				    enum dma_sync_target target);
+
+/* Accessory functions. */
+extern void swiotlb_bounce(phys_addr_t phys, char *dma_addr, size_t size,
+			   enum dma_data_direction dir);
+extern void swiotlb_full(struct device *dev, size_t size,
+			 enum dma_data_direction dir, int do_panic);
+
+#endif
+
+/* swiotlb.c: dma_ops functions. */
 extern void
 *swiotlb_alloc_coherent(struct device *hwdev, size_t size,
 			dma_addr_t *dma_handle, gfp_t flags);
