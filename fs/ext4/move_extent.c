@@ -959,6 +959,9 @@ mext_check_arguments(struct inode *orig_inode,
 		return -EINVAL;
 	}
 
+	if (IS_IMMUTABLE(donor_inode) || IS_APPEND(donor_inode))
+		return -EPERM;
+
 	/* Ext4 move extent does not support swapfile */
 	if (IS_SWAPFILE(orig_inode) || IS_SWAPFILE(donor_inode)) {
 		ext4_debug("ext4 move extent: The argument files should "
@@ -976,11 +979,11 @@ mext_check_arguments(struct inode *orig_inode,
 	}
 
 	/* Ext4 move extent supports only extent based file */
-	if (!(EXT4_I(orig_inode)->i_flags & EXT4_EXTENTS_FL)) {
+	if (!(ext4_test_inode_flag(orig_inode, EXT4_INODE_EXTENTS))) {
 		ext4_debug("ext4 move extent: orig file is not extents "
 			"based file [ino:orig %lu]\n", orig_inode->i_ino);
 		return -EOPNOTSUPP;
-	} else if (!(EXT4_I(donor_inode)->i_flags & EXT4_EXTENTS_FL)) {
+	} else if (!(ext4_test_inode_flag(donor_inode, EXT4_INODE_EXTENTS))) {
 		ext4_debug("ext4 move extent: donor file is not extents "
 			"based file [ino:donor %lu]\n", donor_inode->i_ino);
 		return -EOPNOTSUPP;

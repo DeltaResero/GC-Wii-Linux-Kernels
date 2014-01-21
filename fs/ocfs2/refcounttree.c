@@ -2437,16 +2437,26 @@ static int ocfs2_calc_refcount_meta_credits(struct super_block *sb,
 		len = min((u64)cpos + clusters, le64_to_cpu(rec.r_cpos) +
 			  le32_to_cpu(rec.r_clusters)) - cpos;
 		/*
-		 * If the refcount rec already exist, cool. We just need
-		 * to check whether there is a split. Otherwise we just need
-		 * to increase the refcount.
-		 * If we will insert one, increases recs_add.
-		 *
 		 * We record all the records which will be inserted to the
 		 * same refcount block, so that we can tell exactly whether
 		 * we need a new refcount block or not.
+		 *
+		 * If we will insert a new one, this is easy and only happens
+		 * during adding refcounted flag to the extent, so we don't
+		 * have a chance of spliting. We just need one record.
+		 *
+		 * If the refcount rec already exists, that would be a little
+		 * complicated. we may have to:
+		 * 1) split at the beginning if the start pos isn't aligned.
+		 *    we need 1 more record in this case.
+		 * 2) split int the end if the end pos isn't aligned.
+		 *    we need 1 more record in this case.
+		 * 3) split in the middle because of file system fragmentation.
+		 *    we need 2 more records in this case(we can't detect this
+		 *    beforehand, so always think of the worst case).
 		 */
 		if (rec.r_refcount) {
+			recs_add += 2;
 			/* Check whether we need a split at the beginning. */
 			if (cpos == start_cpos &&
 			    cpos != le64_to_cpu(rec.r_cpos))
@@ -3213,7 +3223,7 @@ static int ocfs2_make_clusters_writable(struct super_block *sb,
 					u32 num_clusters, unsigned int e_flags)
 {
 	int ret, delete, index, credits =  0;
-	u32 new_bit, new_len;
+	u32 new_bit, new_len, orig_num_clusters;
 	unsigned int set_len;
 	struct ocfs2_super *osb = OCFS2_SB(sb);
 	handle_t *handle;
@@ -3245,6 +3255,8 @@ static int ocfs2_make_clusters_writable(struct super_block *sb,
 		mlog_errno(ret);
 		goto out;
 	}
+
+	orig_num_clusters = num_clusters;
 
 	while (num_clusters) {
 		ret = ocfs2_get_refcount_rec(ref_ci, context->ref_root_bh,
@@ -3333,7 +3345,8 @@ static int ocfs2_make_clusters_writable(struct super_block *sb,
 	 * in write-back mode.
 	 */
 	if (context->get_clusters == ocfs2_di_get_clusters) {
-		ret = ocfs2_cow_sync_writeback(sb, context, cpos, num_clusters);
+		ret = ocfs2_cow_sync_writeback(sb, context, cpos,
+					       orig_num_clusters);
 		if (ret)
 			mlog_errno(ret);
 	}

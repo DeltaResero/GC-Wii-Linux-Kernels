@@ -399,7 +399,7 @@ static inline int test_time_stamp(u64 delta)
 #define BUF_MAX_DATA_SIZE (BUF_PAGE_SIZE - (sizeof(u32) * 2))
 
 /* Max number of timestamps that can fit on a page */
-#define RB_TIMESTAMPS_PER_PAGE	(BUF_PAGE_SIZE / RB_LEN_TIME_STAMP)
+#define RB_TIMESTAMPS_PER_PAGE	(BUF_PAGE_SIZE / RB_LEN_TIME_EXTEND)
 
 int ring_buffer_print_page_header(struct trace_seq *s)
 {
@@ -3756,6 +3756,9 @@ int ring_buffer_read_page(struct ring_buffer *buffer,
 			rb_advance_reader(cpu_buffer);
 			rpos = reader->read;
 			pos += size;
+
+			if (rpos >= commit)
+				break;
 
 			event = rb_reader_event(cpu_buffer);
 			size = rb_event_length(event);

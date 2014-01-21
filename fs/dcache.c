@@ -1187,9 +1187,12 @@ struct dentry *d_obtain_alias(struct inode *inode)
 	spin_unlock(&tmp->d_lock);
 
 	spin_unlock(&dcache_lock);
+	security_d_instantiate(tmp, inode);
 	return tmp;
 
  out_iput:
+	if (res && !IS_ERR(res))
+		security_d_instantiate(res, inode);
 	iput(inode);
 	return res;
 }
@@ -1529,6 +1532,7 @@ void d_delete(struct dentry * dentry)
 	spin_lock(&dentry->d_lock);
 	isdir = S_ISDIR(dentry->d_inode->i_mode);
 	if (atomic_read(&dentry->d_count) == 1) {
+		dentry->d_flags &= ~DCACHE_CANT_MOUNT;
 		dentry_iput(dentry);
 		fsnotify_nameremove(dentry, isdir);
 		return;

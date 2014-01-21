@@ -31,6 +31,7 @@
 #include <xen/page.h>
 #include <xen/events.h>
 
+#include <xen/hvc-console.h>
 #include "xen-ops.h"
 #include "mmu.h"
 
@@ -181,6 +182,15 @@ static void __init xen_smp_prepare_cpus(unsigned int max_cpus)
 {
 	unsigned cpu;
 
+	if (skip_ioapic_setup) {
+		char *m = (max_cpus == 0) ?
+			"The nosmp parameter is incompatible with Xen; " \
+			"use Xen dom0_max_vcpus=1 parameter" :
+			"The noapic parameter is incompatible with Xen";
+
+		xen_raw_printk(m);
+		panic(m);
+	}
 	xen_init_lock_cpu(0);
 
 	smp_store_cpu_info(0);
@@ -398,9 +408,9 @@ static void stop_self(void *v)
 	BUG();
 }
 
-static void xen_smp_send_stop(void)
+static void xen_stop_other_cpus(int wait)
 {
-	smp_call_function(stop_self, NULL, 0);
+	smp_call_function(stop_self, NULL, wait);
 }
 
 static void xen_smp_send_reschedule(int cpu)
@@ -468,7 +478,7 @@ static const struct smp_ops xen_smp_ops __initdata = {
 	.cpu_disable = xen_cpu_disable,
 	.play_dead = xen_play_dead,
 
-	.smp_send_stop = xen_smp_send_stop,
+	.stop_other_cpus = xen_stop_other_cpus,
 	.smp_send_reschedule = xen_smp_send_reschedule,
 
 	.send_call_func_ipi = xen_smp_send_call_function_ipi,

@@ -111,6 +111,15 @@ int udp_v6_get_port(struct sock *sk, unsigned short snum)
 	return udp_lib_get_port(sk, snum, ipv6_rcv_saddr_equal, hash2_nulladdr);
 }
 
+static void udp_v6_rehash(struct sock *sk)
+{
+	u16 new_hash = udp6_portaddr_hash(sock_net(sk),
+					  &inet6_sk(sk)->rcv_saddr,
+					  inet_sk(sk)->inet_num);
+
+	udp_lib_rehash(sk, new_hash);
+}
+
 static inline int compute_score(struct sock *sk, struct net *net,
 				unsigned short hnum,
 				struct in6_addr *saddr, __be16 sport,
@@ -432,8 +441,11 @@ csum_copy_err:
 	}
 	release_sock(sk);
 
-	if (flags & MSG_DONTWAIT)
+	if (noblock)
 		return -EAGAIN;
+
+	/* starting over for a new packet */
+	msg->msg_flags &= ~MSG_TRUNC;
 	goto try_again;
 }
 
@@ -581,6 +593,10 @@ static void flush_stack(struct sock **stack, unsigned int count,
 
 		sk = stack[i];
 		if (skb1) {
+			if (sk_rcvqueues_full(sk, skb)) {
+				kfree_skb(skb1);
+				goto drop;
+			}
 			bh_lock_sock(sk);
 			if (!sock_owned_by_user(sk))
 				udpv6_queue_rcv_skb(sk, skb1);
@@ -756,6 +772,10 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
 
 	/* deliver */
 
+	if (sk_rcvqueues_full(sk, skb)) {
+		sock_put(sk);
+		goto discard;
+	}
 	bh_lock_sock(sk);
 	if (!sock_owned_by_user(sk))
 		udpv6_queue_rcv_skb(sk, skb);
@@ -1305,7 +1325,7 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb, int features)
 	skb->ip_summed = CHECKSUM_NONE;
 
 	/* Check if there is enough headroom to insert fragment header. */
-	if ((skb_headroom(skb) < frag_hdr_sz) &&
+	if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
 	    pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
 		goto out;
 
@@ -1430,6 +1450,7 @@ struct proto udpv6_prot = {
 	.backlog_rcv	   = udpv6_queue_rcv_skb,
 	.hash		   = udp_lib_hash,
 	.unhash		   = udp_lib_unhash,
+	.rehash		   = udp_v6_rehash,
 	.get_port	   = udp_v6_get_port,
 	.memory_allocated  = &udp_memory_allocated,
 	.sysctl_mem	   = sysctl_udp_mem,

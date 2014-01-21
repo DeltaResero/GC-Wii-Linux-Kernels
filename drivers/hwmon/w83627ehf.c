@@ -524,7 +524,7 @@ static struct w83627ehf_data *w83627ehf_update_device(struct device *dev)
 			}
 		}
 
-		for (i = 0; i < 4; i++) {
+		for (i = 0; i < data->pwm_num; i++) {
 			/* pwmcfg, tolerance mapped for i=0, i=1 to same reg */
 			if (i != 1) {
 				pwmcfg = w83627ehf_read_value(data,
@@ -546,6 +546,17 @@ static struct w83627ehf_data *w83627ehf_update_device(struct device *dev)
 						W83627EHF_REG_FAN_STOP_OUTPUT[i]);
 			data->fan_stop_time[i] = w83627ehf_read_value(data,
 						W83627EHF_REG_FAN_STOP_TIME[i]);
+
+			if (W83627EHF_REG_FAN_MAX_OUTPUT[i] != 0xff)
+				data->fan_max_output[i] =
+				  w83627ehf_read_value(data,
+					      W83627EHF_REG_FAN_MAX_OUTPUT[i]);
+
+			if (W83627EHF_REG_FAN_STEP_OUTPUT[i] != 0xff)
+				data->fan_step_output[i] =
+				  w83627ehf_read_value(data,
+					      W83627EHF_REG_FAN_STEP_OUTPUT[i]);
+
 			data->target_temp[i] =
 				w83627ehf_read_value(data,
 					W83627EHF_REG_TARGET[i]) &
@@ -1273,7 +1284,8 @@ static void w83627ehf_device_remove_files(struct device *dev)
 }
 
 /* Get the monitoring functions started */
-static inline void __devinit w83627ehf_init_device(struct w83627ehf_data *data)
+static inline void __devinit w83627ehf_init_device(struct w83627ehf_data *data,
+						   enum kinds kind)
 {
 	int i;
 	u8 tmp, diode;
@@ -1302,10 +1314,16 @@ static inline void __devinit w83627ehf_init_device(struct w83627ehf_data *data)
 		w83627ehf_write_value(data, W83627EHF_REG_VBAT, tmp | 0x01);
 
 	/* Get thermal sensor types */
-	diode = w83627ehf_read_value(data, W83627EHF_REG_DIODE);
+	switch (kind) {
+	case w83627ehf:
+		diode = w83627ehf_read_value(data, W83627EHF_REG_DIODE);
+		break;
+	default:
+		diode = 0x70;
+	}
 	for (i = 0; i < 3; i++) {
 		if ((tmp & (0x02 << i)))
-			data->temp_type[i] = (diode & (0x10 << i)) ? 1 : 2;
+			data->temp_type[i] = (diode & (0x10 << i)) ? 1 : 3;
 		else
 			data->temp_type[i] = 4; /* thermistor */
 	}
@@ -1353,7 +1371,7 @@ static int __devinit w83627ehf_probe(struct platform_device *pdev)
 	}
 
 	/* Initialize the chip */
-	w83627ehf_init_device(data);
+	w83627ehf_init_device(data, sio_data->kind);
 
 	data->vrm = vid_which_vrm();
 	superio_enter(sio_data->sioreg);

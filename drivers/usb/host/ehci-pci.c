@@ -41,6 +41,42 @@ static int ehci_pci_reinit(struct ehci_hcd *ehci, struct pci_dev *pdev)
 	return 0;
 }
 
+static int ehci_quirk_amd_hudson(struct ehci_hcd *ehci)
+{
+	struct pci_dev *amd_smbus_dev;
+	u8 rev = 0;
+
+	amd_smbus_dev = pci_get_device(PCI_VENDOR_ID_ATI, 0x4385, NULL);
+	if (amd_smbus_dev) {
+		pci_read_config_byte(amd_smbus_dev, PCI_REVISION_ID, &rev);
+		if (rev < 0x40) {
+			pci_dev_put(amd_smbus_dev);
+			amd_smbus_dev = NULL;
+			return 0;
+		}
+	} else {
+		amd_smbus_dev = pci_get_device(PCI_VENDOR_ID_AMD, 0x780b, NULL);
+		if (!amd_smbus_dev)
+			return 0;
+		pci_read_config_byte(amd_smbus_dev, PCI_REVISION_ID, &rev);
+		if (rev < 0x11 || rev > 0x18) {
+			pci_dev_put(amd_smbus_dev);
+			amd_smbus_dev = NULL;
+			return 0;
+		}
+	}
+
+	if (!amd_nb_dev)
+		amd_nb_dev = pci_get_device(PCI_VENDOR_ID_AMD, 0x1510, NULL);
+
+	ehci_info(ehci, "QUIRK: Enable exception for AMD Hudson ASPM\n");
+
+	pci_dev_put(amd_smbus_dev);
+	amd_smbus_dev = NULL;
+
+	return 1;
+}
+
 /* called during probe() after chip reset completes */
 static int ehci_pci_setup(struct usb_hcd *hcd)
 {
@@ -99,6 +135,9 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 	/* cache this readonly data; minimize chip reads */
 	ehci->hcs_params = ehci_readl(ehci, &ehci->caps->hcs_params);
 
+	if (ehci_quirk_amd_hudson(ehci))
+		ehci->amd_l1_fix = 1;
+
 	retval = ehci_halt(ehci);
 	if (retval)
 		return retval;
@@ -111,6 +150,7 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
 	switch (pdev->vendor) {
 	case PCI_VENDOR_ID_INTEL:
 		ehci->need_io_watchdog = 0;
+		ehci->fs_i_thresh = 1;
 		if (pdev->device == 0x27cc) {
 			ehci->broken_periodic = 1;
 			ehci_info(ehci, "using broken periodic workaround\n");
@@ -284,23 +324,15 @@ static int ehci_pci_suspend(struct usb_hcd *hcd)
 		msleep(10);
 
 	/* Root hub was already suspended. Disable irq emission and
-	 * mark HW unaccessible, bail out if RH has been resumed. Use
-	 * the spinlock to properly synchronize with possible pending
-	 * RH suspend or resume activity.
-	 *
-	 * This is still racy as hcd->state is manipulated outside of
-	 * any locks =P But that will be a different fix.
+	 * mark HW unaccessible.  The PM and USB cores make sure that
+	 * the root hub is either suspended or stopped.
 	 */
 	spin_lock_irqsave (&ehci->lock, flags);
-	if (hcd->state != HC_STATE_SUSPENDED) {
-		rc = -EINVAL;
-		goto bail;
-	}
+	ehci_prepare_ports_for_controller_suspend(ehci);
 	ehci_writel(ehci, 0, &ehci->regs->intr_enable);
 	(void)ehci_readl(ehci, &ehci->regs->intr_enable);
 
 	clear_bit(HCD_FLAG_HW_ACCESSIBLE, &hcd->flags);
- bail:
 	spin_unlock_irqrestore (&ehci->lock, flags);
 
 	// could save FLADJ in case of Vaux power loss
@@ -330,6 +362,7 @@ static int ehci_pci_resume(struct usb_hcd *hcd, bool hibernated)
 				!hibernated) {
 		int	mask = INTR_MASK;
 
+		ehci_prepare_ports_for_controller_resume(ehci);
 		if (!hcd->self.root_hub->do_remote_wakeup)
 			mask &= ~STS_PCD;
 		ehci_writel(ehci, mask, &ehci->regs->intr_enable);

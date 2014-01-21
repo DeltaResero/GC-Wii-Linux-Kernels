@@ -974,6 +974,7 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
 			goto errout;
 		send_addr_notify = 1;
 		modified = 1;
+		add_device_randomness(dev->dev_addr, dev->addr_len);
 	}
 
 	if (tb[IFLA_MTU]) {
@@ -1323,6 +1324,9 @@ replay:
 			snprintf(ifname, IFNAMSIZ, "%s%%d", ops->kind);
 
 		dest_net = rtnl_link_get_net(net, tb);
+		if (IS_ERR(dest_net))
+			return PTR_ERR(dest_net);
+
 		dev = rtnl_create_link(net, dest_net, ifname, ops, tb);
 
 		if (IS_ERR(dev))

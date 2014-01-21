@@ -649,6 +649,7 @@ void sas_scsi_recover_host(struct Scsi_Host *shost)
 
 	spin_lock_irqsave(shost->host_lock, flags);
 	list_splice_init(&shost->eh_cmd_q, &eh_work_q);
+	shost->host_eh_scheduled = 0;
 	spin_unlock_irqrestore(shost->host_lock, flags);
 
 	SAS_DPRINTK("Enter %s\n", __func__);
@@ -1030,8 +1031,6 @@ int __sas_task_abort(struct sas_task *task)
 void sas_task_abort(struct sas_task *task)
 {
 	struct scsi_cmnd *sc = task->uldd_task;
-	struct request_queue *q = sc->device->request_queue;
-	unsigned long flags;
 
 	/* Escape for libsas internal commands */
 	if (!sc) {
@@ -1043,13 +1042,15 @@ void sas_task_abort(struct sas_task *task)
 
 	if (dev_is_sata(task->dev)) {
 		sas_ata_task_abort(task);
-		return;
-	}
+	} else {
+		struct request_queue *q = sc->device->request_queue;
+		unsigned long flags;
 
-	spin_lock_irqsave(q->queue_lock, flags);
-	blk_abort_request(sc->request);
-	spin_unlock_irqrestore(q->queue_lock, flags);
-	scsi_schedule_eh(sc->device->host);
+		spin_lock_irqsave(q->queue_lock, flags);
+		blk_abort_request(sc->request);
+		spin_unlock_irqrestore(q->queue_lock, flags);
+		scsi_schedule_eh(sc->device->host);
+	}
 }
 
 int sas_slave_alloc(struct scsi_device *scsi_dev)

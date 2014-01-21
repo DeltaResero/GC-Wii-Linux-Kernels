@@ -180,6 +180,7 @@ union kvm_mmu_page_role {
 		unsigned invalid:1;
 		unsigned cr4_pge:1;
 		unsigned nxe:1;
+		unsigned cr0_wp:1;
 	};
 };
 
@@ -541,6 +542,8 @@ struct kvm_x86_ops {
 	int (*get_lpage_level)(void);
 	bool (*rdtscp_supported)(void);
 
+	void (*set_supported_cpuid)(u32 func, struct kvm_cpuid_entry2 *entry);
+
 	const struct trace_print_flags *exit_reasons_str;
 };
 
@@ -688,35 +691,11 @@ static inline struct kvm_mmu_page *page_header(hpa_t shadow_page)
 	return (struct kvm_mmu_page *)page_private(page);
 }
 
-static inline u16 kvm_read_fs(void)
-{
-	u16 seg;
-	asm("mov %%fs, %0" : "=g"(seg));
-	return seg;
-}
-
-static inline u16 kvm_read_gs(void)
-{
-	u16 seg;
-	asm("mov %%gs, %0" : "=g"(seg));
-	return seg;
-}
-
 static inline u16 kvm_read_ldt(void)
 {
 	u16 ldt;
 	asm("sldt %0" : "=g"(ldt));
 	return ldt;
-}
-
-static inline void kvm_load_fs(u16 sel)
-{
-	asm("mov %0, %%fs" : : "rm"(sel));
-}
-
-static inline void kvm_load_gs(u16 sel)
-{
-	asm("mov %0, %%gs" : : "rm"(sel));
 }
 
 static inline void kvm_load_ldt(u16 sel)

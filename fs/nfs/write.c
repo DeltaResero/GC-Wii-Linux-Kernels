@@ -1379,14 +1379,14 @@ static const struct rpc_call_ops nfs_commit_ops = {
 	.rpc_release = nfs_commit_release,
 };
 
-static int nfs_commit_inode(struct inode *inode, int how)
+int nfs_commit_inode(struct inode *inode, int how)
 {
 	LIST_HEAD(head);
 	int may_wait = how & FLUSH_SYNC;
 	int res = 0;
 
 	if (!nfs_commit_set_lock(NFS_I(inode), may_wait))
-		goto out;
+		goto out_mark_dirty;
 	spin_lock(&inode->i_lock);
 	res = nfs_scan_commit(inode, &head, 0, 0);
 	spin_unlock(&inode->i_lock);
@@ -1398,9 +1398,18 @@ static int nfs_commit_inode(struct inode *inode, int how)
 			wait_on_bit(&NFS_I(inode)->flags, NFS_INO_COMMIT,
 					nfs_wait_bit_killable,
 					TASK_KILLABLE);
+		else
+			goto out_mark_dirty;
 	} else
 		nfs_commit_clear_lock(NFS_I(inode));
-out:
+	return res;
+	/* Note: If we exit without ensuring that the commit is complete,
+	 * we must mark the inode as dirty. Otherwise, future calls to
+	 * sync_inode() with the WB_SYNC_ALL flag set will fail to ensure
+	 * that the data is on the disk.
+	 */
+out_mark_dirty:
+	__mark_inode_dirty(inode, I_DIRTY_DATASYNC);
 	return res;
 }
 
@@ -1434,11 +1443,6 @@ out_mark_dirty:
 	return ret;
 }
 #else
-static int nfs_commit_inode(struct inode *inode, int how)
-{
-	return 0;
-}
-
 static int nfs_commit_unstable_pages(struct inode *inode, struct writeback_control *wbc)
 {
 	return 0;
@@ -1509,14 +1513,17 @@ int nfs_wb_page(struct inode *inode, struct page *page)
 	};
 	int ret;
 
-	while(PagePrivate(page)) {
+	for (;;) {
 		wait_on_page_writeback(page);
 		if (clear_page_dirty_for_io(page)) {
 			ret = nfs_writepage_locked(page, &wbc);
 			if (ret < 0)
 				goto out_error;
+			continue;
 		}
-		ret = sync_inode(inode, &wbc);
+		if (!PagePrivate(page))
+			break;
+		ret = nfs_commit_inode(inode, FLUSH_SYNC);
 		if (ret < 0)
 			goto out_error;
 	}

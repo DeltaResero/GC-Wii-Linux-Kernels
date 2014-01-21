@@ -183,7 +183,6 @@ static void elantech_report_absolute_v1(struct psmouse *psmouse)
 	struct elantech_data *etd = psmouse->private;
 	unsigned char *packet = psmouse->packet;
 	int fingers;
-	static int old_fingers;
 
 	if (etd->fw_version < 0x020000) {
 		/*
@@ -201,10 +200,13 @@ static void elantech_report_absolute_v1(struct psmouse *psmouse)
 	}
 
 	if (etd->jumpy_cursor) {
-		/* Discard packets that are likely to have bogus coordinates */
-		if (fingers > old_fingers) {
+		if (fingers != 1) {
+			etd->single_finger_reports = 0;
+		} else if (etd->single_finger_reports < 2) {
+			/* Discard first 2 reports of one finger, bogus */
+			etd->single_finger_reports++;
 			elantech_debug("elantech.c: discarding packet\n");
-			goto discard_packet_v1;
+			return;
 		}
 	}
 
@@ -236,9 +238,6 @@ static void elantech_report_absolute_v1(struct psmouse *psmouse)
 	}
 
 	input_sync(dev);
-
- discard_packet_v1:
-	old_fingers = fingers;
 }
 
 /*
@@ -575,6 +574,24 @@ static struct attribute_group elantech_attr_group = {
 	.attrs = elantech_attrs,
 };
 
+static bool elantech_is_signature_valid(const unsigned char *param)
+{
+	static const unsigned char rates[] = { 200, 100, 80, 60, 40, 20, 10 };
+	int i;
+
+	if (param[0] == 0)
+		return false;
+
+	if (param[1] == 0)
+		return true;
+
+	for (i = 0; i < ARRAY_SIZE(rates); i++)
+		if (param[2] == rates[i])
+			return false;
+
+	return true;
+}
+
 /*
  * Use magic knock to detect Elantech touchpad
  */
@@ -618,7 +635,7 @@ int elantech_detect(struct psmouse *psmouse, bool set_properties)
 	pr_debug("elantech.c: Elantech version query result 0x%02x, 0x%02x, 0x%02x.\n",
 		 param[0], param[1], param[2]);
 
-	if (param[0] == 0 || param[1] != 0) {
+	if (!elantech_is_signature_valid(param)) {
 		if (!force_elantech) {
 			pr_debug("elantech.c: Probably not a real Elantech touchpad. Aborting.\n");
 			return -1;
@@ -716,14 +733,14 @@ int elantech_init(struct psmouse *psmouse)
 	etd->capabilities = param[0];
 
 	/*
-	 * This firmware seems to suffer from misreporting coordinates when
+	 * This firmware suffers from misreporting coordinates when
 	 * a touch action starts causing the mouse cursor or scrolled page
 	 * to jump. Enable a workaround.
 	 */
-	if (etd->fw_version == 0x020022) {
-		pr_info("elantech.c: firmware version 2.0.34 detected, "
+	if (etd->fw_version == 0x020022 || etd->fw_version == 0x020600) {
+		pr_info("elantech.c: firmware version 2.0.34/2.6.0 detected, "
 			"enabling jumpy cursor workaround\n");
-		etd->jumpy_cursor = 1;
+		etd->jumpy_cursor = true;
 	}
 
 	if (elantech_set_absolute_mode(psmouse)) {

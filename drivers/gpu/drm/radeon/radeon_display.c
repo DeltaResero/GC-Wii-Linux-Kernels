@@ -618,6 +618,10 @@ static void radeon_compute_pll_legacy(struct radeon_pll *pll,
 	*frac_fb_div_p = best_frac_feedback_div;
 	*ref_div_p = best_ref_div;
 	*post_div_p = best_post_div;
+	DRM_DEBUG_KMS("%d %d, pll dividers - fb: %d.%d ref: %d, post %d\n",
+		      freq, best_freq / 1000, best_feedback_div, best_frac_feedback_div,
+		      best_ref_div, best_post_div);
+
 }
 
 static bool
@@ -978,8 +982,11 @@ void radeon_update_display_priority(struct radeon_device *rdev)
 		/* set display priority to high for r3xx, rv515 chips
 		 * this avoids flickering due to underflow to the
 		 * display controllers during heavy acceleration.
+		 * Don't force high on rs4xx igp chips as it seems to
+		 * affect the sound card.  See kernel bug 15982.
 		 */
-		if (ASIC_IS_R300(rdev) || (rdev->family == CHIP_RV515))
+		if ((ASIC_IS_R300(rdev) || (rdev->family == CHIP_RV515)) &&
+		    !(rdev->flags & RADEON_IS_IGP))
 			rdev->disp_priority = 2;
 		else
 			rdev->disp_priority = 0;

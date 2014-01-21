@@ -124,9 +124,9 @@ static int dccp_rcv_closereq(struct sock *sk, struct sk_buff *skb)
 	return queued;
 }
 
-static u8 dccp_reset_code_convert(const u8 code)
+static u16 dccp_reset_code_convert(const u8 code)
 {
-	const u8 error_code[] = {
+	const u16 error_code[] = {
 	[DCCP_RESET_CODE_CLOSED]	     = 0,	/* normal termination */
 	[DCCP_RESET_CODE_UNSPECIFIED]	     = 0,	/* nothing known */
 	[DCCP_RESET_CODE_ABORTED]	     = ECONNRESET,
@@ -148,7 +148,7 @@ static u8 dccp_reset_code_convert(const u8 code)
 
 static void dccp_rcv_reset(struct sock *sk, struct sk_buff *skb)
 {
-	u8 err = dccp_reset_code_convert(dccp_hdr_reset(skb)->dccph_reset_code);
+	u16 err = dccp_reset_code_convert(dccp_hdr_reset(skb)->dccph_reset_code);
 
 	sk->sk_err = err;
 
@@ -617,6 +617,9 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 		/* Caller (dccp_v4_do_rcv) will send Reset */
 		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
 		return 1;
+	} else if (sk->sk_state == DCCP_CLOSED) {
+		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
+		return 1;
 	}
 
 	if (sk->sk_state != DCCP_REQUESTING && sk->sk_state != DCCP_RESPOND) {
@@ -679,10 +682,6 @@ int dccp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 	}
 
 	switch (sk->sk_state) {
-	case DCCP_CLOSED:
-		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
-		return 1;
-
 	case DCCP_REQUESTING:
 		queued = dccp_rcv_request_sent_state_process(sk, skb, dh, len);
 		if (queued >= 0)

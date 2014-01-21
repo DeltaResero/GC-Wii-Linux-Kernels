@@ -111,18 +111,20 @@ void xhci_ring_free(struct xhci_hcd *xhci, struct xhci_ring *ring)
 	struct xhci_segment *seg;
 	struct xhci_segment *first_seg;
 
-	if (!ring || !ring->first_seg)
+	if (!ring)
 		return;
-	first_seg = ring->first_seg;
-	seg = first_seg->next;
-	xhci_dbg(xhci, "Freeing ring at %p\n", ring);
-	while (seg != first_seg) {
-		struct xhci_segment *next = seg->next;
-		xhci_segment_free(xhci, seg);
-		seg = next;
+	if (ring->first_seg) {
+		first_seg = ring->first_seg;
+		seg = first_seg->next;
+		xhci_dbg(xhci, "Freeing ring at %p\n", ring);
+		while (seg != first_seg) {
+			struct xhci_segment *next = seg->next;
+			xhci_segment_free(xhci, seg);
+			seg = next;
+		}
+		xhci_segment_free(xhci, first_seg);
+		ring->first_seg = NULL;
 	}
-	xhci_segment_free(xhci, first_seg);
-	ring->first_seg = NULL;
 	kfree(ring);
 }
 
@@ -520,6 +522,73 @@ int xhci_setup_addressable_virt_dev(struct xhci_hcd *xhci, struct usb_device *ud
 	return 0;
 }
 
+/*
+ * Convert interval expressed as 2^(bInterval - 1) == interval into
+ * straight exponent value 2^n == interval.
+ *
+ */
+static unsigned int xhci_parse_exponent_interval(struct usb_device *udev,
+		struct usb_host_endpoint *ep)
+{
+	unsigned int interval;
+
+	interval = clamp_val(ep->desc.bInterval, 1, 16) - 1;
+	if (interval != ep->desc.bInterval - 1)
+		dev_warn(&udev->dev,
+			 "ep %#x - rounding interval to %d %sframes\n",
+			 ep->desc.bEndpointAddress,
+			 1 << interval,
+			 udev->speed == USB_SPEED_FULL ? "" : "micro");
+
+	if (udev->speed == USB_SPEED_FULL) {
+		/*
+		 * Full speed isoc endpoints specify interval in frames,
+		 * not microframes. We are using microframes everywhere,
+		 * so adjust accordingly.
+		 */
+		interval += 3;	/* 1 frame = 2^3 uframes */
+	}
+
+	return interval;
+}
+
+/*
+ * Convert bInterval expressed in microframes (in 1-255 range) to exponent of
+ * microframes, rounded down to nearest power of 2.
+ */
+static unsigned int xhci_microframes_to_exponent(struct usb_device *udev,
+		struct usb_host_endpoint *ep, unsigned int desc_interval,
+		unsigned int min_exponent, unsigned int max_exponent)
+{
+	unsigned int interval;
+
+	interval = fls(desc_interval) - 1;
+	interval = clamp_val(interval, min_exponent, max_exponent);
+	if ((1 << interval) != desc_interval)
+		dev_warn(&udev->dev,
+			 "ep %#x - rounding interval to %d microframes, ep desc says %d microframes\n",
+			 ep->desc.bEndpointAddress,
+			 1 << interval,
+			 desc_interval);
+
+	return interval;
+}
+
+static unsigned int xhci_parse_microframe_interval(struct usb_device *udev,
+		struct usb_host_endpoint *ep)
+{
+	return xhci_microframes_to_exponent(udev, ep,
+			ep->desc.bInterval, 0, 15);
+}
+
+
+static unsigned int xhci_parse_frame_interval(struct usb_device *udev,
+		struct usb_host_endpoint *ep)
+{
+	return xhci_microframes_to_exponent(udev, ep,
+			ep->desc.bInterval * 8, 3, 10);
+}
+
 /* Return the polling or NAK interval.
  *
  * The polling interval is expressed in "microframes".  If xHCI's Interval field
@@ -537,52 +606,45 @@ static inline unsigned int xhci_get_endpoint_interval(struct usb_device *udev,
 	case USB_SPEED_HIGH:
 		/* Max NAK rate */
 		if (usb_endpoint_xfer_control(&ep->desc) ||
-				usb_endpoint_xfer_bulk(&ep->desc))
-			interval = ep->desc.bInterval;
+		    usb_endpoint_xfer_bulk(&ep->desc)) {
+			interval = xhci_parse_microframe_interval(udev, ep);
+			break;
+		}
 		/* Fall through - SS and HS isoc/int have same decoding */
+
 	case USB_SPEED_SUPER:
 		if (usb_endpoint_xfer_int(&ep->desc) ||
-				usb_endpoint_xfer_isoc(&ep->desc)) {
-			if (ep->desc.bInterval == 0)
-				interval = 0;
-			else
-				interval = ep->desc.bInterval - 1;
-			if (interval > 15)
-				interval = 15;
-			if (interval != ep->desc.bInterval + 1)
-				dev_warn(&udev->dev, "ep %#x - rounding interval to %d microframes\n",
-						ep->desc.bEndpointAddress, 1 << interval);
+		    usb_endpoint_xfer_isoc(&ep->desc)) {
+			interval = xhci_parse_exponent_interval(udev, ep);
 		}
 		break;
-	/* Convert bInterval (in 1-255 frames) to microframes and round down to
-	 * nearest power of 2.
-	 */
+
 	case USB_SPEED_FULL:
+		if (usb_endpoint_xfer_isoc(&ep->desc)) {
+			interval = xhci_parse_exponent_interval(udev, ep);
+			break;
+		}
+		/*
+		 * Fall through for interrupt endpoint interval decoding
+		 * since it uses the same rules as low speed interrupt
+		 * endpoints.
+		 */
+
 	case USB_SPEED_LOW:
 		if (usb_endpoint_xfer_int(&ep->desc) ||
-				usb_endpoint_xfer_isoc(&ep->desc)) {
-			interval = fls(8*ep->desc.bInterval) - 1;
-			if (interval > 10)
-				interval = 10;
-			if (interval < 3)
-				interval = 3;
-			if ((1 << interval) != 8*ep->desc.bInterval)
-				dev_warn(&udev->dev,
-						"ep %#x - rounding interval"
-						" to %d microframes, "
-						"ep desc says %d microframes\n",
-						ep->desc.bEndpointAddress,
-						1 << interval,
-						8*ep->desc.bInterval);
+		    usb_endpoint_xfer_isoc(&ep->desc)) {
+
+			interval = xhci_parse_frame_interval(udev, ep);
 		}
 		break;
+
 	default:
 		BUG();
 	}
 	return EP_INTERVAL(interval);
 }
 
-/* The "Mult" field in the endpoint context is only set for SuperSpeed devices.
+/* The "Mult" field in the endpoint context is only set for SuperSpeed isoc eps.
  * High speed endpoint descriptors can define "the number of additional
  * transaction opportunities per microframe", but that goes in the Max Burst
  * endpoint context field.
@@ -590,7 +652,8 @@ static inline unsigned int xhci_get_endpoint_interval(struct usb_device *udev,
 static inline u32 xhci_get_endpoint_mult(struct usb_device *udev,
 		struct usb_host_endpoint *ep)
 {
-	if (udev->speed != USB_SPEED_SUPER || !ep->ss_ep_comp)
+	if (udev->speed != USB_SPEED_SUPER || !ep->ss_ep_comp ||
+			!usb_endpoint_xfer_isoc(&ep->desc))
 		return 0;
 	return ep->ss_ep_comp->desc.bmAttributes;
 }

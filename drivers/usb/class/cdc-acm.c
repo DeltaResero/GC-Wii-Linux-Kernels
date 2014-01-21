@@ -297,6 +297,8 @@ static void acm_ctrl_irq(struct urb *urb)
 	if (!ACM_READY(acm))
 		goto exit;
 
+	usb_mark_last_busy(acm->dev);
+
 	data = (unsigned char *)(dr + 1);
 	switch (dr->bNotificationType) {
 	case USB_CDC_NOTIFY_NETWORK_CONNECTION:
@@ -336,7 +338,6 @@ static void acm_ctrl_irq(struct urb *urb)
 		break;
 	}
 exit:
-	usb_mark_last_busy(acm->dev);
 	retval = usb_submit_urb(urb, GFP_ATOMIC);
 	if (retval)
 		dev_err(&urb->dev->dev, "%s - usb_submit_urb failed with "
@@ -533,6 +534,8 @@ static void acm_softint(struct work_struct *work)
 	if (!ACM_READY(acm))
 		return;
 	tty = tty_port_tty_get(&acm->port);
+	if (!tty)
+		return;
 	tty_wakeup(tty);
 	tty_kref_put(tty);
 }
@@ -652,8 +655,10 @@ static void acm_port_down(struct acm *acm, int drain)
 		usb_kill_urb(acm->ctrlurb);
 		for (i = 0; i < ACM_NW; i++)
 			usb_kill_urb(acm->wb[i].urb);
+		tasklet_disable(&acm->urb_task);
 		for (i = 0; i < nr; i++)
 			usb_kill_urb(acm->ru[i].urb);
+		tasklet_enable(&acm->urb_task);
 		acm->control->needs_remote_wakeup = 0;
 		usb_autopm_put_interface(acm->control);
 	}
@@ -971,7 +976,8 @@ static int acm_probe(struct usb_interface *intf,
 	}
 
 	if (!buflen) {
-		if (intf->cur_altsetting->endpoint->extralen &&
+		if (intf->cur_altsetting->endpoint &&
+				intf->cur_altsetting->endpoint->extralen &&
 				intf->cur_altsetting->endpoint->extra) {
 			dev_dbg(&intf->dev,
 				"Seeking extra descriptors on endpoint\n");
@@ -1201,7 +1207,7 @@ made_compressed_probe:
 		if (rcv->urb == NULL) {
 			dev_dbg(&intf->dev,
 				"out of memory (read urbs usb_alloc_urb)\n");
-			goto alloc_fail7;
+			goto alloc_fail6;
 		}
 
 		rcv->urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
@@ -1225,7 +1231,7 @@ made_compressed_probe:
 		if (snd->urb == NULL) {
 			dev_dbg(&intf->dev,
 				"out of memory (write urbs usb_alloc_urb)");
-			goto alloc_fail7;
+			goto alloc_fail8;
 		}
 
 		if (usb_endpoint_xfer_int(epwrite))
@@ -1264,6 +1270,7 @@ made_compressed_probe:
 		i = device_create_file(&intf->dev,
 						&dev_attr_iCountryCodeRelDate);
 		if (i < 0) {
+			device_remove_file(&intf->dev, &dev_attr_wCountryCodes);
 			kfree(acm->country_codes);
 			goto skip_countries;
 		}
@@ -1300,6 +1307,7 @@ alloc_fail8:
 		usb_free_urb(acm->wb[i].urb);
 alloc_fail7:
 	acm_read_buffers_free(acm);
+alloc_fail6:
 	for (i = 0; i < num_rx_buf; i++)
 		usb_free_urb(acm->ru[i].urb);
 	usb_free_urb(acm->ctrlurb);
@@ -1485,6 +1493,11 @@ static int acm_reset_resume(struct usb_interface *intf)
 		USB_CLASS_COMM, USB_CDC_SUBCLASS_ACM, \
 		USB_CDC_ACM_PROTO_VENDOR)
 
+#define SAMSUNG_PCSUITE_ACM_INFO(x) \
+		USB_DEVICE_AND_INTERFACE_INFO(0x04e7, x, \
+		USB_CLASS_COMM, USB_CDC_SUBCLASS_ACM, \
+		USB_CDC_ACM_PROTO_VENDOR)
+
 /*
  * USB driver structure.
  */
@@ -1532,6 +1545,16 @@ static const struct usb_device_id acm_ids[] = {
 	},
 	{ USB_DEVICE(0x22b8, 0x6425), /* Motorola MOTOMAGX phones */
 	},
+	/* Motorola H24 HSPA module: */
+	{ USB_DEVICE(0x22b8, 0x2d91) }, /* modem                                */
+	{ USB_DEVICE(0x22b8, 0x2d92) }, /* modem           + diagnostics        */
+	{ USB_DEVICE(0x22b8, 0x2d93) }, /* modem + AT port                      */
+	{ USB_DEVICE(0x22b8, 0x2d95) }, /* modem + AT port + diagnostics        */
+	{ USB_DEVICE(0x22b8, 0x2d96) }, /* modem                         + NMEA */
+	{ USB_DEVICE(0x22b8, 0x2d97) }, /* modem           + diagnostics + NMEA */
+	{ USB_DEVICE(0x22b8, 0x2d99) }, /* modem + AT port               + NMEA */
+	{ USB_DEVICE(0x22b8, 0x2d9a) }, /* modem + AT port + diagnostics + NMEA */
+
 	{ USB_DEVICE(0x0572, 0x1329), /* Hummingbird huc56s (Conexant) */
 	.driver_info = NO_UNION_NORMAL, /* union descriptor misplaced on
 					   data interface instead of
@@ -1594,6 +1617,24 @@ static const struct usb_device_id acm_ids[] = {
 	{ NOKIA_PCSUITE_ACM_INFO(0x00e9), }, /* Nokia 5320 XpressMusic */
 	{ NOKIA_PCSUITE_ACM_INFO(0x0108), }, /* Nokia 5320 XpressMusic 2G */
 	{ NOKIA_PCSUITE_ACM_INFO(0x01f5), }, /* Nokia N97, RM-505 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x02e3), }, /* Nokia 5230, RM-588 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x0178), }, /* Nokia E63 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x010e), }, /* Nokia E75 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x02d9), }, /* Nokia 6760 Slide */
+	{ NOKIA_PCSUITE_ACM_INFO(0x01d0), }, /* Nokia E52 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x0223), }, /* Nokia E72 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x0275), }, /* Nokia X6 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x026c), }, /* Nokia N97 Mini */
+	{ NOKIA_PCSUITE_ACM_INFO(0x0154), }, /* Nokia 5800 XpressMusic */
+	{ NOKIA_PCSUITE_ACM_INFO(0x04ce), }, /* Nokia E90 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x01d4), }, /* Nokia E55 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x0302), }, /* Nokia N8 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x0335), }, /* Nokia E7 */
+	{ NOKIA_PCSUITE_ACM_INFO(0x03cd), }, /* Nokia C7 */
+	{ SAMSUNG_PCSUITE_ACM_INFO(0x6651), }, /* Samsung GTi8510 (INNOV8) */
+
+	/* Support for Owen devices */
+	{ USB_DEVICE(0x03eb, 0x0030), }, /* Owen SI30 */
 
 	/* NOTE: non-Nokia COMM/ACM/0xff is likely MSFT RNDIS... NOT a modem! */
 
@@ -1601,6 +1642,10 @@ static const struct usb_device_id acm_ids[] = {
 	{ USB_DEVICE(0x0694, 0xff00),
 	.driver_info = NOT_A_MODEM,
        	},
+
+	/* control interfaces without any protocol set */
+	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ACM,
+		USB_CDC_PROTO_NONE) },
 
 	/* control interfaces with various AT-command sets */
 	{ USB_INTERFACE_INFO(USB_CLASS_COMM, USB_CDC_SUBCLASS_ACM,

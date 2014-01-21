@@ -335,7 +335,7 @@ static struct drm_display_mode drm_dmt_modes[] = {
 		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) },
 	/* 1024x768@85Hz */
 	{ DRM_MODE("1024x768", DRM_MODE_TYPE_DRIVER, 94500, 1024, 1072,
-		   1072, 1376, 0, 768, 769, 772, 808, 0,
+		   1168, 1376, 0, 768, 769, 772, 808, 0,
 		   DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC) },
 	/* 1152x864@75Hz */
 	{ DRM_MODE("1152x864", DRM_MODE_TYPE_DRIVER, 108000, 1152, 1216,
@@ -577,8 +577,8 @@ struct drm_display_mode *drm_mode_std(struct drm_device *dev,
 		mode = drm_cvt_mode(dev, hsize, vsize, vrefresh_rate, 0, 0,
 				    false);
 		mode->hdisplay = 1366;
-		mode->vsync_start = mode->vsync_start - 1;
-		mode->vsync_end = mode->vsync_end - 1;
+		mode->hsync_start = mode->hsync_start - 1;
+		mode->hsync_end = mode->hsync_end - 1;
 		return mode;
 	}
 	mode = NULL;

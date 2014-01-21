@@ -166,6 +166,13 @@ static const struct dmi_system_id __initconst i8042_dmi_noloop_table[] = {
 		},
 	},
 	{
+		/* Gigabyte Spring Peak - defines wrong chassis type */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "GIGABYTE"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Spring Peak"),
+		},
+	},
+	{
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Hewlett-Packard"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "HP Pavilion dv9700"),
@@ -322,6 +329,13 @@ static const struct dmi_system_id __initconst i8042_dmi_nomux_table[] = {
 		},
 	},
 	{
+		/* Sony Vaio VPCZ122GX */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Sony Corporation"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "VPCZ122GX"),
+		},
+	},
+	{
 		/* Sony Vaio FS-115b */
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Sony Corporation"),
@@ -400,6 +414,13 @@ static const struct dmi_system_id __initconst i8042_dmi_nomux_table[] = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
 			DMI_MATCH(DMI_PRODUCT_NAME, "Aspire 5536"),
 			DMI_MATCH(DMI_PRODUCT_VERSION, "0100"),
+		},
+	},
+	{
+		/* Dell Vostro V13 */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Vostro V13"),
 		},
 	},
 	{ }
@@ -522,6 +543,17 @@ static const struct dmi_system_id __initconst i8042_dmi_laptop_table[] = {
 	{ }
 };
 #endif
+
+static const struct dmi_system_id __initconst i8042_dmi_notimeout_table[] = {
+	{
+		/* Dell Vostro V13 */
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Vostro V13"),
+		},
+	},
+	{ }
+};
 
 /*
  * Some Wistron based laptops need us to explicitly enable the 'Dritek
@@ -854,6 +886,9 @@ static int __init i8042_platform_init(void)
 
 	if (dmi_check_system(i8042_dmi_nomux_table))
 		i8042_nomux = true;
+
+	if (dmi_check_system(i8042_dmi_notimeout_table))
+		i8042_notimeout = true;
 
 	if (dmi_check_system(i8042_dmi_dritek_table))
 		i8042_dritek = true;

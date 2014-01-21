@@ -410,6 +410,9 @@ static mddev_t * mddev_find(dev_t unit)
 {
 	mddev_t *mddev, *new = NULL;
 
+	if (unit && MAJOR(unit) != MD_MAJOR)
+		unit &= ~((1<<MdpMinorShift)-1);
+
  retry:
 	spin_lock(&all_mddevs_lock);
 
@@ -508,9 +511,40 @@ static inline int mddev_trylock(mddev_t * mddev)
 	return mutex_trylock(&mddev->reconfig_mutex);
 }
 
-static inline void mddev_unlock(mddev_t * mddev)
+static struct attribute_group md_redundancy_group;
+
+static void mddev_unlock(mddev_t * mddev)
 {
-	mutex_unlock(&mddev->reconfig_mutex);
+	if (mddev->to_remove) {
+		/* These cannot be removed under reconfig_mutex as
+		 * an access to the files will try to take reconfig_mutex
+		 * while holding the file unremovable, which leads to
+		 * a deadlock.
+		 * So hold set sysfs_active while the remove in happeing,
+		 * and anything else which might set ->to_remove or my
+		 * otherwise change the sysfs namespace will fail with
+		 * -EBUSY if sysfs_active is still set.
+		 * We set sysfs_active under reconfig_mutex and elsewhere
+		 * test it under the same mutex to ensure its correct value
+		 * is seen.
+		 */
+		struct attribute_group *to_remove = mddev->to_remove;
+		mddev->to_remove = NULL;
+		mddev->sysfs_active = 1;
+		mutex_unlock(&mddev->reconfig_mutex);
+
+		if (to_remove != &md_redundancy_group)
+			sysfs_remove_group(&mddev->kobj, to_remove);
+		if (mddev->pers == NULL ||
+		    mddev->pers->sync_request == NULL) {
+			sysfs_remove_group(&mddev->kobj, &md_redundancy_group);
+			if (mddev->sysfs_action)
+				sysfs_put(mddev->sysfs_action);
+			mddev->sysfs_action = NULL;
+		}
+		mddev->sysfs_active = 0;
+	} else
+		mutex_unlock(&mddev->reconfig_mutex);
 
 	md_wakeup_thread(mddev->thread);
 }
@@ -951,8 +985,14 @@ static int super_90_load(mdk_rdev_t *rdev, mdk_rdev_t *refdev, int minor_version
 			ret = 0;
 	}
 	rdev->sectors = rdev->sb_start;
+	/* Limit to 4TB as metadata cannot record more than that.
+	 * (not needed for Linear and RAID0 as metadata doesn't
+	 * record this size)
+	 */
+	if (rdev->sectors >= (2ULL << 32) && sb->level >= 1)
+		rdev->sectors = (2ULL << 32) - 2;
 
-	if (rdev->sectors < sb->size * 2 && sb->level > 1)
+	if (rdev->sectors < ((sector_t)sb->size) * 2 && sb->level >= 1)
 		/* "this cannot possibly happen" ... */
 		ret = -EINVAL;
 
@@ -987,7 +1027,7 @@ static int super_90_validate(mddev_t *mddev, mdk_rdev_t *rdev)
 		mddev->clevel[0] = 0;
 		mddev->layout = sb->layout;
 		mddev->raid_disks = sb->raid_disks;
-		mddev->dev_sectors = sb->size * 2;
+		mddev->dev_sectors = ((sector_t)sb->size) * 2;
 		mddev->events = ev1;
 		mddev->bitmap_info.offset = 0;
 		mddev->bitmap_info.default_offset = MD_SB_BYTES >> 9;
@@ -1226,10 +1266,15 @@ super_90_rdev_size_change(mdk_rdev_t *rdev, sector_t num_sectors)
 	rdev->sb_start = calc_dev_sboffset(rdev->bdev);
 	if (!num_sectors || num_sectors > rdev->sb_start)
 		num_sectors = rdev->sb_start;
+	/* Limit to 4TB as metadata cannot record more than that.
+	 * 4TB == 2^32 KB, or 2*2^32 sectors.
+	 */
+	if (num_sectors >= (2ULL << 32) && rdev->mddev->level >= 1)
+		num_sectors = (2ULL << 32) - 2;
 	md_super_write(rdev->mddev, rdev, rdev->sb_start, rdev->sb_size,
 		       rdev->sb_page);
 	md_super_wait(rdev->mddev);
-	return num_sectors / 2; /* kB for sysfs */
+	return num_sectors;
 }
 
 
@@ -1591,7 +1636,7 @@ super_1_rdev_size_change(mdk_rdev_t *rdev, sector_t num_sectors)
 	md_super_write(rdev->mddev, rdev, rdev->sb_start, rdev->sb_size,
 		       rdev->sb_page);
 	md_super_wait(rdev->mddev);
-	return num_sectors / 2; /* kB for sysfs */
+	return num_sectors;
 }
 
 static struct super_type super_types[] = {
@@ -2357,7 +2402,7 @@ slot_store(mdk_rdev_t *rdev, const char *buf, size_t len)
 		if (rdev->raid_disk == -1)
 			return -EEXIST;
 		/* personality does all needed checks */
-		if (rdev->mddev->pers->hot_add_disk == NULL)
+		if (rdev->mddev->pers->hot_remove_disk == NULL)
 			return -EINVAL;
 		err = rdev->mddev->pers->
 			hot_remove_disk(rdev->mddev, rdev->raid_disk);
@@ -2922,7 +2967,9 @@ level_store(mddev_t *mddev, const char *buf, size_t len)
 	 *  - new personality will access other array.
 	 */
 
-	if (mddev->sync_thread || mddev->reshape_position != MaxSector)
+	if (mddev->sync_thread ||
+	    mddev->reshape_position != MaxSector ||
+	    mddev->sysfs_active)
 		return -EBUSY;
 
 	if (!mddev->pers->quiesce) {
@@ -2980,6 +3027,23 @@ level_store(mddev_t *mddev, const char *buf, size_t len)
 	/* Looks like we have a winner */
 	mddev_suspend(mddev);
 	mddev->pers->stop(mddev);
+
+	if (mddev->pers->sync_request == NULL &&
+	    pers->sync_request != NULL) {
+		/* need to add the md_redundancy_group */
+		if (sysfs_create_group(&mddev->kobj, &md_redundancy_group))
+			printk(KERN_WARNING
+			       "md: cannot register extra attributes for %s\n",
+			       mdname(mddev));
+		mddev->sysfs_action = sysfs_get_dirent(mddev->kobj.sd, "sync_action");
+	}
+	if (mddev->pers->sync_request != NULL &&
+	    pers->sync_request == NULL) {
+		/* need to remove the md_redundancy_group */
+		if (mddev->to_remove == NULL)
+			mddev->to_remove = &md_redundancy_group;
+	}
+
 	module_put(mddev->pers->owner);
 	/* Invalidate devices that are now superfluous */
 	list_for_each_entry(rdev, &mddev->disks, same_set)
@@ -4082,15 +4146,6 @@ static void mddev_delayed_delete(struct work_struct *ws)
 {
 	mddev_t *mddev = container_of(ws, mddev_t, del_work);
 
-	if (mddev->private) {
-		sysfs_remove_group(&mddev->kobj, &md_redundancy_group);
-		if (mddev->private != (void*)1)
-			sysfs_remove_group(&mddev->kobj, mddev->private);
-		if (mddev->sysfs_action)
-			sysfs_put(mddev->sysfs_action);
-		mddev->sysfs_action = NULL;
-		mddev->private = NULL;
-	}
 	sysfs_remove_group(&mddev->kobj, &md_bitmap_group);
 	kobject_del(&mddev->kobj);
 	kobject_put(&mddev->kobj);
@@ -4143,9 +4198,6 @@ static int md_alloc(dev_t dev, char *name)
 	if (!mddev->queue)
 		goto abort;
 	mddev->queue->queuedata = mddev;
-
-	/* Can be unlocked because the queue is new: no concurrency */
-	queue_flag_set_unlocked(QUEUE_FLAG_CLUSTER, mddev->queue);
 
 	blk_queue_make_request(mddev->queue, md_make_request);
 
@@ -4246,6 +4298,9 @@ static int do_md_run(mddev_t * mddev)
 		return -EINVAL;
 
 	if (mddev->pers)
+		return -EBUSY;
+	/* Cannot run until previous stop completes properly */
+	if (mddev->sysfs_active)
 		return -EBUSY;
 
 	/*
@@ -4503,7 +4558,8 @@ static int do_md_stop(mddev_t * mddev, int mode, int is_open)
 	mdk_rdev_t *rdev;
 
 	mutex_lock(&mddev->open_mutex);
-	if (atomic_read(&mddev->openers) > is_open) {
+	if (atomic_read(&mddev->openers) > is_open ||
+	    mddev->sysfs_active) {
 		printk("md: %s still in use.\n",mdname(mddev));
 		err = -EBUSY;
 	} else if (mddev->pers) {
@@ -4536,8 +4592,8 @@ static int do_md_stop(mddev_t * mddev, int mode, int is_open)
 			mddev->queue->unplug_fn = NULL;
 			mddev->queue->backing_dev_info.congested_fn = NULL;
 			module_put(mddev->pers->owner);
-			if (mddev->pers->sync_request && mddev->private == NULL)
-				mddev->private = (void*)1;
+			if (mddev->pers->sync_request && mddev->to_remove == NULL)
+				mddev->to_remove = &md_redundancy_group;
 			mddev->pers = NULL;
 			/* tell userspace to handle 'inactive' */
 			sysfs_notify_dirent(mddev->sysfs_state);
@@ -4963,17 +5019,21 @@ static int add_new_disk(mddev_t * mddev, mdu_disk_info_t *info)
 				PTR_ERR(rdev));
 			return PTR_ERR(rdev);
 		}
-		/* set save_raid_disk if appropriate */
+		/* set saved_raid_disk if appropriate */
 		if (!mddev->persistent) {
 			if (info->state & (1<<MD_DISK_SYNC)  &&
-			    info->raid_disk < mddev->raid_disks)
+			    info->raid_disk < mddev->raid_disks) {
 				rdev->raid_disk = info->raid_disk;
-			else
+				set_bit(In_sync, &rdev->flags);
+			} else
 				rdev->raid_disk = -1;
 		} else
 			super_types[mddev->major_version].
 				validate_super(mddev, rdev);
-		rdev->saved_raid_disk = rdev->raid_disk;
+		if (test_bit(In_sync, &rdev->flags))
+			rdev->saved_raid_disk = rdev->raid_disk;
+		else
+			rdev->saved_raid_disk = -1;
 
 		clear_bit(In_sync, &rdev->flags); /* just to be sure */
 		if (info->state & (1<<MD_DISK_WRITEMOSTLY))
@@ -5496,6 +5556,7 @@ static int md_ioctl(struct block_device *bdev, fmode_t mode,
 	int err = 0;
 	void __user *argp = (void __user *)arg;
 	mddev_t *mddev = NULL;
+	int ro;
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
@@ -5631,6 +5692,34 @@ static int md_ioctl(struct block_device *bdev, fmode_t mode,
 			err = do_md_stop(mddev, 1, 1);
 			goto done_unlock;
 
+		case BLKROSET:
+			if (get_user(ro, (int __user *)(arg))) {
+				err = -EFAULT;
+				goto done_unlock;
+			}
+			err = -EINVAL;
+
+			/* if the bdev is going readonly the value of mddev->ro
+			 * does not matter, no writes are coming
+			 */
+			if (ro)
+				goto done_unlock;
+
+			/* are we are already prepared for writes? */
+			if (mddev->ro != 1)
+				goto done_unlock;
+
+			/* transitioning to readauto need only happen for
+			 * arrays that call md_write_start
+			 */
+			if (mddev->pers) {
+				err = restart_array(mddev);
+				if (err == 0) {
+					mddev->ro = 2;
+					set_disk_ro(mddev->gendisk, 0);
+				}
+			}
+			goto done_unlock;
 	}
 
 	/*
@@ -6785,6 +6874,7 @@ static int remove_and_add_spares(mddev_t *mddev)
 		list_for_each_entry(rdev, &mddev->disks, same_set) {
 			if (rdev->raid_disk >= 0 &&
 			    !test_bit(In_sync, &rdev->flags) &&
+			    !test_bit(Faulty, &rdev->flags) &&
 			    !test_bit(Blocked, &rdev->flags))
 				spares++;
 			if (rdev->raid_disk < 0

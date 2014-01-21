@@ -416,7 +416,7 @@ static unsigned int mon_bin_get_data(const struct mon_reader_bin *rp,
 
 	} else {
 		/* If IOMMU coalescing occurred, we cannot trust sg_page */
-		if (urb->sg->nents != urb->num_sgs) {
+		if (urb->transfer_flags & URB_DMA_SG_COMBINED) {
 			*flag = 'D';
 			return length;
 		}
@@ -1010,7 +1010,7 @@ static int mon_bin_ioctl(struct inode *inode, struct file *file,
 
 		mutex_lock(&rp->fetch_lock);
 		spin_lock_irqsave(&rp->b_lock, flags);
-		mon_free_buff(rp->b_vec, size/CHUNK_SIZE);
+		mon_free_buff(rp->b_vec, rp->b_size/CHUNK_SIZE);
 		kfree(rp->b_vec);
 		rp->b_vec  = vec;
 		rp->b_size = size;
@@ -1080,7 +1080,7 @@ static int mon_bin_ioctl(struct inode *inode, struct file *file,
 		nevents = mon_bin_queued(rp);
 
 		sp = (struct mon_bin_stats __user *)arg;
-		if (put_user(rp->cnt_lost, &sp->dropped))
+		if (put_user(ndropped, &sp->dropped))
 			return -EFAULT;
 		if (put_user(nevents, &sp->queued))
 			return -EFAULT;

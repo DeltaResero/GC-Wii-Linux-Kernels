@@ -237,11 +237,10 @@ void tcp_select_initial_window(int __space, __u32 mss,
 		/* when initializing use the value from init_rcv_wnd
 		 * rather than the default from above
 		 */
-		if (init_rcv_wnd &&
-		    (*rcv_wnd > init_rcv_wnd * mss))
-			*rcv_wnd = init_rcv_wnd * mss;
-		else if (*rcv_wnd > init_cwnd * mss)
-			*rcv_wnd = init_cwnd * mss;
+		if (init_rcv_wnd)
+			*rcv_wnd = min(*rcv_wnd, init_rcv_wnd * mss);
+		else
+			*rcv_wnd = min(*rcv_wnd, init_cwnd * mss);
 	}
 
 	/* Set the clamp no higher than max representable value */
@@ -667,7 +666,6 @@ static unsigned tcp_synack_options(struct sock *sk,
 	u8 cookie_plus = (xvp != NULL && !xvp->cookie_out_never) ?
 			 xvp->cookie_plus :
 			 0;
-	bool doing_ts = ireq->tstamp_ok;
 
 #ifdef CONFIG_TCP_MD5SIG
 	*md5 = tcp_rsk(req)->af_specific->md5_lookup(sk, req);
@@ -680,7 +678,7 @@ static unsigned tcp_synack_options(struct sock *sk,
 		 * rather than TS in order to fit in better with old,
 		 * buggy kernels, but that was deemed to be unnecessary.
 		 */
-		doing_ts &= !ireq->sack_ok;
+		ireq->tstamp_ok &= !ireq->sack_ok;
 	}
 #else
 	*md5 = NULL;
@@ -695,7 +693,7 @@ static unsigned tcp_synack_options(struct sock *sk,
 		opts->options |= OPTION_WSCALE;
 		remaining -= TCPOLEN_WSCALE_ALIGNED;
 	}
-	if (likely(doing_ts)) {
+	if (likely(ireq->tstamp_ok)) {
 		opts->options |= OPTION_TS;
 		opts->tsval = TCP_SKB_CB(skb)->when;
 		opts->tsecr = req->ts_recent;
@@ -703,7 +701,7 @@ static unsigned tcp_synack_options(struct sock *sk,
 	}
 	if (likely(ireq->sack_ok)) {
 		opts->options |= OPTION_SACK_ADVERTISE;
-		if (unlikely(!doing_ts))
+		if (unlikely(!ireq->tstamp_ok))
 			remaining -= TCPOLEN_SACKPERM_ALIGNED;
 	}
 
@@ -711,7 +709,7 @@ static unsigned tcp_synack_options(struct sock *sk,
 	 * If the <SYN> options fit, the same options should fit now!
 	 */
 	if (*md5 == NULL &&
-	    doing_ts &&
+	    ireq->tstamp_ok &&
 	    cookie_plus > TCPOLEN_COOKIE_BASE) {
 		int need = cookie_plus; /* has TCPOLEN_COOKIE_BASE */
 
@@ -1516,6 +1514,7 @@ static int tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
 	struct tcp_sock *tp = tcp_sk(sk);
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 	u32 send_win, cong_win, limit, in_flight;
+	int win_divisor;
 
 	if (TCP_SKB_CB(skb)->flags & TCPCB_FLAG_FIN)
 		goto send_now;
@@ -1547,13 +1546,14 @@ static int tcp_tso_should_defer(struct sock *sk, struct sk_buff *skb)
 	if ((skb != tcp_write_queue_tail(sk)) && (limit >= skb->len))
 		goto send_now;
 
-	if (sysctl_tcp_tso_win_divisor) {
+	win_divisor = ACCESS_ONCE(sysctl_tcp_tso_win_divisor);
+	if (win_divisor) {
 		u32 chunk = min(tp->snd_wnd, tp->snd_cwnd * tp->mss_cache);
 
 		/* If at least some fraction of a window is available,
 		 * just use it.
 		 */
-		chunk /= sysctl_tcp_tso_win_divisor;
+		chunk /= win_divisor;
 		if (limit >= chunk)
 			goto send_now;
 	} else {
@@ -2206,6 +2206,9 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
 	u32 last_lost;
 	int mib_idx;
 	int fwd_rexmitting = 0;
+
+	if (!tp->packets_out)
+		return;
 
 	if (!tp->lost_out)
 		tp->retransmit_high = tp->snd_una;

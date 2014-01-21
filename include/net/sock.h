@@ -255,7 +255,6 @@ struct sock {
 		struct sk_buff *head;
 		struct sk_buff *tail;
 		int len;
-		int limit;
 	} sk_backlog;
 	wait_queue_head_t	*sk_sleep;
 	struct dst_entry	*sk_dst_cache;
@@ -604,10 +603,20 @@ static inline void __sk_add_backlog(struct sock *sk, struct sk_buff *skb)
 	skb->next = NULL;
 }
 
+/*
+ * Take into account size of receive queue and backlog queue
+ */
+static inline bool sk_rcvqueues_full(const struct sock *sk, const struct sk_buff *skb)
+{
+	unsigned int qsize = sk->sk_backlog.len + atomic_read(&sk->sk_rmem_alloc);
+
+	return qsize + skb->truesize > sk->sk_rcvbuf;
+}
+
 /* The per-socket spinlock must be held here. */
 static inline __must_check int sk_add_backlog(struct sock *sk, struct sk_buff *skb)
 {
-	if (sk->sk_backlog.len >= max(sk->sk_backlog.limit, sk->sk_rcvbuf << 1))
+	if (sk_rcvqueues_full(sk, skb))
 		return -ENOBUFS;
 
 	__sk_add_backlog(sk, skb);
@@ -697,6 +706,7 @@ struct proto {
 	/* Keeping track of sk's, looking them up, and port selection methods. */
 	void			(*hash)(struct sock *sk);
 	void			(*unhash)(struct sock *sk);
+	void			(*rehash)(struct sock *sk);
 	int			(*get_port)(struct sock *sk, unsigned short snum);
 
 	/* Keeping track of sockets in use */
@@ -706,7 +716,7 @@ struct proto {
 
 	/* Memory pressure */
 	void			(*enter_memory_pressure)(struct sock *sk);
-	atomic_t		*memory_allocated;	/* Current allocated memory. */
+	atomic_long_t		*memory_allocated;	/* Current allocated memory. */
 	struct percpu_counter	*sockets_allocated;	/* Current number of sockets. */
 	/*
 	 * Pressure flag: try to collapse.
@@ -715,7 +725,7 @@ struct proto {
 	 * is strict, actions are advisory and have some latency.
 	 */
 	int			*memory_pressure;
-	int			*sysctl_mem;
+	long			*sysctl_mem;
 	int			*sysctl_wmem;
 	int			*sysctl_rmem;
 	int			max_header;
@@ -1072,6 +1082,8 @@ extern void sk_common_release(struct sock *sk);
 /* Initialise core socket variables */
 extern void sock_init_data(struct socket *sock, struct sock *sk);
 
+extern void sk_filter_release_rcu(struct rcu_head *rcu);
+
 /**
  *	sk_filter_release - release a socket filter
  *	@fp: filter to remove
@@ -1082,7 +1094,7 @@ extern void sock_init_data(struct socket *sock, struct sock *sk);
 static inline void sk_filter_release(struct sk_filter *fp)
 {
 	if (atomic_dec_and_test(&fp->refcnt))
-		kfree(fp);
+		call_rcu_bh(&fp->rcu, sk_filter_release_rcu);
 }
 
 static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
@@ -1146,12 +1158,7 @@ static inline void sk_tx_queue_clear(struct sock *sk)
 
 static inline int sk_tx_queue_get(const struct sock *sk)
 {
-	return sk->sk_tx_queue_mapping;
-}
-
-static inline bool sk_tx_queue_recorded(const struct sock *sk)
-{
-	return (sk && sk->sk_tx_queue_mapping >= 0);
+	return sk ? sk->sk_tx_queue_mapping : -1;
 }
 
 static inline void sk_set_socket(struct sock *sk, struct socket *sock)

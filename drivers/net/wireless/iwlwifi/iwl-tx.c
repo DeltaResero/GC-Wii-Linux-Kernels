@@ -310,6 +310,8 @@ static int iwl_queue_init(struct iwl_priv *priv, struct iwl_queue *q,
 		q->high_mark = 2;
 
 	q->write_ptr = q->read_ptr = 0;
+	q->last_read_ptr = 0;
+	q->repeat_same_read_ptr = 0;
 
 	return 0;
 }
@@ -1198,6 +1200,7 @@ static void iwl_tx_status(struct iwl_priv *priv, struct sk_buff *skb)
 	struct ieee80211_sta *sta;
 	struct iwl_station_priv *sta_priv;
 
+	rcu_read_lock();
 	sta = ieee80211_find_sta(priv->vif, hdr->addr1);
 	if (sta) {
 		sta_priv = (void *)sta->drv_priv;
@@ -1206,6 +1209,7 @@ static void iwl_tx_status(struct iwl_priv *priv, struct sk_buff *skb)
 		    atomic_dec_return(&sta_priv->pending_frames) == 0)
 			ieee80211_sta_block_awake(priv->hw, sta, false);
 	}
+	rcu_read_unlock();
 
 	ieee80211_tx_status_irqsafe(priv->hw, skb);
 }
@@ -1230,11 +1234,15 @@ int iwl_tx_queue_reclaim(struct iwl_priv *priv, int txq_id, int index)
 	     q->read_ptr = iwl_queue_inc_wrap(q->read_ptr, q->n_bd)) {
 
 		tx_info = &txq->txb[txq->q.read_ptr];
-		iwl_tx_status(priv, tx_info->skb[0]);
+
+		if (WARN_ON_ONCE(tx_info->skb == NULL))
+			continue;
 
 		hdr = (struct ieee80211_hdr *)tx_info->skb[0]->data;
-		if (hdr && ieee80211_is_data_qos(hdr->frame_control))
+		if (ieee80211_is_data_qos(hdr->frame_control))
 			nfreed++;
+
+		iwl_tx_status(priv, tx_info->skb[0]);
 		tx_info->skb[0] = NULL;
 
 		if (priv->cfg->ops->lib->txq_inval_byte_cnt_tbl)
@@ -1633,6 +1641,11 @@ void iwl_rx_reply_compressed_ba(struct iwl_priv *priv,
 	sta_id = ba_resp->sta_id;
 	tid = ba_resp->tid;
 	agg = &priv->stations[sta_id].tid[tid].agg;
+	if (unlikely(agg->txq_id != scd_flow)) {
+		IWL_ERR(priv, "BA scd_flow %d does not match txq_id %d\n",
+			scd_flow, agg->txq_id);
+		return;
+	}
 
 	/* Find index just before block-ack window */
 	index = iwl_queue_dec_wrap(ba_resp_scd_ssn & 0xff, txq->q.n_bd);

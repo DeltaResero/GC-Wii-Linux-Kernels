@@ -1261,9 +1261,12 @@ static inline int skb_gro_header_hard(struct sk_buff *skb, unsigned int hlen)
 static inline void *skb_gro_header_slow(struct sk_buff *skb, unsigned int hlen,
 					unsigned int offset)
 {
+	if (!pskb_may_pull(skb, hlen))
+		return NULL;
+
 	NAPI_GRO_CB(skb)->frag0 = NULL;
 	NAPI_GRO_CB(skb)->frag0_len = 0;
-	return pskb_may_pull(skb, hlen) ? skb->data + offset : NULL;
+	return skb->data + offset;
 }
 
 static inline void *skb_gro_mac_header(struct sk_buff *skb)
@@ -1660,6 +1663,8 @@ extern void __netdev_watchdog_up(struct net_device *dev);
 extern void netif_carrier_on(struct net_device *dev);
 
 extern void netif_carrier_off(struct net_device *dev);
+
+extern void netif_notify_peers(struct net_device *dev);
 
 /**
  *	netif_dormant_on - mark device as dormant.
@@ -2211,6 +2216,9 @@ do {					  			\
 	netif_printk(priv, type, KERN_NOTICE, dev, fmt, ##args)
 #define netif_info(priv, type, dev, fmt, args...)		\
 	netif_printk(priv, type, KERN_INFO, (dev), fmt, ##args)
+
+#define MODULE_ALIAS_NETDEV(device) \
+	MODULE_ALIAS("netdev-" device)
 
 #if defined(DEBUG)
 #define netif_dbg(priv, type, dev, format, args...)		\

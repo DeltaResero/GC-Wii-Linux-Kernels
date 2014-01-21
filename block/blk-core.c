@@ -439,6 +439,7 @@ void blk_put_queue(struct request_queue *q)
 {
 	kobject_put(&q->kobj);
 }
+EXPORT_SYMBOL(blk_put_queue);
 
 void blk_cleanup_queue(struct request_queue *q)
 {
@@ -612,6 +613,7 @@ int blk_get_queue(struct request_queue *q)
 
 	return 1;
 }
+EXPORT_SYMBOL(blk_get_queue);
 
 static inline void blk_free_request(struct request_queue *q, struct request *rq)
 {
@@ -1556,7 +1558,7 @@ void submit_bio(int rw, struct bio *bio)
 	 * If it's a regular read/write or a barrier with data attached,
 	 * go through the normal accounting stuff before submission.
 	 */
-	if (bio_has_data(bio)) {
+	if (bio_has_data(bio) && !(rw & (1 << BIO_RW_DISCARD))) {
 		if (rw & WRITE) {
 			count_vm_events(PGPGOUT, count);
 		} else {

@@ -64,6 +64,7 @@ struct usb_device_id rtusb_usb_id[] = {
 	{USB_DEVICE(0x14B2, 0x3C07)},	/* AL */
 	{USB_DEVICE(0x050D, 0x8053)},	/* Belkin */
 	{USB_DEVICE(0x050D, 0x825B)},	/* Belkin */
+	{USB_DEVICE(0x050D, 0x935B)},	/* Belkin F6D4050 v2 */
 	{USB_DEVICE(0x14B2, 0x3C23)},	/* Airlink */
 	{USB_DEVICE(0x14B2, 0x3C27)},	/* Airlink */
 	{USB_DEVICE(0x07AA, 0x002F)},	/* Corega */
@@ -98,6 +99,7 @@ struct usb_device_id rtusb_usb_id[] = {
 	{USB_DEVICE(0x5A57, 0x0282)},	/* Zinwell */
 	{USB_DEVICE(0x7392, 0x7718)},
 	{USB_DEVICE(0x7392, 0x7717)},
+	{USB_DEVICE(0x0411, 0x016f)},	/* MelCo.,Inc. WLI-UC-G301N */
 	{USB_DEVICE(0x1737, 0x0070)},	/* Linksys WUSB100 */
 	{USB_DEVICE(0x1737, 0x0071)},	/* Linksys WUSB600N */
 	{USB_DEVICE(0x0411, 0x00e8)},	/* Buffalo WLI-UC-G300N */

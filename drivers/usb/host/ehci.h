@@ -130,6 +130,8 @@ struct ehci_hcd {			/* one per controller */
 	unsigned		has_amcc_usb23:1;
 	unsigned		need_io_watchdog:1;
 	unsigned		broken_periodic:1;
+	unsigned		amd_l1_fix:1;
+	unsigned		fs_i_thresh:1;	/* Intel iso scheduling */
 
 	/* required for usb32 quirk */
 	#define OHCI_CTRL_HCFS          (3 << 6)
@@ -365,6 +367,7 @@ struct ehci_qh {
 #define NO_FRAME ((unsigned short)~0)			/* pick new start */
 
 	struct usb_device	*dev;		/* access to TT */
+	unsigned		is_out:1;	/* bulk or intr OUT */
 	unsigned		clearing_tt:1;	/* Clear-TT-Buf in progress */
 };
 
@@ -533,6 +536,16 @@ struct ehci_fstn {
 	dma_addr_t		fstn_dma;
 	union ehci_shadow	fstn_next;	/* ptr to periodic q entry */
 } __attribute__ ((aligned (32)));
+
+/*-------------------------------------------------------------------------*/
+
+/* Prepare the PORTSC wakeup flags during controller suspend/resume */
+
+#define ehci_prepare_ports_for_controller_suspend(ehci)		\
+		ehci_adjust_port_wakeup_flags(ehci, true);
+
+#define ehci_prepare_ports_for_controller_resume(ehci)		\
+		ehci_adjust_port_wakeup_flags(ehci, false);
 
 /*-------------------------------------------------------------------------*/
 

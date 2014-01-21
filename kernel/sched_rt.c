@@ -948,10 +948,9 @@ static void yield_task_rt(struct rq *rq)
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
-static int select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
+static int
+select_task_rq_rt(struct rq *rq, struct task_struct *p, int sd_flag, int flags)
 {
-	struct rq *rq = task_rq(p);
-
 	if (sd_flag != SD_BALANCE_WAKE)
 		return smp_processor_id();
 
@@ -1315,6 +1314,11 @@ static int push_rt_task(struct rq *rq)
 	next_task = pick_next_pushable_task(rq);
 	if (!next_task)
 		return 0;
+
+#ifdef __ARCH_WANT_INTERRUPTS_ON_CTXSW
+	if (unlikely(task_running(rq, next_task)))
+		return 0;
+#endif
 
  retry:
 	if (unlikely(next_task == rq->curr)) {

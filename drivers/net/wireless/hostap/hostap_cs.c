@@ -603,6 +603,7 @@ static int prism2_config(struct pcmcia_device *link)
 	local_info_t *local;
 	int ret = 1;
 	struct hostap_cs_priv *hw_priv;
+	unsigned long flags;
 
 	PDEBUG(DEBUG_FLOW, "prism2_config()\n");
 
@@ -637,6 +638,11 @@ static int prism2_config(struct pcmcia_device *link)
 	link->dev_node = &hw_priv->node;
 
 	/*
+	 * We enable IRQ here, but IRQ handler will not proceed
+	 * until dev->base_addr is set below. This protect us from
+	 * receive interrupts when driver is not initialized.
+	 */
+	/*
 	 * Allocate an interrupt line.  Note that this does not assign a
 	 * handler to the interrupt, unless the 'Handler' member of the
 	 * irq structure is initialized.
@@ -658,8 +664,10 @@ static int prism2_config(struct pcmcia_device *link)
 	if (ret)
 		goto failed;
 
+	spin_lock_irqsave(&local->irq_init_lock, flags);
 	dev->irq = link->irq.AssignedIRQ;
 	dev->base_addr = link->io.BasePort1;
+	spin_unlock_irqrestore(&local->irq_init_lock, flags);
 
 	/* Finally, report what we've done */
 	printk(KERN_INFO "%s: index 0x%02x: ",

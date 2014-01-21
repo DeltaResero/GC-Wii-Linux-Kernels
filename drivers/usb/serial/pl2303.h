@@ -5,7 +5,7 @@
  *	it under the terms of the GNU General Public License as published by
  *	the Free Software Foundation; either version 2 of the License, or
  *	(at your option) any later version.
- * 
+ *
  */
 
 #define BENQ_VENDOR_ID			0x04a5
@@ -21,6 +21,7 @@
 #define PL2303_PRODUCT_ID_MMX		0x0612
 #define PL2303_PRODUCT_ID_GPRS		0x0609
 #define PL2303_PRODUCT_ID_HCR331	0x331a
+#define PL2303_PRODUCT_ID_MOTOROLA	0x0307
 
 #define ATEN_VENDOR_ID		0x0557
 #define ATEN_VENDOR_ID2		0x0547
@@ -128,6 +129,10 @@
 #define CRESSI_VENDOR_ID	0x04b8
 #define CRESSI_EDY_PRODUCT_ID	0x0521
 
+/* Zeagle dive computer interface */
+#define ZEAGLE_VENDOR_ID	0x04b8
+#define ZEAGLE_N2ITION3_PRODUCT_ID	0x0522
+
 /* Sony, USB data cable for CMD-Jxx mobile phones */
 #define SONY_VENDOR_ID		0x054c
 #define SONY_QN3USB_PRODUCT_ID	0x0437
@@ -137,5 +142,9 @@
 #define SANWA_PRODUCT_ID	0x0001
 
 /* ADLINK ND-6530 RS232,RS485 and RS422 adapter */
-#define ADLINK_VENDOR_ID        0x0b63
-#define ADLINK_ND6530_PRODUCT_ID       0x6530
+#define ADLINK_VENDOR_ID		0x0b63
+#define ADLINK_ND6530_PRODUCT_ID	0x6530
+
+/* SMART USB Serial Adapter */
+#define SMART_VENDOR_ID	0x0b8c
+#define SMART_PRODUCT_ID	0x2303

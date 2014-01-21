@@ -554,13 +554,13 @@ retry:
 	}
 	inode = &gss_msg->inode->vfs_inode;
 	for (;;) {
-		prepare_to_wait(&gss_msg->waitqueue, &wait, TASK_INTERRUPTIBLE);
+		prepare_to_wait(&gss_msg->waitqueue, &wait, TASK_KILLABLE);
 		spin_lock(&inode->i_lock);
 		if (gss_msg->ctx != NULL || gss_msg->msg.errno < 0) {
 			break;
 		}
 		spin_unlock(&inode->i_lock);
-		if (signalled()) {
+		if (fatal_signal_pending(current)) {
 			err = -ERESTARTSYS;
 			goto out_intr;
 		}
@@ -724,17 +724,18 @@ gss_pipe_release(struct inode *inode)
 	struct rpc_inode *rpci = RPC_I(inode);
 	struct gss_upcall_msg *gss_msg;
 
+restart:
 	spin_lock(&inode->i_lock);
-	while (!list_empty(&rpci->in_downcall)) {
+	list_for_each_entry(gss_msg, &rpci->in_downcall, list) {
 
-		gss_msg = list_entry(rpci->in_downcall.next,
-				struct gss_upcall_msg, list);
+		if (!list_empty(&gss_msg->msg.list))
+			continue;
 		gss_msg->msg.errno = -EPIPE;
 		atomic_inc(&gss_msg->count);
 		__gss_unhash_msg(gss_msg);
 		spin_unlock(&inode->i_lock);
 		gss_release_msg(gss_msg);
-		spin_lock(&inode->i_lock);
+		goto restart;
 	}
 	spin_unlock(&inode->i_lock);
 

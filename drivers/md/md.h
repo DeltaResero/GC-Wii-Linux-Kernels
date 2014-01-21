@@ -125,6 +125,10 @@ struct mddev_s
 	int				suspended;
 	atomic_t			active_io;
 	int				ro;
+	int				sysfs_active; /* set when sysfs deletes
+						       * are happening, so run/
+						       * takeover/stop are not safe
+						       */
 
 	struct gendisk			*gendisk;
 
@@ -305,6 +309,7 @@ struct mddev_s
 	atomic_t 			max_corr_read_errors; /* max read retries */
 	struct list_head		all_mddevs;
 
+	struct attribute_group		*to_remove;
 	/* Generic barrier handling.
 	 * If there is a pending barrier request, all other
 	 * writes are blocked while the devices are flushed.
