@@ -24,7 +24,7 @@
 #include <linux/libata.h>
 
 #define DRV_NAME	"pata_hpt37x"
-#define DRV_VERSION	"0.6.12"
+#define DRV_VERSION	"0.6.14"
 
 struct hpt_clock {
 	u8	xfer_speed;
@@ -404,9 +404,8 @@ static void hpt370_set_piomode(struct ata_port *ap, struct ata_device *adev)
 
 	pci_read_config_dword(pdev, addr1, &reg);
 	mode = hpt37x_find_mode(ap, adev->pio_mode);
-	mode &= ~0x8000000;	/* No FIFO in PIO */
-	mode &= ~0x30070000;	/* Leave config bits alone */
-	reg &= 0x30070000;	/* Strip timing bits */
+	mode &= 0xCFC3FFFF;	/* Leave DMA bits alone */
+	reg &= ~0xCFC3FFFF;	/* Strip timing bits */
 	pci_write_config_dword(pdev, addr1, reg | mode);
 }
 
@@ -423,8 +422,7 @@ static void hpt370_set_dmamode(struct ata_port *ap, struct ata_device *adev)
 {
 	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
 	u32 addr1, addr2;
-	u32 reg;
-	u32 mode;
+	u32 reg, mode, mask;
 	u8 fast;
 
 	addr1 = 0x40 + 4 * (adev->devno + 2 * ap->port_no);
@@ -436,11 +434,12 @@ static void hpt370_set_dmamode(struct ata_port *ap, struct ata_device *adev)
 	fast |= 0x01;
 	pci_write_config_byte(pdev, addr2, fast);
 
+	mask = adev->dma_mode < XFER_UDMA_0 ? 0x31C001FF : 0x303C0000;
+
 	pci_read_config_dword(pdev, addr1, &reg);
 	mode = hpt37x_find_mode(ap, adev->dma_mode);
-	mode |= 0x8000000;	/* FIFO in MWDMA or UDMA */
-	mode &= ~0xC0000000;	/* Leave config bits alone */
-	reg &= 0xC0000000;	/* Strip timing bits */
+	mode &= mask;
+	reg &= ~mask;
 	pci_write_config_dword(pdev, addr1, reg | mode);
 }
 
@@ -508,9 +507,8 @@ static void hpt372_set_piomode(struct ata_port *ap, struct ata_device *adev)
 	mode = hpt37x_find_mode(ap, adev->pio_mode);
 
 	printk("Find mode for %d reports %X\n", adev->pio_mode, mode);
-	mode &= ~0x80000000;	/* No FIFO in PIO */
-	mode &= ~0x30070000;	/* Leave config bits alone */
-	reg &= 0x30070000;	/* Strip timing bits */
+	mode &= 0xCFC3FFFF;	/* Leave DMA bits alone */
+	reg &= ~0xCFC3FFFF;	/* Strip timing bits */
 	pci_write_config_dword(pdev, addr1, reg | mode);
 }
 
@@ -527,8 +525,7 @@ static void hpt372_set_dmamode(struct ata_port *ap, struct ata_device *adev)
 {
 	struct pci_dev *pdev = to_pci_dev(ap->host->dev);
 	u32 addr1, addr2;
-	u32 reg;
-	u32 mode;
+	u32 reg, mode, mask;
 	u8 fast;
 
 	addr1 = 0x40 + 4 * (adev->devno + 2 * ap->port_no);
@@ -539,12 +536,13 @@ static void hpt372_set_dmamode(struct ata_port *ap, struct ata_device *adev)
 	fast &= ~0x07;
 	pci_write_config_byte(pdev, addr2, fast);
 
+	mask = adev->dma_mode < XFER_UDMA_0 ? 0x31C001FF : 0x303C0000;
+
 	pci_read_config_dword(pdev, addr1, &reg);
 	mode = hpt37x_find_mode(ap, adev->dma_mode);
 	printk("Find mode for DMA %d reports %X\n", adev->dma_mode, mode);
-	mode &= ~0xC0000000;	/* Leave config bits alone */
-	mode |= 0x80000000;	/* FIFO in MWDMA or UDMA */
-	reg &= 0xC0000000;	/* Strip timing bits */
+	mode &= mask;
+	reg &= ~mask;
 	pci_write_config_dword(pdev, addr1, reg | mode);
 }
 
@@ -791,9 +789,8 @@ static int hpt37x_init_one(struct pci_dev *dev, const struct pci_device_id *id)
 	static const int MHz[4] = { 33, 40, 50, 66 };
 	void *private_data = NULL;
 	const struct ata_port_info *ppi[] = { NULL, NULL };
-
+	u8 rev = dev->revision;
 	u8 irqmask;
-	u32 class_rev;
 	u8 mcr1;
 	u32 freq;
 	int prefer_dpll = 1;
@@ -808,19 +805,16 @@ static int hpt37x_init_one(struct pci_dev *dev, const struct pci_device_id *id)
 	if (rc)
 		return rc;
 
-	pci_read_config_dword(dev, PCI_CLASS_REVISION, &class_rev);
-	class_rev &= 0xFF;
-
 	if (dev->device == PCI_DEVICE_ID_TTI_HPT366) {
 		/* May be a later chip in disguise. Check */
 		/* Older chips are in the HPT366 driver. Ignore them */
-		if (class_rev < 3)
+		if (rev < 3)
 			return -ENODEV;
 		/* N series chips have their own driver. Ignore */
-		if (class_rev == 6)
+		if (rev == 6)
 			return -ENODEV;
 
-		switch(class_rev) {
+		switch(rev) {
 			case 3:
 				ppi[0] = &info_hpt370;
 				chip_table = &hpt370;
@@ -836,28 +830,29 @@ static int hpt37x_init_one(struct pci_dev *dev, const struct pci_device_id *id)
 				chip_table = &hpt372;
 				break;
 			default:
-				printk(KERN_ERR "pata_hpt37x: Unknown HPT366 subtype please report (%d).\n", class_rev);
+				printk(KERN_ERR "pata_hpt37x: Unknown HPT366 "
+				       "subtype, please report (%d).\n", rev);
 				return -ENODEV;
 		}
 	} else {
 		switch(dev->device) {
 			case PCI_DEVICE_ID_TTI_HPT372:
 				/* 372N if rev >= 2*/
-				if (class_rev >= 2)
+				if (rev >= 2)
 					return -ENODEV;
 				ppi[0] = &info_hpt372;
 				chip_table = &hpt372a;
 				break;
 			case PCI_DEVICE_ID_TTI_HPT302:
 				/* 302N if rev > 1 */
-				if (class_rev > 1)
+				if (rev > 1)
 					return -ENODEV;
 				ppi[0] = &info_hpt372;
 				/* Check this */
 				chip_table = &hpt302;
 				break;
 			case PCI_DEVICE_ID_TTI_HPT371:
-				if (class_rev > 1)
+				if (rev > 1)
 					return -ENODEV;
 				ppi[0] = &info_hpt372;
 				chip_table = &hpt371;

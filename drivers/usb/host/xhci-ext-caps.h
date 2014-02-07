@@ -62,8 +62,9 @@
 /* USB Legacy Support Control and Status Register  - section 7.1.2 */
 /* Add this offset, plus the value of xECP in HCCPARAMS to the base address */
 #define XHCI_LEGACY_CONTROL_OFFSET	(0x04)
-/* bits 1:2, 5:12, and 17:19 need to be preserved; bits 21:28 should be zero */
-#define	XHCI_LEGACY_DISABLE_SMI		((0x3 << 1) + (0xff << 5) + (0x7 << 17))
+/* bits 1:3, 5:12, and 17:19 need to be preserved; bits 21:28 should be zero */
+#define	XHCI_LEGACY_DISABLE_SMI		((0x7 << 1) + (0xff << 5) + (0x7 << 17))
+#define XHCI_LEGACY_SMI_EVENTS		(0x7 << 29)
 
 /* command register values to disable interrupts and halt the HC */
 /* start/stop HC execution - do not write unless HC is halted*/
@@ -101,12 +102,15 @@ static inline int xhci_find_next_cap_offset(void __iomem *base, int ext_offset)
 
 	next = readl(base + ext_offset);
 
-	if (ext_offset == XHCI_HCC_PARAMS_OFFSET)
+	if (ext_offset == XHCI_HCC_PARAMS_OFFSET) {
 		/* Find the first extended capability */
 		next = XHCI_HCC_EXT_CAPS(next);
-	else
+		ext_offset = 0;
+	} else {
 		/* Find the next extended capability */
 		next = XHCI_EXT_CAPS_NEXT(next);
+	}
+
 	if (!next)
 		return 0;
 	/*

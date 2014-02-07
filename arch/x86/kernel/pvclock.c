@@ -74,7 +74,8 @@ static inline u64 scale_delta(u64 delta, u32 mul_frac, int shift)
 static u64 pvclock_get_nsec_offset(struct pvclock_shadow_time *shadow)
 {
 	u64 delta = native_read_tsc() - shadow->tsc_timestamp;
-	return scale_delta(delta, shadow->tsc_to_nsec_mul, shadow->tsc_shift);
+	return pvclock_scale_delta(delta, shadow->tsc_to_nsec_mul,
+				   shadow->tsc_shift);
 }
 
 /*
@@ -109,11 +110,19 @@ unsigned long pvclock_tsc_khz(struct pvclock_vcpu_time_info *src)
 	return pv_tsc_khz;
 }
 
+static atomic64_t last_value = ATOMIC64_INIT(0);
+
+void pvclock_resume(void)
+{
+	atomic64_set(&last_value, 0);
+}
+
 cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
 {
 	struct pvclock_shadow_time shadow;
 	unsigned version;
 	cycle_t ret, offset;
+	u64 last;
 
 	do {
 		version = pvclock_get_time_values(&shadow, src);
@@ -122,6 +131,27 @@ cycle_t pvclock_clocksource_read(struct pvclock_vcpu_time_info *src)
 		ret = shadow.system_timestamp + offset;
 		barrier();
 	} while (version != src->version);
+
+	/*
+	 * Assumption here is that last_value, a global accumulator, always goes
+	 * forward. If we are less than that, we should not be much smaller.
+	 * We assume there is an error marging we're inside, and then the correction
+	 * does not sacrifice accuracy.
+	 *
+	 * For reads: global may have changed between test and return,
+	 * but this means someone else updated poked the clock at a later time.
+	 * We just need to make sure we are not seeing a backwards event.
+	 *
+	 * For updates: last_value = ret is not enough, since two vcpus could be
+	 * updating at the same time, and one of them could be slightly behind,
+	 * making the assumption that last_value always go forward fail to hold.
+	 */
+	last = atomic64_read(&last_value);
+	do {
+		if (ret < last)
+			return last;
+		last = atomic64_cmpxchg(&last_value, last, ret);
+	} while (unlikely(last != ret));
 
 	return ret;
 }

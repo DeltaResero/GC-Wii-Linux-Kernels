@@ -194,9 +194,11 @@ static ssize_t set_enabled(struct device *dev, struct device_attribute *attr,
 {
 	struct usb_interface *intf = to_usb_interface(dev);
 	struct asus_oled_dev *odev = usb_get_intfdata(intf);
-	int temp = strict_strtoul(buf, 10, NULL);
+	unsigned long value;
+	if (strict_strtoul(buf, 10, &value))
+		return -EINVAL;
 
-	enable_oled(odev, temp);
+	enable_oled(odev, value);
 
 	return count;
 }
@@ -207,10 +209,12 @@ static ssize_t class_set_enabled(struct device *device,
 {
 	struct asus_oled_dev *odev =
 		(struct asus_oled_dev *) dev_get_drvdata(device);
+	unsigned long value;
 
-	int temp = strict_strtoul(buf, 10, NULL);
+	if (strict_strtoul(buf, 10, &value))
+		return -EINVAL;
 
-	enable_oled(odev, temp);
+	enable_oled(odev, value);
 
 	return count;
 }
@@ -345,7 +349,14 @@ static void send_data(struct asus_oled_dev *odev)
 
 static int append_values(struct asus_oled_dev *odev, uint8_t val, size_t count)
 {
-	while (count-- > 0 && val) {
+	odev->last_val = val;
+
+	if (val == 0) {
+		odev->buf_offs += count;
+		return 0;
+	}
+
+	while (count-- > 0) {
 		size_t x = odev->buf_offs % odev->width;
 		size_t y = odev->buf_offs / odev->width;
 		size_t i;
@@ -396,7 +407,6 @@ static int append_values(struct asus_oled_dev *odev, uint8_t val, size_t count)
 			;
 		}
 
-		odev->last_val = val;
 		odev->buf_offs++;
 	}
 
@@ -605,13 +615,13 @@ static ssize_t class_set_picture(struct device *device,
 
 #define ASUS_OLED_DEVICE_ATTR(_file)		dev_attr_asus_oled_##_file
 
-static DEVICE_ATTR(asus_oled_enabled, S_IWUGO | S_IRUGO,
+static DEVICE_ATTR(asus_oled_enabled, S_IWUSR | S_IRUGO,
 		   get_enabled, set_enabled);
-static DEVICE_ATTR(asus_oled_picture, S_IWUGO , NULL, set_picture);
+static DEVICE_ATTR(asus_oled_picture, S_IWUSR , NULL, set_picture);
 
-static DEVICE_ATTR(enabled, S_IWUGO | S_IRUGO,
+static DEVICE_ATTR(enabled, S_IWUSR | S_IRUGO,
 		   class_get_enabled, class_set_enabled);
-static DEVICE_ATTR(picture, S_IWUGO, NULL, class_set_picture);
+static DEVICE_ATTR(picture, S_IWUSR, NULL, class_set_picture);
 
 static int asus_oled_probe(struct usb_interface *interface,
 			   const struct usb_device_id *id)

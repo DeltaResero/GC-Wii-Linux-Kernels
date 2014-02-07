@@ -140,14 +140,16 @@ int drm_open(struct inode *inode, struct file *filp)
 		spin_unlock(&dev->count_lock);
 	}
 out:
-	mutex_lock(&dev->struct_mutex);
-	if (minor->type == DRM_MINOR_LEGACY) {
-		BUG_ON((dev->dev_mapping != NULL) &&
-			(dev->dev_mapping != inode->i_mapping));
-		if (dev->dev_mapping == NULL)
-			dev->dev_mapping = inode->i_mapping;
+	if (!retcode) {
+		mutex_lock(&dev->struct_mutex);
+		if (minor->type == DRM_MINOR_LEGACY) {
+			if (dev->dev_mapping == NULL)
+				dev->dev_mapping = inode->i_mapping;
+			else if (dev->dev_mapping != inode->i_mapping)
+				retcode = -ENODEV;
+		}
+		mutex_unlock(&dev->struct_mutex);
 	}
-	mutex_unlock(&dev->struct_mutex);
 
 	return retcode;
 }
@@ -446,6 +448,11 @@ int drm_release(struct inode *inode, struct file *filp)
 		  task_pid_nr(current),
 		  (long)old_encode_dev(file_priv->minor->device),
 		  dev->open_count);
+
+	/* Release any auth tokens that might point to this file_priv,
+	   (do that under the drm_global_mutex) */
+	if (file_priv->magic)
+		(void) drm_remove_magic(file_priv->master, file_priv->magic);
 
 	/* if the master has gone away we can't do anything with the lock */
 	if (file_priv->minor->master)

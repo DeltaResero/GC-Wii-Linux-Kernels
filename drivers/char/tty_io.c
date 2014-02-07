@@ -96,6 +96,7 @@
 #include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/seq_file.h>
+#include <linux/serial.h>
 
 #include <linux/uaccess.h>
 #include <asm/system.h>
@@ -1408,6 +1409,8 @@ static void release_one_tty(struct work_struct *work)
 	list_del_init(&tty->tty_files);
 	file_list_unlock();
 
+	put_pid(tty->pgrp);
+	put_pid(tty->session);
 	free_tty_struct(tty);
 }
 
@@ -1930,8 +1933,10 @@ static int tty_fasync(int fd, struct file *filp, int on)
 			pid = task_pid(current);
 			type = PIDTYPE_PID;
 		}
+		get_pid(pid);
 		spin_unlock_irqrestore(&tty->ctrl_lock, flags);
 		retval = __f_setown(filp, pid, type, 0);
+		put_pid(pid);
 		if (retval)
 			goto out;
 	} else {
@@ -2432,6 +2437,20 @@ static int tty_tiocmset(struct tty_struct *tty, struct file *file, unsigned int 
 	return tty->ops->tiocmset(tty, file, set, clear);
 }
 
+static int tty_tiocgicount(struct tty_struct *tty, void __user *arg)
+{
+	int retval = -EINVAL;
+	struct serial_icounter_struct icount;
+	memset(&icount, 0, sizeof(icount));
+	if (tty->ops->get_icount)
+		retval = tty->ops->get_icount(tty, &icount);
+	if (retval != 0)
+		return retval;
+	if (copy_to_user(arg, &icount, sizeof(icount)))
+		return -EFAULT;
+	return 0;
+}
+
 struct tty_struct *tty_pair_get_tty(struct tty_struct *tty)
 {
 	if (tty->driver->type == TTY_DRIVER_TYPE_PTY &&
@@ -2552,6 +2571,12 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case TIOCMBIC:
 	case TIOCMBIS:
 		return tty_tiocmset(tty, file, cmd, p);
+	case TIOCGICOUNT:
+		retval = tty_tiocgicount(tty, p);
+		/* For the moment allow fall through to the old method */
+        	if (retval != -EINVAL)
+			return retval;
+		break;
 	case TCFLSH:
 		switch (arg) {
 		case TCIFLUSH:
