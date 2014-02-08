@@ -102,7 +102,7 @@ static int conf_askvalue(struct symbol *sym, const char *def)
 		check_stdin();
 	case ask_all:
 		fflush(stdout);
-		fgets(line, 128, stdin);
+		xfgets(line, 128, stdin);
 		return 1;
 	default:
 		break;
@@ -156,14 +156,12 @@ static int conf_string(struct menu *menu)
 static int conf_sym(struct menu *menu)
 {
 	struct symbol *sym = menu->sym;
-	int type;
 	tristate oldval, newval;
 
 	while (1) {
 		printf("%*s%s ", indent - 1, "", _(menu->prompt->text));
 		if (sym->name)
 			printf("(%s) ", sym->name);
-		type = sym_get_type(sym);
 		putchar('[');
 		oldval = sym_get_tristate_value(sym);
 		switch (oldval) {
@@ -228,11 +226,9 @@ static int conf_choice(struct menu *menu)
 {
 	struct symbol *sym, *def_sym;
 	struct menu *child;
-	int type;
 	bool is_new;
 
 	sym = menu->sym;
-	type = sym_get_type(sym);
 	is_new = !sym_has_value(sym);
 	if (sym_is_changable(sym)) {
 		conf_sym(menu);
@@ -304,7 +300,7 @@ static int conf_choice(struct menu *menu)
 			check_stdin();
 		case ask_all:
 			fflush(stdout);
-			fgets(line, 128, stdin);
+			xfgets(line, 128, stdin);
 			strip(line);
 			if (line[0] == '?') {
 				print_help(menu);
@@ -615,3 +611,14 @@ int main(int ac, char **av)
 	}
 	return 0;
 }
+/*
+ * Helper function to facilitate fgets() by Jean Sacren.
+ */
+void xfgets(str, size, in)
+	char *str;
+	int size;
+	FILE *in;
+	{
+		if (fgets(str, size, in) == NULL)
+			fprintf(stderr, "\nError in reading or end of file.\n");
+	}
