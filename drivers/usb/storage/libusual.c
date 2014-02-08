@@ -22,7 +22,7 @@ struct mod_status {
 
 static struct mod_status stat[3];
 static DEFINE_SPINLOCK(usu_lock);
-
+extern struct usb_device_id usb_storage_usb_ids[];
 /*
  */
 #define USB_US_DEFAULT_BIAS	USB_US_TYPE_STOR

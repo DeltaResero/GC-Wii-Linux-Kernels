@@ -81,7 +81,8 @@ MODULE_PARM_DESC(delay_use, "seconds to delay before using a new device");
 static char quirks[128];
 module_param_string(quirks, quirks, sizeof(quirks), S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(quirks, "supplemental list of device IDs and their quirks");
-
+extern int usb_usual_ignore_device(struct usb_interface *intf);
+extern struct usb_device_id usb_storage_usb_ids[];
 
 /*
  * The entries in this table correspond, line for line,
