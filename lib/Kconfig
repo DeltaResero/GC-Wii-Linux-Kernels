@@ -133,6 +133,10 @@ config AUDIT_GENERIC
 	depends on AUDIT && !AUDIT_ARCH
 	default y
 
+config DECOMPRESS_XZ
+	select XZ_DEC
+	tristate
+
 config DECOMPRESS_LZO
 	select LZO_DECOMPRESS
 	tristate
