@@ -28,8 +28,14 @@ config ZRAM_NUM_DEVICES
 config ZRAM_DEFAULT_PERCENTAGE
 	int "Default number of zram percentage"
 	depends on ZRAM
-	range 25 80
+	range 10 80
 	default 25
 	help
 	  Select default zram disk size: percentage of total RAM
 
+config ZRAM_DEFAULT_DISKSIZE
+	int "Default size of zram in bytes"
+	depends on ZRAM
+	default 33554432
+	help
+	  Set default zram disk size (default ~ 32MB, recommend 1/2 RAM size)
