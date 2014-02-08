@@ -366,8 +366,10 @@ DEBG("huft1 ");
   x = stk->x;
   u = stk->u;
 
+  for (i = 0; i < BMAX + 1; i++)
+  	c[i] = 0;
+
   /* Generate counts for each bit length */
-  memzero(stk->c, sizeof(stk->c));
   p = b;  i = n;
   do {
     Tracecv(*p, (stderr, (n-i >= ' ' && n-i <= '~' ? "%c %d\n" : "0x%x %d\n"), 
