@@ -9,7 +9,7 @@ struct autogroup {
 
 static struct autogroup autogroup_default;
 
-static void autogroup_init(struct task_struct *init_task)
+static void __init autogroup_init(struct task_struct *init_task)
 {
 	autogroup_default.tg = &init_task_group;
 	kref_init(&autogroup_default.kref);
