@@ -1911,7 +1911,7 @@ extern void dev_seq_stop(struct seq_file *seq, void *v);
 extern int netdev_class_create_file(struct class_attribute *class_attr);
 extern void netdev_class_remove_file(struct class_attribute *class_attr);
 
-extern char *netdev_drivername(const struct net_device *dev, char *buffer, int len);
+extern const char *netdev_drivername(const struct net_device *dev);
 
 extern void linkwatch_run_queue(void);
 
