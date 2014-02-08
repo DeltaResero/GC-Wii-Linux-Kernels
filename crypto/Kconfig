@@ -96,6 +96,10 @@ config CRYPTO_MANAGER2
 	select CRYPTO_BLKCIPHER2
 	select CRYPTO_PCOMP
 
+config CRYPTO_MANAGER_NO_TESTS
+	bool "Disable internal testsuite to save space"
+	depends on CRYPTO_MANAGER
+
 config CRYPTO_GF128MUL
 	tristate "GF(2^128) multiplication functions (EXPERIMENTAL)"
 	depends on EXPERIMENTAL

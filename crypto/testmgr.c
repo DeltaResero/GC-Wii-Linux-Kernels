@@ -47,6 +47,8 @@
 #define ENCRYPT 1
 #define DECRYPT 0
 
+#ifndef CONFIG_CRYPTO_MANAGER_NO_TESTS
+
 struct tcrypt_result {
 	struct completion completion;
 	int err;
@@ -2434,8 +2436,11 @@ static int alg_find_test(const char *alg)
 	return -1;
 }
 
+#endif /* CONFIG_CRYPTO_MANAGER_NO_TESTS */
+
 int alg_test(const char *driver, const char *alg, u32 type, u32 mask)
 {
+#ifndef CONFIG_CRYPTO_MANAGER_NO_TESTS
 	int i;
 	int j;
 	int rc;
@@ -2490,5 +2495,8 @@ notest:
 	return 0;
 non_fips_alg:
 	return -EINVAL;
+#else /* CONFIG_CRYPTO_MANAGER_NO_TESTS */
+	return 0;
+#endif /* CONFIG_CRYPTO_MANAGER_NO_TESTS */
 }
 EXPORT_SYMBOL_GPL(alg_test);

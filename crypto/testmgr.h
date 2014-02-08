@@ -20,6 +20,8 @@
 
 #include <crypto/compress.h>
 
+#ifndef CONFIG_CRYPTO_MANAGER_NO_TESTS
+
 #define MAX_DIGEST_SIZE		64
 #define MAX_TAP			8
 
@@ -9536,5 +9538,7 @@ static struct hash_testvec crc32c_tv_template[] = {
 		.tap = { 31, 209 }
 	},
 };
+
+#endif /* CONFIG_CRYPTO_MANAGER_NO_TESTS */
 
 #endif	/* _CRYPTO_TESTMGR_H */
