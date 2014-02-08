@@ -903,6 +903,7 @@ struct file_ra_state {
 #define	READAHEAD_MMAP_MISS	0x0000ffff /* cache misses for mmap access */
 #define READAHEAD_THRASHED	0x10000000
 #define	READAHEAD_MMAP		0x20000000
+#define	READAHEAD_LSEEK		0x40000000 /* be conservative after lseek() */
 
 /*
  * Which policy makes decision to do the current read-ahead IO?
