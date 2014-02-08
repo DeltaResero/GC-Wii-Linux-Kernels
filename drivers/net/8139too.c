@@ -1386,13 +1386,6 @@ static void rtl8139_hw_start (struct net_device *dev)
 
 	rtl_check_media (dev, 1);
 
-	if (tp->chipset >= CH_8139B) {
-		/* Disable magic packet scanning, which is enabled
-		 * when PM is enabled in Config1.  It can be reenabled
-		 * via ETHTOOL_SWOL if desired.  */
-		RTL_W8 (Config3, RTL_R8 (Config3) & ~Cfg3_Magic);
-	}
-
 	pr_debug("init buffer addresses\n");
 
 	/* Lock Config[01234] and BMCR register writes */
