@@ -13,6 +13,7 @@
  */
 #include "wacom.h"
 #include "wacom_wac.h"
+#include <linux/input/mt.h>
 
 static int wacom_penpartner_irq(struct wacom_wac *wacom, void *wcombo)
 {
