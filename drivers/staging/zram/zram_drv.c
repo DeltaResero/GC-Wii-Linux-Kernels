@@ -100,33 +100,16 @@ static int page_zero_filled(void *ptr)
 	return 1;
 }
 
-static void zram_set_disksize(struct zram *zram, size_t totalram_bytes)
+static u64 zram_default_disksize_bytes(void)
 {
-	if (!zram->disksize) {
-		pr_info(
-		"disk size not provided. You can use disksize_kb module "
-		"param to specify size.\nUsing default: (%u%% of RAM).\n",
-		default_disksize_perc_ram
-		);
-		zram->disksize = default_disksize_perc_ram *
-					(totalram_bytes / 100);
-	}
+	return ((totalram_pages << PAGE_SHIFT) *
+		default_disksize_perc_ram / 100) & PAGE_MASK;
+}
 
-	if (zram->disksize > 2 * (totalram_bytes)) {
-		pr_info(
-		"There is little point creating a zram of greater than "
-		"twice the size of memory since we expect a 2:1 compression "
-		"ratio. Note that zram uses about 0.1%% of the size of "
-		"the disk when not in use so a huge zram is "
-		"wasteful.\n"
-		"\tMemory Size: %zu kB\n"
-		"\tSize you selected: %llu kB\n"
-		"Continuing anyway ...\n",
-		totalram_bytes >> 10, zram->disksize
-		);
-	}
-
-	zram->disksize &= PAGE_MASK;
+static void zram_set_disksize(struct zram *zram, u64 size_bytes)
+{
+	zram->disksize = size_bytes;
+	set_capacity(zram->disk, size_bytes >> SECTOR_SHIFT);
 }
 
 static void zram_free_page(struct zram *zram, size_t index)
@@ -514,7 +497,8 @@ int zram_init_device(struct zram *zram)
 		return 0;
 	}
 
-	zram_set_disksize(zram, totalram_pages << PAGE_SHIFT);
+	if (!zram->disksize)
+		zram_set_disksize(zram, zram_default_disksize_bytes());
 
 	zram->compress_workmem = kzalloc(LZO1X_MEM_COMPRESS, GFP_KERNEL);
 	if (!zram->compress_workmem) {
@@ -540,8 +524,6 @@ int zram_init_device(struct zram *zram)
 		goto fail;
 	}
 	memset(zram->table, 0, num_pages * sizeof(*zram->table));
-
-	set_capacity(zram->disk, zram->disksize >> SECTOR_SHIFT);
 
 	/* zram devices sort of resembles non-rotational disks */
 	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, zram->disk->queue);
@@ -619,7 +601,7 @@ static int create_device(struct zram *zram, int device_id)
 	snprintf(zram->disk->disk_name, 16, "zram%d", device_id);
 
 	/* Actual capacity set using syfs (/sys/block/zram<id>/disksize */
-	set_capacity(zram->disk, 0);
+	zram_set_disksize(zram, 0);
 
 	/*
 	 * To ensure that we always get PAGE_SIZE aligned
