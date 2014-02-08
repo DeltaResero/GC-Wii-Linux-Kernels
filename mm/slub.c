@@ -2083,7 +2083,7 @@ static void init_kmem_cache_cpu(struct kmem_cache *s,
 }
 
 static void
-init_kmem_cache_node(struct kmem_cache_node *n, struct kmem_cache *s)
+init_kmem_cache_node(struct kmem_cache_node *n)
 {
 	n->nr_partial = 0;
 	spin_lock_init(&n->list_lock);
@@ -2257,7 +2257,7 @@ static void early_kmem_cache_node_alloc(gfp_t gfpflags, int node)
 	init_object(kmalloc_caches, n, 1);
 	init_tracking(kmalloc_caches, n);
 #endif
-	init_kmem_cache_node(n, kmalloc_caches);
+	init_kmem_cache_node(n);
 	inc_slabs_node(kmalloc_caches, node, page->objects);
 
 	/*
@@ -2312,7 +2312,7 @@ static int init_kmem_cache_nodes(struct kmem_cache *s, gfp_t gfpflags)
 
 		}
 		s->node[node] = n;
-		init_kmem_cache_node(n, s);
+		init_kmem_cache_node(n);
 	}
 	return 1;
 }
@@ -2323,7 +2323,7 @@ static void free_kmem_cache_nodes(struct kmem_cache *s)
 
 static int init_kmem_cache_nodes(struct kmem_cache *s, gfp_t gfpflags)
 {
-	init_kmem_cache_node(&s->local_node, s);
+	init_kmem_cache_node(&s->local_node);
 	return 1;
 }
 #endif
@@ -3130,7 +3130,7 @@ static int slab_mem_going_online_callback(void *arg)
 			ret = -ENOMEM;
 			goto out;
 		}
-		init_kmem_cache_node(n, s);
+		init_kmem_cache_node(n);
 		s->node[nid] = n;
 	}
 out:
