@@ -163,9 +163,6 @@ static unsigned long ksm_pages_unshared;
 /* The number of rmap_items in use: to calculate pages_volatile */
 static unsigned long ksm_rmap_items;
 
-/* Limit on the number of unswappable pages used */
-static unsigned long ksm_max_kernel_pages;
-
 /* Number of pages ksmd should scan in one batch */
 static unsigned int ksm_thread_pages_to_scan = 100;
 
@@ -628,7 +625,7 @@ static int write_protect_page(struct vm_area_struct *vma, struct page *page,
 	if (!ptep)
 		goto out;
 
-	if (pte_write(*ptep)) {
+	if (pte_write(*ptep) || pte_dirty(*ptep)) {
 		pte_t entry;
 
 		swapped = PageSwapCache(page);
@@ -651,7 +648,9 @@ static int write_protect_page(struct vm_area_struct *vma, struct page *page,
 			set_pte_at_notify(mm, addr, ptep, entry);
 			goto out_unlock;
 		}
-		entry = pte_wrprotect(entry);
+		if (pte_dirty(entry))
+			set_page_dirty(page);
+		entry = pte_mkclean(pte_wrprotect(entry));
 		set_pte_at_notify(mm, addr, ptep, entry);
 	}
 	*orig_pte = *ptep;
@@ -829,13 +828,6 @@ static int try_to_merge_two_pages(struct mm_struct *mm1, unsigned long addr1,
 	struct page *kpage;
 	int err = -EFAULT;
 
-	/*
-	 * The number of nodes in the stable tree
-	 * is the number of kernel pages that we hold.
-	 */
-	if (ksm_max_kernel_pages &&
-	    ksm_max_kernel_pages <= ksm_pages_shared)
-		return err;
 
 	kpage = alloc_page(GFP_HIGHUSER);
 	if (!kpage)
@@ -1211,6 +1203,18 @@ static struct rmap_item *scan_get_next_rmap_item(struct page **page)
 
 	slot = ksm_scan.mm_slot;
 	if (slot == &ksm_mm_head) {
+	       /*
+	      	* A number of pages can hang around indefinitely on per-cpu
+	      	* pagevecs, raised page count preventing write_protect_page
+	      	* from merging them.  Though it doesn't really matter much,
+	      	* it is puzzling to see some stuck in pages_volatile until
+	      	* other activity jostles them out, and they also prevented
+	      	* LTP's KSM test from succeeding deterministically; so drain
+	      	* them here (here rather than on entry to ksm_do_scan(),
+	      	* so we don't IPI too often when pages_to_scan is set low).
+	      	*/
+		lru_add_drain_all();
+
 		root_unstable_tree = RB_ROOT;
 
 		spin_lock(&ksm_mmlist_lock);
@@ -1585,29 +1589,6 @@ static ssize_t run_store(struct kobject *kobj, struct kobj_attribute *attr,
 }
 KSM_ATTR(run);
 
-static ssize_t max_kernel_pages_store(struct kobject *kobj,
-				      struct kobj_attribute *attr,
-				      const char *buf, size_t count)
-{
-	int err;
-	unsigned long nr_pages;
-
-	err = strict_strtoul(buf, 10, &nr_pages);
-	if (err)
-		return -EINVAL;
-
-	ksm_max_kernel_pages = nr_pages;
-
-	return count;
-}
-
-static ssize_t max_kernel_pages_show(struct kobject *kobj,
-				     struct kobj_attribute *attr, char *buf)
-{
-	return sprintf(buf, "%lu\n", ksm_max_kernel_pages);
-}
-KSM_ATTR(max_kernel_pages);
-
 static ssize_t pages_shared_show(struct kobject *kobj,
 				 struct kobj_attribute *attr, char *buf)
 {
@@ -1657,7 +1638,6 @@ static struct attribute *ksm_attrs[] = {
 	&sleep_millisecs_attr.attr,
 	&pages_to_scan_attr.attr,
 	&run_attr.attr,
-	&max_kernel_pages_attr.attr,
 	&pages_shared_attr.attr,
 	&pages_sharing_attr.attr,
 	&pages_unshared_attr.attr,
@@ -1676,8 +1656,6 @@ static int __init ksm_init(void)
 {
 	struct task_struct *ksm_thread;
 	int err;
-
-	ksm_max_kernel_pages = totalram_pages / 4;
 
 	err = ksm_slab_init();
 	if (err)
