@@ -37,7 +37,9 @@ finger or a pen or something else.  Devices with more granular information
 may specify general shapes as blobs, i.e., as a sequence of rectangular
 shapes grouped together by an ABS_MT_BLOB_ID. Finally, for the few devices
 that currently support it, the ABS_MT_TRACKING_ID event may be used to
-report finger tracking from hardware [5].
+report finger tracking from hardware [5]. Devices capable of contact
+hovering can use ABS_MT_DISTANCE to indicate the distance between the
+contact and the surface.
 
 Here is what a minimal event sequence for a two-finger touch would look
 like:
@@ -86,6 +88,12 @@ The above four values can be used to derive additional information about
 the contact. The ratio ABS_MT_TOUCH_MAJOR / ABS_MT_WIDTH_MAJOR approximates
 the notion of pressure. The fingers of the hand and the palm all have
 different characteristic widths [1].
+
+ABS_MT_DISTANCE
+
+The distance, in surface units, between the contact and the surface. Zero
+distance means the contact is touching the surface. A positive number means
+the contact is hovering above the surface.
 
 ABS_MT_ORIENTATION
 
