@@ -407,7 +407,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			       (unsigned)blk_rq_sectors(req), status);
 		}
 
-		if (brq.stop.error) {
+		if (brq.stop.error && brq.stop.error != -EINPROGRESS) {
 			printk(KERN_ERR "%s: error %d sending stop command, "
 			       "response %#x, card status %#x\n",
 			       req->rq_disk->disk_name, brq.stop.error,
