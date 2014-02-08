@@ -16,6 +16,15 @@ config ZRAM
 	  See zram.txt for more information.
 	  Project home: http://compcache.googlecode.com/
 
+config ZRAM_NUM_DEVICES
+	int "Default number of zram devices"
+	depends on ZRAM
+	range 1 32
+	default 1
+	help
+	  Select default number of zram devices. You can override this value
+	  using 'num_devices' module parameter.
+
 config ZRAM_DEFAULT_PERCENTAGE
 	int "Default number of zram percentage"
 	depends on ZRAM

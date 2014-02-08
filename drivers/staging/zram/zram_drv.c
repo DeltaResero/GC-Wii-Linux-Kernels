@@ -667,6 +667,14 @@ static int __init zram_init(void)
 {
 	int ret, dev_id;
 
+	/*
+	 * Module parameter not specified by user. Use default
+	 * value as defined during kernel config.
+	 */
+	if (num_devices == 0) {
+		num_devices = CONFIG_ZRAM_NUM_DEVICES;
+	}
+
 	if (num_devices > max_num_devices) {
 		pr_warning("Invalid value for num_devices: %u\n",
 				num_devices);
@@ -679,11 +687,6 @@ static int __init zram_init(void)
 		pr_warning("Unable to get major number\n");
 		ret = -EBUSY;
 		goto out;
-	}
-
-	if (!num_devices) {
-		pr_info("num_devices not specified. Using default: 1\n");
-		num_devices = 1;
 	}
 
 	/* Allocate the device array and initialize each one */
