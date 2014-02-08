@@ -900,6 +900,13 @@ config BASE_FULL
 	  kernel data structures. This saves memory on small machines,
 	  but may reduce performance.
 
+config NET_SMALL
+	default n
+	bool "Enable various size reductions for networking" if EMBEDDED
+	help
+	  This reduces the size of miscellaneous networking data structures.
+          Currently a placeholder.
+
 config FUTEX
 	bool "Enable futex support" if EMBEDDED
 	default y
