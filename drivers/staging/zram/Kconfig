@@ -15,3 +15,12 @@ config ZRAM
 
 	  See zram.txt for more information.
 	  Project home: http://compcache.googlecode.com/
+
+config ZRAM_DEFAULT_PERCENTAGE
+	int "Default number of zram percentage"
+	depends on ZRAM
+	range 25 80
+	default 25
+	help
+	  Select default zram disk size: percentage of total RAM
+
