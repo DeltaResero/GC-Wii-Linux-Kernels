@@ -69,6 +69,151 @@ encode_varint32(char *sptr, uint32_t v)
 	return (char *)ptr;
 }
 
+/*
+ * *** DO NOT CHANGE THE VALUE OF kBlockSize ***
+
+ * New Compression code chops up the input into blocks of at most
+ * the following size.  This ensures that back-references in the
+ * output never cross kBlockSize block boundaries.  This can be
+ * helpful in implementing blocked decompression.  However the
+ * decompression code should not rely on this guarantee since older
+ * compression code may not obey it.
+ */
+#define kBlockLog 15
+#define kBlockSize (1 << kBlockLog)
+
+
+#if defined(__arm__) && !(ARCH_ARM_HAVE_UNALIGNED)
+
+static uint8_t* emit_literal(
+	uint8_t *op,
+	const uint8_t *src,
+	const uint8_t *end)
+{
+	uint32_t length = end - src;
+	uint32_t n = length - 1;
+	if (!length)
+		return op;
+	if (n < 60) {
+		/* Fits in tag byte */
+		*op++ = LITERAL | (n << 2);
+	} else {
+		/* Encode in upcoming bytes */
+		uint8_t *base = op;
+		op++;
+		do {
+			*op++ = n & 0xff;
+			n >>= 8;
+		} while (n > 0);
+		*base = LITERAL | ((59 + (op - base - 1)) << 2);
+	}
+	memcpy(op, src, length);
+	return op + length;
+}
+
+static uint8_t* emit_copy(
+	uint8_t *op,
+	uint32_t offset,
+	uint32_t len)
+{
+	DCHECK_GT(offset, 0);
+	
+	/* Emit 64 byte copies but make sure to keep at least four bytes
+	 * reserved */
+	while (unlikely(len >= 68)) {
+		*op++ = COPY_2_BYTE_OFFSET | ((64 - 1) << 2);
+		*op++ = offset & 255;
+		*op++ = offset >> 8;
+		len -= 64;
+	}
+
+	/* Emit an extra 60 byte copy if have too much data to fit in one
+	 * copy */
+	if (unlikely(len > 64)) {
+		*op++ = COPY_2_BYTE_OFFSET | ((60 - 1) << 2);
+		*op++ = offset & 255;
+		*op++ = offset >> 8;
+		len -= 60;
+	}
+
+	/* Emit remainder */
+	DCHECK_GE(len, 4);
+	if ((len < 12) && (offset < 2048)) {
+		int len_minus_4 = len - 4;
+		*op++ = COPY_1_BYTE_OFFSET   |
+			((len_minus_4) << 2) |
+			((offset >> 8) << 5);
+		*op++ = offset & 0xff;
+	} else {
+		*op++ = COPY_2_BYTE_OFFSET | ((len-1) << 2);
+		*op++ = offset & 255;
+		*op++ = offset >> 8;
+	}
+	return op;
+}
+
+static uint32_t find_match_length(
+	const uint8_t *s1,
+	const uint8_t *s2,
+	const uint8_t *s2_end)
+{
+	const uint8_t * const s2_start = s2;
+	while (s2 < s2_end && *s1++ == *s2++) /*nothing*/;
+	return s2 - s2_start - 1;
+}
+
+static uint32_t hash(uint32_t v)
+{
+	return v * UINT32_C(0x1e35a7bd);
+}
+
+char*
+csnappy_compress_fragment(
+	const char *input,
+	const uint32_t input_size,
+	char *dst,
+	void *working_memory,
+	const int workmem_bytes_power_of_two)
+{
+	const uint8_t * const src_start = (const uint8_t *)input;
+	const uint8_t * const src_end_minus4 = src_start + input_size - 4;
+	const uint8_t *src = src_start, *done_upto = src_start, *match;
+	uint8_t *op = (uint8_t *)dst;
+	uint16_t *wm = (uint16_t *)working_memory;
+	int shift = 33 - workmem_bytes_power_of_two;
+	uint32_t curr_val, curr_hash, match_val, offset, length;
+	if (unlikely(input_size < 4))
+		goto the_end;
+	memset(wm, 0, 1 << workmem_bytes_power_of_two);
+	for (;;) {
+		curr_val = (src[1] << 8) | (src[2] << 16) | (src[3] << 24);
+		do {
+			src++;
+			if (unlikely(src >= src_end_minus4))
+				goto the_end;
+			curr_val = (curr_val >> 8) | (src[3] << 24);
+			DCHECK_EQ(curr_val, get_unaligned_le32(src));
+			curr_hash = hash(curr_val) >> shift;
+			match = src_start + wm[curr_hash];
+			DCHECK_LT(match, src);
+			wm[curr_hash] = src - src_start;
+			match_val = get_unaligned_le32(match);
+		} while (likely(curr_val != match_val));
+		offset = src - match;
+		length = 4 + find_match_length(
+			match + 4, src + 4, src_end_minus4 + 4);
+		DCHECK_EQ(memcmp(src, match, length), 0);
+		op = emit_literal(op, done_upto, src);
+		op = emit_copy(op, offset, length);
+		done_upto = src + length;
+		src = done_upto - 1;
+	}
+the_end:
+	op = emit_literal(op, done_upto, src_end_minus4 + 4);
+	return (char *)op;
+}
+
+#else /* !simple */
 
 /*
  * Any hash function will produce a valid compressed bitstream, but a good
@@ -86,20 +231,6 @@ static inline uint32_t Hash(const char *p, int shift)
 {
 	return HashBytes(UNALIGNED_LOAD32(p), shift);
 }
-
-
-/*
- * *** DO NOT CHANGE THE VALUE OF kBlockSize ***
-
- * New Compression code chops up the input into blocks of at most
- * the following size.  This ensures that back-references in the
- * output never cross kBlockSize block boundaries.  This can be
- * helpful in implementing blocked decompression.  However the
- * decompression code should not rely on this guarantee since older
- * compression code may not obey it.
- */
-#define kBlockLog 15
-#define kBlockSize (1 << kBlockLog)
 
 
 /*
@@ -470,6 +601,7 @@ emit_remainder:
 
 	return op;
 }
+#endif /* !simple */
 #if defined(__KERNEL__) && !defined(STATIC)
 EXPORT_SYMBOL(csnappy_compress_fragment);
 #endif
@@ -501,7 +633,7 @@ csnappy_compress(
 	while (input_length > 0) {
 		num_to_read = min_t(uint32_t, input_length, kBlockSize);
 		workmem_size = workmem_bytes_power_of_two;
-		if (num_to_read < kBlockSize) {
+		if (unlikely(num_to_read < kBlockSize)) {
 			for (workmem_size = 9;
 			     workmem_size < workmem_bytes_power_of_two;
 			     ++workmem_size) {

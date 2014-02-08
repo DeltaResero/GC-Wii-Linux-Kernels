@@ -13,6 +13,10 @@ extern "C" {
 #define CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO 15
 #define CSNAPPY_WORKMEM_BYTES (1 << CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO)
 
+#ifndef __GNUC__
+#define __attribute__(x) /*NOTHING*/
+#endif
+
 /*
  * Returns the maximal size of the compressed representation of
  * input data that is "source_len" bytes in length;

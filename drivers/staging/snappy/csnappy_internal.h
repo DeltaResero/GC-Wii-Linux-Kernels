@@ -47,6 +47,16 @@ Zeev Tarantov <zeev.tarantov@gmail.com>
 #include <asm/byteorder.h>
 #include <asm/unaligned.h>
 
+#if (defined(__LITTLE_ENDIAN) && defined(__BIG_ENDIAN)) || \
+    (!defined(__LITTLE_ENDIAN) && !defined(__BIG_ENDIAN))
+#error either __LITTLE_ENDIAN or __BIG_ENDIAN must be defined
+#endif
+#if defined(__LITTLE_ENDIAN)
+#define __BYTE_ORDER __LITTLE_ENDIAN
+#else
+#define __BYTE_ORDER __BIG_ENDIAN
+#endif
+
 #ifdef DEBUG
 #define DCHECK(cond)	if (!(cond)) \
 			printk(KERN_DEBUG "assert failed @ %s:%i\n", \
@@ -67,9 +77,12 @@ Zeev Tarantov <zeev.tarantov@gmail.com>
 
 #endif /* __KERNEL__ */
 
-#if defined(__i386__) || defined(__x86_64__) || defined(__powerpc__) || \
+#define ARCH_ARM_HAVE_UNALIGNED \
+    defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) || defined(__ARMV6__) || \
     defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__)
+
 static inline void UnalignedCopy64(const void *src, void *dst) {
+#if defined(__i386__) || defined(__x86_64__) || defined(__powerpc__) || ARCH_ARM_HAVE_UNALIGNED
   if ((sizeof(void *) == 8) || (sizeof(long) == 8)) {
     UNALIGNED_STORE64(dst, UNALIGNED_LOAD64(src));
   } else {
@@ -81,9 +94,7 @@ static inline void UnalignedCopy64(const void *src, void *dst) {
     UNALIGNED_STORE32(dst_bytep, UNALIGNED_LOAD32(src_bytep));
     UNALIGNED_STORE32(dst_bytep + 4, UNALIGNED_LOAD32(src_bytep + 4));
   }
-}
 #else
-static void UnalignedCopy64(const void *src, void *dst) {
   const uint8_t *src_bytep = (const uint8_t *)src;
   uint8_t *dst_bytep = (uint8_t *)dst;
   dst_bytep[0] = src_bytep[0];
@@ -94,18 +105,18 @@ static void UnalignedCopy64(const void *src, void *dst) {
   dst_bytep[5] = src_bytep[5];
   dst_bytep[6] = src_bytep[6];
   dst_bytep[7] = src_bytep[7];
-}
 #endif
+}
 
 #if defined(__arm__)
-  #if defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__)
+  #if ARCH_ARM_HAVE_UNALIGNED
      static inline uint32_t get_unaligned_le(const void *p, uint32_t n)
      {
        uint32_t wordmask = (1U << (8 * n)) - 1;
        return get_unaligned_le32(p) & wordmask;
      }
   #else
-     extern uint32_t unaligned_read_le_armv5(const void *p, uint32_t n);
+     extern uint32_t get_unaligned_le_armv5(const void *p, uint32_t n);
      #define get_unaligned_le get_unaligned_le_armv5
   #endif
 #else

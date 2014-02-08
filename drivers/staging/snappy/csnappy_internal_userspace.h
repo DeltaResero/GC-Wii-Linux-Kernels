@@ -56,6 +56,9 @@ typedef unsigned __int64 uint64_t;
 #endif
 
 /* Static prediction hints. */
+#ifndef __GNUC__
+#define __builtin_expect(a,b) a
+#endif
 #define likely(x)	__builtin_expect(!!(x), 1)
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 
@@ -80,7 +83,7 @@ Albert Lee
 #define bswap_32(x) _byteswap_ulong(x)
 #define bswap_64(x) _byteswap_uint64(x)
 
-#elif defined(__GLIBC__) || defined(__ANDROID__)
+#elif defined(__GLIBC__) || defined(__ANDROID__) || defined(__CYGWIN__)
 
 #include <endian.h>
 #include <byteswap.h>
@@ -130,8 +133,6 @@ Albert Lee
 #define __BYTE_ORDER __BIG_ENDIAN
 #endif
 
-#else 
-#error No byte order macros available for your platform
 #endif
 
 
@@ -157,14 +158,7 @@ Albert Lee
 	!defined(__ARM_ARCH_5E__) && \
 	!defined(__ARM_ARCH_5TE__) && \
 	!defined(__ARM_ARCH_5TEJ__) && \
-	!defined(__MARM_ARMV5__) && \
-	!defined(__ARM_ARCH_6__) && /* ARMv6 fakes unaligned access */ \
-	!defined(__ARM_ARCH_6J__) && \
-	!defined(__ARM_ARCH_6K__) && \
-	!defined(__ARM_ARCH_6Z__) && \
-	!defined(__ARM_ARCH_6ZK__) && \
-	!defined(__ARM_ARCH_6T2__) && \
-	!defined(__ARMV6__)
+	!defined(__MARM_ARMV5__)
 
 #define UNALIGNED_LOAD16(_p) (*(const uint16_t*)(_p))
 #define UNALIGNED_LOAD32(_p) (*(const uint32_t*)(_p))
@@ -247,7 +241,17 @@ static inline void put_unaligned_le16(uint16_t val, void *p)
   UNALIGNED_STORE16(p, bswap_16(val));
 }
 #else
-#error __BYTE_ORDER must be either __LITTLE_ENDIAN or __BIG_ENDIAN
+static inline uint32_t get_unaligned_le32(const void *p)
+{
+  const uint8_t *b = (const uint8_t *)p;
+  return b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
+}
+static inline void put_unaligned_le16(uint16_t val, void *p)
+{
+  uint8_t *b = (uint8_t *)p;
+  b[0] = val & 255;
+  b[1] = val >> 8;
+}
 #endif
 
 
