@@ -54,7 +54,7 @@
    The Huffman codes themselves are decoded using a multi-level table
    lookup, in order to maximize the speed of decoding plus the speed of
    building the decoding tables.  See the comments below that precede the
-   lbits and dbits tuning parameters.
+   LBITS and DBITS tuning parameters.
  */
 
 
@@ -282,9 +282,9 @@ static void free(void *where)
    the longer codes.  The time it costs to decode the longer codes is
    then traded against the time it takes to make longer tables.
 
-   This results of this trade are in the variables lbits and dbits
-   below.  lbits is the number of bits the first level table for literal/
-   length codes can decode in one step, and dbits is the same thing for
+   This results of this trade are in the variables LBITS and DBITS
+   below.  LBITS is the number of bits the first level table for literal/
+   length codes can decode in one step, and DBITS is the same thing for
    the distance codes.  Subsequent tables are also less than or equal to
    those sizes.  These values may be adjusted either when all of the
    codes are shorter than that, in which case the longest code length in
@@ -297,19 +297,16 @@ static void free(void *where)
    codes 286 possible values, or in a flat code, a little over eight
    bits.  The distance table codes 30 possible values, or a little less
    than five bits, flat.  The optimum values for speed end up being
-   about one bit more than those, so lbits is 8+1 and dbits is 5+1.
+   about one bit more than those, so LBITS is 8+1 and DBITS is 5+1.
    The optimum values may differ though from machine to machine, and
    possibly even between compilers.  Your mileage may vary.
  */
 
 
-STATIC const int lbits = 9;          /* bits in base literal/length lookup table */
-STATIC const int dbits = 6;          /* bits in base distance lookup table */
-
-
-/* If BMAX needs to be larger than 16, then h and x[] should be ulg. */
-#define BMAX 16         /* maximum bit length of any code (16 for explode) */
-#define N_MAX 288       /* maximum number of codes in any set */
+#define LBITS 9 /* bits in base literal/length lookup table */
+#define DBITS 6 /* bits in base distance lookup table */
+#define BMAX 16 /* maximum bit length of any code (16 for explode) */
+#define N_MAX 288 /* maximum number of codes in any set */
 
 
 STATIC unsigned hufts;         /* track memory usage */
@@ -972,7 +969,7 @@ DEBG("dyn5 ");
 DEBG("dyn5a ");
 
   /* build the decoding tables for literal/length and distance codes */
-  bl = lbits;
+  bl = LBITS;
   if ((i = huft_build(ll, nl, 257, cplens, cplext, &tl, &bl)) != 0)
   {
 DEBG("dyn5b ");
@@ -984,7 +981,7 @@ DEBG("dyn5b ");
     goto out;
   }
 DEBG("dyn5c ");
-  bd = dbits;
+  bd = DBITS;
   if ((i = huft_build(ll + nl, nd, 0, cpdist, cpdext, &td, &bd)) != 0)
   {
 DEBG("dyn5d ");
