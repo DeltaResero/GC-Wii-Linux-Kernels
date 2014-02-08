@@ -262,12 +262,9 @@ static void as_put_io_context(struct request *rq)
 
 static void as_add_rq_rb(struct as_data *ad, struct request *rq)
 {
-	struct request *alias;
-
-	while ((unlikely(alias = elv_rb_add(RQ_RB_ROOT(ad, rq), rq)))) {
-		as_move_to_dispatch(ad, alias);
+		elv_rb_add(RQ_RB_ROOT(ad, rq), rq);
 		as_antic_stop(ad);
-	}
+
 }
 
 static inline void as_del_rq_rb(struct as_data *ad, struct request *rq)
