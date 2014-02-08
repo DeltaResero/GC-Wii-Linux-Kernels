@@ -36,6 +36,7 @@
 #include <linux/sysrq.h>
 #include <linux/highuid.h>
 #include <linux/writeback.h>
+#include <linux/ratelimit.h>
 #include <linux/compaction.h>
 #include <linux/hugetlb.h>
 #include <linux/initrd.h>
@@ -158,6 +159,8 @@ extern int acct_parm[];
 extern int no_unaligned_warning;
 extern int unaligned_dump_stack;
 #endif
+
+extern struct ratelimit_state printk_ratelimit_state;
 
 #ifdef CONFIG_RT_MUTEXES
 extern int max_lock_depth;
