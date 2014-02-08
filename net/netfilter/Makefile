@@ -100,3 +100,6 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_U32) += xt_u32.o
 
 # IPVS
 obj-$(CONFIG_IP_VS) += ipvs/
+
+# gcc 4.6 compiler bug: https://lkml.org/lkml/2011/7/25/344
+ccflags-y += -Wno-address
