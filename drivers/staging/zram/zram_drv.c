@@ -403,7 +403,7 @@ static int zram_bvec_write(struct zram *zram, struct bio_vec *bvec, u32 index,
 		goto out;
 	}
 
-	COMPRESS(uncmem, PAGE_SIZE, src, &clen,
+	COMPRESS(user_mem, PAGE_SIZE, src, &clen,
 			zram->compress_workmem);
 	ret = 0;
 
