@@ -717,6 +717,8 @@ static int replace_page(struct vm_area_struct *vma, struct page *oldpage,
 	set_pte_at_notify(mm, addr, ptep, mk_pte(newpage, prot));
 
 	page_remove_rmap(oldpage);
+	if (!page_mapped(oldpage))
+		try_to_free_swap(oldpage);
 	put_page(oldpage);
 
 	pte_unmap_unlock(ptep, ptl);
