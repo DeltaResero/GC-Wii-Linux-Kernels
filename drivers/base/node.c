@@ -181,7 +181,7 @@ static SYSDEV_ATTR(distance, S_IRUGO, node_read_distance, NULL);
  *
  * Initialize and register the node device.
  */
-int register_node(struct node *node, int num, struct node *parent)
+static int register_node(struct node *node, int num, struct node *parent)
 {
 	int error;
 

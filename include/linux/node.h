@@ -29,7 +29,6 @@ struct node {
 struct memory_block;
 extern struct node node_devices[];
 
-extern int register_node(struct node *, int, struct node *);
 extern void unregister_node(struct node *node);
 #ifdef CONFIG_NUMA
 extern int register_one_node(int nid);
