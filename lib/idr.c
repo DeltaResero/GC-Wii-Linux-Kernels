@@ -597,10 +597,10 @@ void *idr_get_next(struct idr *idp, int *nextidp)
 	int n, max;
 
 	/* find first ent */
-	n = idp->layers * IDR_BITS;
-	max = 1 << n;
 	p = rcu_dereference(idp->top);
 	if (!p)
+	n = (p->layer + 1) * IDR_BITS;  
+	max = 1 << n;
 		return NULL;
 
 	while (id < max) {
