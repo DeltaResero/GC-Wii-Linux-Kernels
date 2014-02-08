@@ -989,6 +989,14 @@ config AIO
           by some high performance threaded applications. Disabling
           this option saves about 7k.
 
+config NR_LDISCS
+	int "Number of tty line disciplines" if EMBEDDED
+	range 0 16
+	default 16
+	help
+	  Select the maximum number of tty line disciplines. Embedded systems
+	  can probably get by with only a few of these.
+
 config HAVE_PERF_EVENTS
 	bool
 	help
