@@ -898,8 +898,40 @@ struct file_ra_state {
 };
 
 /* ra_flags bits */
+#define READAHEAD_PATTERN_SHIFT	20
+#define READAHEAD_PATTERN	0x00f00000
 #define	READAHEAD_MMAP_MISS	0x0000ffff /* cache misses for mmap access */
 #define READAHEAD_THRASHED	0x10000000
+#define	READAHEAD_MMAP		0x20000000
+
+/*
+ * Which policy makes decision to do the current read-ahead IO?
+ */
+enum readahead_pattern {
+	RA_PATTERN_INITIAL,
+	RA_PATTERN_SUBSEQUENT,
+	RA_PATTERN_CONTEXT,
+	RA_PATTERN_THRASH,
+	RA_PATTERN_MMAP_AROUND,
+	RA_PATTERN_FADVISE,
+	RA_PATTERN_RANDOM,
+	RA_PATTERN_ALL,		/* for summary stats */
+	RA_PATTERN_MAX
+};
+
+static inline int ra_pattern(int ra_flags)
+{
+	int pattern = (ra_flags & READAHEAD_PATTERN)
+			       >> READAHEAD_PATTERN_SHIFT;
+
+	return min(pattern, RA_PATTERN_ALL);
+}
+
+static inline void ra_set_pattern(struct file_ra_state *ra, int pattern)
+{
+	ra->ra_flags = (ra->ra_flags & ~READAHEAD_PATTERN) |
+			    (pattern << READAHEAD_PATTERN_SHIFT);
+}
 
 /*
  * Don't do ra_flags++ directly to avoid possible overflow:
