@@ -1,8 +1,6 @@
 config ZRAM
 	tristate "Compressed RAM block device support"
 	depends on BLOCK && SYSFS
-	select LZO_COMPRESS
-	select LZO_DECOMPRESS
 	default n
 	help
 	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
@@ -32,6 +30,27 @@ config ZRAM_DEFAULT_PERCENTAGE
 	default 25
 	help
 	  Select default zram disk size: percentage of total RAM
+
+choice ZRAM_COMPRESS
+	prompt "compression method"
+	depends on ZRAM
+	default ZRAM_LZO
+	help
+	    Select the compression method used by zram.
+	    LZO is the default. Snappy compresses a bit worse (around ~2%) but
+	    much (~2x) faster, at least on x86-64.
+
+config ZRAM_LZO
+	bool "LZO compression"
+	select LZO_COMPRESS
+	select LZO_DECOMPRESS
+
+config ZRAM_SNAPPY
+	bool "Snappy compression"
+	depends on SNAPPY_COMPRESS
+	depends on SNAPPY_DECOMPRESS
+
+endchoice
 
 config ZRAM_DEFAULT_DISKSIZE
 	int "Default size of zram in bytes"
