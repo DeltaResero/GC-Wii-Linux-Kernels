@@ -94,10 +94,10 @@ static inline unsigned long hugetlb_total_pages(void)
 	return 0;
 }
 
-#define follow_hugetlb_page(m,v,p,vs,a,b,i,w)	({ BUG(); 0; })
+#define follow_hugetlb_page(m,v,p,vs,a,b,i,w)	({ BUILD_BUG(); 0; })
 #define follow_huge_addr(mm, addr, write)	ERR_PTR(-EINVAL)
-#define copy_hugetlb_page_range(src, dst, vma)	({ BUG(); 0; })
-#define hugetlb_prefault(mapping, vma)		({ BUG(); 0; })
+#define copy_hugetlb_page_range(src, dst, vma)	({ BUILD_BUG(); 0; })
+#define hugetlb_prefault(mapping, vma)		({ BUILD_BUG(); 0; })
 #define unmap_hugepage_range(vma, start, end, page)	BUG()
 static inline void hugetlb_report_meminfo(struct seq_file *m)
 {
@@ -110,7 +110,7 @@ static inline void hugetlb_report_meminfo(struct seq_file *m)
 #define pud_huge(x)	0
 #define is_hugepage_only_range(mm, addr, len)	0
 #define hugetlb_free_pgd_range(tlb, addr, end, floor, ceiling) ({BUG(); 0; })
-#define hugetlb_fault(mm, vma, addr, flags)	({ BUG(); 0; })
+#define hugetlb_fault(mm, vma, addr, flags)	({ BUILD_BUG(); 0; })
 
 #define hugetlb_change_protection(vma, address, end, newprot)
 
