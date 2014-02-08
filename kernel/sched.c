@@ -9466,7 +9466,7 @@ static int update_sched_domains(struct notifier_block *nfb,
 				unsigned long action, void *hcpu)
 {
 	switch (action) {
-	case CPU_ONLINE:
+	case CPU_STARTING:
 	case CPU_ONLINE_FROZEN:
 	case CPU_DOWN_PREPARE:
 	case CPU_DOWN_PREPARE_FROZEN:
