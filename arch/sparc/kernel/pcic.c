@@ -494,7 +494,6 @@ static void pcic_map_pci_device(struct linux_pcic *pcic,
 				 * works for these devices.
 				 *
 				 * XXX Neat trick, but it's a *bad* idea
-				 * to shit into regions like that.
 				 * What if we want to allocate one more
 				 * PCI base address...
 				 */

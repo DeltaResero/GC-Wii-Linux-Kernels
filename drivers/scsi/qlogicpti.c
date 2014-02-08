@@ -797,7 +797,7 @@ static void qpti_get_clock(struct qlogicpti *qpti)
 	 */
 	cfreq = prom_getintdefault(qpti->prom_node,"clock-frequency",40000000);
 	qpti->clock = (cfreq + 500000)/1000000;
-	if (qpti->clock == 0) /* bullshit */
+	if (qpti->clock == 0)
 		qpti->clock = 40;
 }
 

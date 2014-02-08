@@ -316,7 +316,7 @@ static void svia_noop_freeze(struct ata_port *ap)
  *	@link: target ATA link
  *	@deadline: deadline jiffies for the operation
  *
- *	SCR registers on vt6420 are pieces of shit and may hang the
+ *	SCR registers on vt6420 are garbage and may hang the
  *	whole machine completely if accessed with the wrong timing.
  *	To avoid such catastrophe, vt6420 doesn't provide generic SCR
  *	access operations, but uses SStatus and SControl only during

@@ -927,7 +927,7 @@ static void happy_meal_stop(struct happy_meal *hp, void __iomem *gregs)
 	if (!tries)
 		printk(KERN_ERR "happy meal: Fry guys.");
 
-	/* Remember: "Different name, same old buggy as shit hardware." */
+	/* Remember: "Different name, same old buggy hardware." */
 	HMD(("done\n"));
 }
 
@@ -983,9 +983,6 @@ static void happy_meal_poll_stop(struct happy_meal *hp, void __iomem *tregs)
 	ASD(("done\n"));
 }
 
-/* Only Sun can take such nice parts and fuck up the programming interface
- * like this.  Good job guys...
- */
 #define TCVR_RESET_TRIES       16 /* It should reset quickly        */
 #define TCVR_UNISOLATE_TRIES   32 /* Dis-isolation can take longer. */
 
@@ -2064,7 +2061,7 @@ static void happy_meal_rx(struct happy_meal *hp, struct net_device *dev)
 			skb = copy_skb;
 		}
 
-		/* This card is _fucking_ hot... */
+		/* This card is hot... */
 		skb->csum = csum_unfold(~(__force __sum16)htons(csum));
 		skb->ip_summed = CHECKSUM_COMPLETE;
 

@@ -220,7 +220,6 @@ void cs46xx_dsp_remove_scb (struct snd_cs46xx *chip, struct dsp_scb_descriptor *
 	}
 
 #if 0
-	/* !!!! THIS IS A PIECE OF SHIT MADE BY ME !!! */
 	for(i = scb->index + 1;i < ins->nscb; ++i) {
 		ins->scbs[i - 1].index = i - 1;
 	}

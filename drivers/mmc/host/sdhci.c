@@ -1160,7 +1160,7 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
 	/*
-	 * Some (ENE) controllers go apeshit on some ios operation,
+	 * Some (ENE) controllers go haywire on some ios operation,
 	 * signalling timeout and CRC errors even on CMD0. Resetting
 	 * it on each ios seems to solve the problem.
 	 */

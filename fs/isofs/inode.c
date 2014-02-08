@@ -1306,7 +1306,7 @@ static int isofs_read_inode(struct inode *inode)
 	}
 
 	/*
-	 * Some dipshit decided to store some other bit of information
+	 * Someone decided to store some other bit of information
 	 * in the high byte of the file length.  Truncate size in case
 	 * this CDROM was mounted with the cruft option.
 	 */

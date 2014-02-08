@@ -1609,7 +1609,7 @@ static void __cpuinit poke_swift(void)
 	 * it is coming from user mode (it mis-executes the branch in
 	 * the trap code).  So you see things like crashme completely
 	 * hosing your machine which is completely unacceptable.  Turn
-	 * this shit off... nice job Fujitsu.
+	 * this off...
 	 */
 	mreg &= ~(SWIFT_BF);
 	srmmu_set_mmureg(mreg);

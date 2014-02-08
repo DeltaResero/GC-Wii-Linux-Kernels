@@ -1441,9 +1441,6 @@ static void z8530_tx_begin(struct z8530_channel *c)
 		{
 			flags=claim_dma_lock();
 			disable_dma(c->txdma);
-			/*
-			 *	Check if we crapped out.
-			 */
 			if (get_dma_residue(c->txdma))
 			{
 				c->netdevice->stats.tx_dropped++;
@@ -1597,7 +1594,7 @@ static void z8530_rx_done(struct z8530_channel *c)
 		c->rxdma_on=0;
 		ct=c->mtu-get_dma_residue(c->rxdma);
 		if(ct<0)
-			ct=2;	/* Shit happens.. */
+			ct=2;
 		c->dma_ready=0;
 		
 		/*

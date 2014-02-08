@@ -3615,8 +3615,8 @@ static int patch_vt1617a(struct snd_ac97 * ac97)
  *        OUT_2    Reserved
  *
  * I have no idea what the hell Reserved does, but on an MSI
- * CN700T, i have to set it to get 5.1 output - YMMV, bad
- * shit may happen.
+ * CN700T, I have to set it to get 5.1 output - YMMV, bad
+ * things may happen.
  *
  * If other chips use Universal Audio Jack, then this code might be applicable
  * to them.

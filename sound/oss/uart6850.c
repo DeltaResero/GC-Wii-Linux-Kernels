@@ -16,7 +16,7 @@
  * Jeff Garzik:		Made it work again, in theory
  *			FIXME: If the request_irq() succeeds, the probe succeeds. Ug.
  *
- *	Status: Testing required (no shit -jgarzik)
+ *	Status: Testing required (jgarzik)
  *
  *
  */
