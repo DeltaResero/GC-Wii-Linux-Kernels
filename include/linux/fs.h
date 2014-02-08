@@ -1387,6 +1387,8 @@ struct super_block {
 	 * generic_show_options()
 	 */
 	char *s_options;
+
+	int cleancache_poolid;
 };
 
 extern struct timespec current_fs_time(struct super_block *sb);

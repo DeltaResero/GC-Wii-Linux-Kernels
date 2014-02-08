@@ -38,6 +38,7 @@
 #include <linux/mutex.h>
 #include <linux/file.h>
 #include <asm/uaccess.h>
+#include <linux/cleancache.h>
 #include "internal.h"
 
 
@@ -104,6 +105,7 @@ static struct super_block *alloc_super(struct file_system_type *type)
 		s->s_qcop = sb_quotactl_ops;
 		s->s_op = &default_op;
 		s->s_time_gran = 1000000000;
+		s->cleancache_poolid = -1;
 	}
 out:
 	return s;
@@ -220,6 +222,7 @@ void deactivate_locked_super(struct super_block *s)
 		spin_unlock(&sb_lock);
 		vfs_dq_off(s, 0);
 		fs->kill_sb(s);
+		cleancache_flush_fs(s);
 		put_filesystem(fs);
 		put_super(s);
 	} else {
