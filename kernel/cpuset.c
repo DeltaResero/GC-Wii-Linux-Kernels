@@ -1327,9 +1327,10 @@ static int cpuset_can_attach(struct cgroup_subsys *ss, struct cgroup *cont,
 	int ret;
 	struct cpuset *cs = cgroup_cs(cont);
 
-	if ((current != task) && (!capable(CAP_SYS_ADMIN))) {
+	if ((current != tsk) && (!capable(CAP_SYS_ADMIN))) {
 		const struct cred *cred = current_cred(), *tcred;
 
+		tcred = __task_cred(tsk);
 		if (cred->euid != tcred->uid && cred->euid != tcred->suid)
 			return -EPERM;
 	}
