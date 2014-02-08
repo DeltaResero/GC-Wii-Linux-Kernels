@@ -357,7 +357,10 @@ static int ashmem_shrink(int nr_to_scan, gfp_t gfp_mask)
 	if (!nr_to_scan)
 		return lru_count;
 
-	mutex_lock(&ashmem_mutex);
+	/* If our mutex is held, we are recursing into ourselves, so bail out */
+	if (!mutex_trylock(&ashmem_mutex))
+		return -1;
+
 	list_for_each_entry_safe(range, next, &ashmem_lru_list, lru) {
 		struct inode *inode = range->asma->file->f_dentry->d_inode;
 		loff_t start = range->pgstart * PAGE_SIZE;
