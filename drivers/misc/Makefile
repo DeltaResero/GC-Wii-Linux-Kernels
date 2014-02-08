@@ -20,6 +20,7 @@ obj-$(CONFIG_SGI_GRU)		+= sgi-gru/
 obj-$(CONFIG_HP_ILO)		+= hpilo.o
 obj-$(CONFIG_ISL29003)		+= isl29003.o
 obj-$(CONFIG_EP93XX_PWM)	+= ep93xx_pwm.o
+obj-$(CONFIG_UID_STAT)		+= uid_stat.o
 obj-$(CONFIG_C2PORT)		+= c2port/
 obj-$(CONFIG_GAMECUBE_GQR)	+= gcn-gqr.o
 obj-$(CONFIG_GAMECUBE_MI)	+= gcn-mi.o
