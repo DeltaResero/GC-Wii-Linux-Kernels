@@ -813,9 +813,14 @@ static noinline int init_post(void)
 	mark_rodata_ro();
 	system_state = SYSTEM_RUNNING;
 	numa_default_policy();
+	char *console = "/dev_console";
 
-	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0)
-		printk(KERN_WARNING "Warning: unable to open an initial console.\n");
+	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0) {
+		sys_mknod(console, S_IFCHR|0600, (TTYAUX_MAJOR<<8)|1);
+		if (sys_open(console, O_RDWR, 0) < 0)
+			printk(KERN_WARNING "Warning: unable to open an initial console.\n");
+		sys_unlink(console);
+	}
 
 	(void) sys_dup(0);
 	(void) sys_dup(0);
