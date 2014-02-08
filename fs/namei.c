@@ -2040,7 +2040,7 @@ SYSCALL_DEFINE4(mknodat, int, dfd, const char __user *, filename, int, mode,
 		unsigned, dev)
 {
 	int error;
-	char *tmp;
+	char *tmp = 0;
 	struct dentry *dentry;
 	struct nameidata nd;
 
@@ -2121,7 +2121,7 @@ int vfs_mkdir(struct inode *dir, struct dentry *dentry, int mode)
 SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, int, mode)
 {
 	int error = 0;
-	char * tmp;
+	char * tmp = 0;
 	struct dentry *dentry;
 	struct nameidata nd;
 
@@ -2223,7 +2223,7 @@ int vfs_rmdir(struct inode *dir, struct dentry *dentry)
 static long do_rmdir(int dfd, const char __user *pathname)
 {
 	int error = 0;
-	char * name;
+	char * name = 0;
 	struct dentry *dentry;
 	struct nameidata nd;
 
@@ -2314,7 +2314,7 @@ int vfs_unlink(struct inode *dir, struct dentry *dentry)
 static long do_unlinkat(int dfd, const char __user *pathname)
 {
 	int error;
-	char *name;
+	char *name = 0;
 	struct dentry *dentry;
 	struct nameidata nd;
 	struct inode *inode = NULL;
@@ -2407,7 +2407,7 @@ SYSCALL_DEFINE3(symlinkat, const char __user *, oldname,
 {
 	int error;
 	char *from;
-	char *to;
+	char *to = 0;
 	struct dentry *dentry;
 	struct nameidata nd;
 
@@ -2503,7 +2503,7 @@ SYSCALL_DEFINE5(linkat, int, olddfd, const char __user *, oldname,
 	struct nameidata nd;
 	struct path old_path;
 	int error;
-	char *to;
+	char *to = 0;
 
 	if ((flags & ~AT_SYMLINK_FOLLOW) != 0)
 		return -EINVAL;
@@ -2704,8 +2704,8 @@ SYSCALL_DEFINE4(renameat, int, olddfd, const char __user *, oldname,
 	struct dentry *old_dentry, *new_dentry;
 	struct dentry *trap;
 	struct nameidata oldnd, newnd;
-	char *from;
-	char *to;
+	char *from = 0;
+	char *to = 0;
 	int error;
 
 	error = user_path_parent(olddfd, oldname, &oldnd, &from);
