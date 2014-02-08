@@ -10,6 +10,8 @@
  * Released under the terms of GNU General Public License Version 2.0
  */
 
+#include <linux/module.h>
+#include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <linux/errno.h>
 #include <linux/highmem.h>
@@ -46,7 +48,7 @@ static void clear_flag(struct block_header *block, enum blockflags flag)
 }
 
 /*
- * Given <page, offset> pair, provide a derefrencable pointer.
+ * Given <page, offset> pair, provide a dereferencable pointer.
  * This is called from xv_malloc/xv_free path, so it
  * needs to be fast.
  */
@@ -235,25 +237,25 @@ static void remove_block(struct xv_pool *pool, struct page *page, u32 offset,
 
 	/* Is this block is at the head of the freelist? */
 	if (pool->freelist[slindex].page == page
-		&& pool->freelist[slindex].offset == offset) {
+	   && pool->freelist[slindex].offset == offset) {
 
-	pool->freelist[slindex].page = block->link.next_page;
-	pool->freelist[slindex].offset = block->link.next_offset;
+		pool->freelist[slindex].page = block->link.next_page;
+		pool->freelist[slindex].offset = block->link.next_offset;
 
-	if (pool->freelist[slindex].page) {
-		struct block_header *tmpblock;
-		tmpblock = get_ptr_atomic(pool->freelist[slindex].page,
-			pool->freelist[slindex].offset,
-			KM_USER1);
-		tmpblock->link.prev_page = NULL;
-		tmpblock->link.prev_offset = 0;
-		put_ptr_atomic(tmpblock, KM_USER1);
-	} else {
-		/* This freelist bucket is empty */
-		__clear_bit(slindex % BITS_PER_LONG,
-			&pool->slbitmap[flindex]);
-		if (!pool->slbitmap[flindex])
-			__clear_bit(flindex, &pool->flbitmap);
+		if (pool->freelist[slindex].page) {
+			struct block_header *tmpblock;
+			tmpblock = get_ptr_atomic(pool->freelist[slindex].page,
+					pool->freelist[slindex].offset,
+					KM_USER1);
+			tmpblock->link.prev_page = NULL;
+			tmpblock->link.prev_offset = 0;
+			put_ptr_atomic(tmpblock, KM_USER1);
+		} else {
+			/* This freelist bucket is empty */
+			__clear_bit(slindex % BITS_PER_LONG,
+				    &pool->slbitmap[flindex]);
+			if (!pool->slbitmap[flindex])
+				__clear_bit(flindex, &pool->flbitmap);
 		}
 	}
 
@@ -311,11 +313,13 @@ struct xv_pool *xv_create_pool(void)
 
 	return pool;
 }
+EXPORT_SYMBOL_GPL(xv_create_pool);
 
 void xv_destroy_pool(struct xv_pool *pool)
 {
 	kfree(pool);
 }
+EXPORT_SYMBOL_GPL(xv_destroy_pool);
 
 /**
  * xv_malloc - Allocate block of given size from pool.
@@ -404,6 +408,7 @@ int xv_malloc(struct xv_pool *pool, u32 size, struct page **page,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(xv_malloc);
 
 /*
  * Free block identified with <page, offset>
@@ -480,6 +485,7 @@ void xv_free(struct xv_pool *pool, struct page *page, u32 offset)
 	put_ptr_atomic(page_start, KM_USER0);
 	spin_unlock(&pool->lock);
 }
+EXPORT_SYMBOL_GPL(xv_free);
 
 u32 xv_get_object_size(void *obj)
 {
@@ -488,6 +494,7 @@ u32 xv_get_object_size(void *obj)
 	blk = (struct block_header *)((char *)(obj) - XV_ALIGN);
 	return blk->size;
 }
+EXPORT_SYMBOL_GPL(xv_get_object_size);
 
 /*
  * Returns total memory used by allocator (userdata + metadata)
@@ -496,3 +503,4 @@ u64 xv_get_total_size_bytes(struct xv_pool *pool)
 {
 	return pool->total_pages << PAGE_SHIFT;
 }
+EXPORT_SYMBOL_GPL(xv_get_total_size_bytes);

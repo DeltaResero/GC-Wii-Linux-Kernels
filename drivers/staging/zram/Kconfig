@@ -1,6 +1,11 @@
+config XVMALLOC
+	bool
+	default n
+
 config ZRAM
 	tristate "Compressed RAM block device support"
 	depends on BLOCK && SYSFS
+	select XVMALLOC
 	default n
 	help
 	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
@@ -36,9 +41,9 @@ choice ZRAM_COMPRESS
 	depends on ZRAM
 	default ZRAM_LZO
 	help
-	    Select the compression method used by zram.
-	    LZO is the default. Snappy compresses a bit worse (around ~2%) but
-	    much (~2x) faster, at least on x86-64.
+	  Select the compression method used by zram.
+	  LZO is the default. Snappy compresses a bit worse (around ~2%) but
+	  much (~2x) faster, at least on x86-64.
 
 config ZRAM_LZO
 	bool "LZO compression"
