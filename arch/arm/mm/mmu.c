@@ -913,6 +913,11 @@ void __init reserve_node_zero(pg_data_t *pgdat)
 	 */
 	res_size = __pa(swapper_pg_dir) - PHYS_OFFSET;
 #endif
+
+#ifdef CONFIG_ARCH_MSM_SCORPION
+	res_size = PAGE_SIZE;
+#endif
+
 	if (res_size)
 		reserve_bootmem_node(pgdat, PHYS_OFFSET, res_size,
 				BOOTMEM_DEFAULT);
