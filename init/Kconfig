@@ -974,6 +974,13 @@ config ASHMEM
 	  POSIX SHM but with different behavior and sporting a simpler
 	  file-based API.
 
+config INETPEER
+	default y
+	bool "Enable INET peer information storage" if EMBEDDED
+	help
+	  This allows storing various information about network peers.
+	  Disabling saves about 2k.
+
 config AIO
 	bool "Enable AIO support" if EMBEDDED
 	default y
