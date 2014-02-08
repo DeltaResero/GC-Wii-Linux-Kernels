@@ -15,6 +15,8 @@
 #include <linux/blkdev.h>
 #include <linux/writeback.h>
 
+#ifdef CONFIG_MEMPOOL
+
 static void add_element(mempool_t *pool, void *element)
 {
 	BUG_ON(pool->curr_nr >= pool->min_nr);
@@ -279,6 +281,54 @@ void mempool_free(void *element, mempool_t *pool)
 	pool->free(element, pool->pool_data);
 }
 EXPORT_SYMBOL(mempool_free);
+
+#else /* !CONFIG_MEMPOOL */
+
+mempool_t *mempool_create(int min_nr, mempool_alloc_t *alloc_fn,
+				 mempool_free_t *free_fn, void *pool_data)
+{
+	mempool_t *m;
+
+	m = (mempool_t *)kmalloc(sizeof(mempool_t), GFP_KERNEL);
+
+	if (m) {
+		m->pool_data = pool_data;
+		m->alloc = alloc_fn;
+		m->free = free_fn;
+		m->cache = alloc_fn(GFP_KERNEL, pool_data);
+	}
+
+	return m;
+}
+EXPORT_SYMBOL(mempool_create);
+
+extern void mempool_destroy(mempool_t *pool)
+{
+	if (pool->cache)
+		pool->free(pool->cache, pool->pool_data);
+	kfree(pool);
+}
+EXPORT_SYMBOL(mempool_destroy);
+
+void * mempool_alloc(mempool_t *pool, int gfp_mask)
+{
+	void *p = pool->alloc(gfp_mask, pool->pool_data);
+	if (!p)
+		p = xchg(&pool->cache, p);
+
+	return p;
+}
+EXPORT_SYMBOL(mempool_alloc);
+
+void mempool_free(void *element, mempool_t *pool)
+{
+	element = xchg(&pool->cache, element);
+	if (element)
+		pool->free(element, pool->pool_data);
+}
+EXPORT_SYMBOL(mempool_free);
+
+#endif /* !CONFIG_MEMPOOL */
 
 /*
  * A commonly used alloc and free fn.

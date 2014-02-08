@@ -1011,6 +1011,16 @@ config MAX_USER_RT_PRIO
 	help
 	  This option allows reducing the size of the O(1) scheduler arrays.
 
+config MEMPOOL
+	default y
+	bool "Use mempool allocator" if EMBEDDED
+	help
+	  The mempool allocator attempts keep a reserve pool of
+	  various objects available for use in low-memory situations.
+	  Disabling this feature may make more memory available and
+	  will somewhat decrease code size, but with a higher risk of
+	  deadlock under some loads.
+
 config HAVE_PERF_EVENTS
 	bool
 	help

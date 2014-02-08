@@ -11,6 +11,7 @@ struct kmem_cache;
 typedef void * (mempool_alloc_t)(gfp_t gfp_mask, void *pool_data);
 typedef void (mempool_free_t)(void *element, void *pool_data);
 
+#ifdef CONFIG_MEMPOOL
 typedef struct mempool_s {
 	spinlock_t lock;
 	int min_nr;		/* nr of elements at *elements */
@@ -32,6 +33,25 @@ extern int mempool_resize(mempool_t *pool, int new_min_nr, gfp_t gfp_mask);
 extern void mempool_destroy(mempool_t *pool);
 extern void * mempool_alloc(mempool_t *pool, gfp_t gfp_mask);
 extern void mempool_free(void *element, mempool_t *pool);
+
+#else
+
+typedef struct mempool_s {
+	void *pool_data;
+	void *cache;
+	mempool_alloc_t *alloc;
+	mempool_free_t *free;
+} mempool_t;
+
+extern mempool_t * mempool_create(int min_nr, mempool_alloc_t *alloc_fn,
+				 mempool_free_t *free_fn, void *pool_data);
+extern void * mempool_alloc(mempool_t *pool, int gfp_mask);
+extern void mempool_free(void *element, mempool_t *pool);
+extern void mempool_destroy(mempool_t *pool);
+#define mempool_resize(a, b, c) (0)
+#define mempool_create_node(m, a, f, p, n) mempool_create(m, a, f, p)
+
+#endif
 
 /*
  * A mempool_alloc_t and mempool_free_t that get the memory from
