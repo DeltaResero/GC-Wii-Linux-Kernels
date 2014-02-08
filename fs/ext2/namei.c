@@ -36,7 +36,7 @@
 #include "acl.h"
 #include "xip.h"
 
-static inline int ext2_add_nondir(struct dentry *dentry, struct inode *inode)
+static int ext2_add_nondir(struct dentry *dentry, struct inode *inode)
 {
 	int err = ext2_add_link(dentry, inode);
 	if (!err) {
