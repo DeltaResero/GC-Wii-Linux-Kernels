@@ -11128,6 +11128,7 @@ EXPORT_SYMBOL_GPL(rcu_expedited_torture_stats);
 
 void synchronize_sched_expedited(void)
 {
+	barrier();
 }
 EXPORT_SYMBOL_GPL(synchronize_sched_expedited);
 
