@@ -55,11 +55,11 @@ try the GC-Wii-Linux-Kernel-2.6.32.61.y-STABLE branch instead.  This branch shou
 
     To patch, enter the command:
 
-        "patch < 0001-vfb-defio-wii.diff -p1"
+        "patch < 0001-vfb-defio-gc-wii.diff -p1"
 
     To remove the patch, enter the command:
 
-        "patch < 0001-vfb-defio-wii.diff -p1 -R"  
+        "patch < 0001-vfb-defio-gc-wii.diff -p1 -R"  
 
 - Both IOS and MINI also still suffer from the same hardware limitations that they did in 2.6.32.z.  For example, wireless and disc support for Wii consoles is still limited to MINI mode.  Also, DVDs can be mounted as they were in version 2.6.32.z, but due to hardware limitations, it's unable to write to any disc and is unable to read CDs and certain types of DVD's
     - Support for DVD-RW and DVD-DL disc seems to vary.  Currently, -R and +R (both mini & full-size) DVDs are know to work on both GameCube and Wii consoles.  All WiiU as well as some of the newer Wii disc drives, lack support for DVDs as they don't contain the same type of disc drive.  In other words, support will vary on the age of the console, but most standard GameCube consoles should be able to read mini DVDs (full-sized DVDs are too big for unmodified Gamecube consoles, but they can be read).  
