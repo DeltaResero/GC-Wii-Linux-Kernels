@@ -52,7 +52,6 @@ config EXT3_DEFAULTS_TO_ORDERED
 config EXT3_FS_XATTR
 	bool "Ext3 extended attributes"
 	depends on EXT3_FS
-	depends on XATTR
 	default y
 	help
 	  Extended attributes are name:value pairs associated with inodes by

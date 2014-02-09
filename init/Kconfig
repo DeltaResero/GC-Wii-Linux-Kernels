@@ -1204,12 +1204,6 @@ config MEMPOOL
 	  will somewhat decrease code size, but with a higher risk of
 	  deadlock under some loads.
 
-config XATTR
-	default y
-	bool "Enable filesystem extended attribute support" if EMBEDDED
-	help
-	  This enables the filesystem extended attribute syscalls.
-
 config ETHTOOL
 	depends on NET
 	default y

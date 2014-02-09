@@ -53,17 +53,10 @@ int __vfs_setxattr_noperm(struct dentry *, const char *, const void *, size_t, i
 int vfs_setxattr(struct dentry *, const char *, const void *, size_t, int);
 int vfs_removexattr(struct dentry *, const char *);
 
-#ifdef CONFIG_XATTR
 ssize_t generic_getxattr(struct dentry *dentry, const char *name, void *buffer, size_t size);
 ssize_t generic_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size);
 int generic_setxattr(struct dentry *dentry, const char *name, const void *value, size_t size, int flags);
 int generic_removexattr(struct dentry *dentry, const char *name);
-#else
-#define generic_getxattr NULL
-#define generic_listxattr NULL
-#define generic_setxattr NULL
-#define generic_removexattr NULL
-#endif
 
 #endif  /*  __KERNEL__  */
 
