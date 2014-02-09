@@ -94,7 +94,7 @@
 #define __inline__
 #endif
 
-#define printk_rl(args...) ((void) (printk_ratelimit() && printk(args)))
+#define printk_rl(args...) ((void)(!printk_ratelimit() ?: printk(args)))
 
 /*
  * We maintain a biased count of active stripes in the bottom 16 bits of

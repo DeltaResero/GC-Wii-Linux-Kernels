@@ -276,7 +276,7 @@ struct sctp_mib {
 #if SCTP_DEBUG
 extern int sctp_debug_flag;
 #define SCTP_DEBUG_PRINTK(whatever...) \
-	((void) (sctp_debug_flag && printk(KERN_DEBUG whatever)))
+	((void) (!sctp_debug_flag ?: printk(KERN_DEBUG whatever)))
 #define SCTP_DEBUG_PRINTK_IPADDR(lead, trail, leadparm, saddr, otherparms...) \
 	if (sctp_debug_flag) { \
 		if (saddr->sa.sa_family == AF_INET6) { \

@@ -201,7 +201,7 @@ MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
 MODULE_PARM_DESC(eeprom_bad_csum_allow, "Allow bad eeprom checksums");
 MODULE_PARM_DESC(use_io, "Force use of i/o access mode");
 #define DPRINTK(nlevel, klevel, fmt, args...) \
-	(void)((NETIF_MSG_##nlevel & nic->msg_enable) && \
+	(void)(!(NETIF_MSG_##nlevel & nic->msg_enable) ?: \
 	printk(KERN_##klevel PFX "%s: %s: " fmt, nic->netdev->name, \
 		__func__ , ## args))
 

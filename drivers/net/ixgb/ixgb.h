@@ -83,7 +83,7 @@ struct ixgb_adapter;
 
 #define PFX "ixgb: "
 #define DPRINTK(nlevel, klevel, fmt, args...) \
-	(void)((NETIF_MSG_##nlevel & adapter->msg_enable) && \
+	(void)(!(NETIF_MSG_##nlevel & adapter->msg_enable) ?: \
 	printk(KERN_##klevel PFX "%s: %s: " fmt, adapter->netdev->name, \
 		__func__ , ## args))
 
