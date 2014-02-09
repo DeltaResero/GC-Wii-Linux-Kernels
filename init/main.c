@@ -852,6 +852,8 @@ static noinline int init_post(void)
 	run_init_process("/bin/sh");
 
 	panic("No init found.  Try passing init= option to kernel.");
+
+	return 0;
 }
 
 static int __init kernel_init(void * unused)

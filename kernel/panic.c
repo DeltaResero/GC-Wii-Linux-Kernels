@@ -47,6 +47,8 @@ static long no_blink(long time)
 long (*panic_blink)(long time);
 EXPORT_SYMBOL(panic_blink);
 
+#ifdef CONFIG_PANIC
+
 /**
  *	panic - halt the system
  *	@fmt: The text string to print
@@ -144,6 +146,7 @@ NORET_TYPE void panic(const char * fmt, ...)
 }
 
 EXPORT_SYMBOL(panic);
+#endif
 
 
 struct tnt {

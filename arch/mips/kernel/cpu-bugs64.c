@@ -18,7 +18,7 @@
 #include <asm/mipsregs.h>
 #include <asm/system.h>
 
-static char bug64hit[] __initdata =
+static char bug64hit[] __initdata __maybe_unused =
 	"reliable operation impossible!\n%s";
 static char nowar[] __initdata =
 	"Please report to <linux-mips@linux-mips.org>.";

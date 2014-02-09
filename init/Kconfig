@@ -957,6 +957,14 @@ config PCSPKR_PLATFORM
           This option allows to disable the internal PC-Speaker
           support, saving some memory.
 
+config PANIC
+	default y
+	bool "Enable panic reporting code" if EMBEDDED
+	help
+	  Disabling this completely removes panic handling code.
+          Warning: this can result in data loss if a panic condition
+          occurs, as the kernel may ignore the condition entirely.
+
 config BASE_FULL
 	default y
 	bool "Enable full-sized data structures for core" if EMBEDDED
