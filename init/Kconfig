@@ -1182,6 +1182,14 @@ config XATTR
 	help
 	  This enables the filesystem extended attribute syscalls.
 
+config ETHTOOL
+	depends on NET
+	default y
+	bool "Enable ethtool support" if EMBEDDED
+	help
+	  Disabling this option removes support for configuring
+	  ethernet device features via ethtool. Saves about 6k.
+
 config VT_BUF_VRAM_ONLY
 	bool "Use VRAM Buffer Only" if EMBEDDED
 	default !FB
