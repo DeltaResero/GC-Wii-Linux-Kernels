@@ -1907,6 +1907,8 @@ out_nolock:
 shouldnt_be_hashed:
 	spin_unlock(&dcache_lock);
 	BUG();
+
+	return NULL;
 }
 
 static int prepend(char **buffer, int *buflen, const char *str, int namelen)
