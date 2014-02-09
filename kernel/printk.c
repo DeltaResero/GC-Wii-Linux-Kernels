@@ -127,7 +127,7 @@ struct console_cmdline
 #endif
 };
 
-#define MAX_CMDLINECONSOLES 8
+#define MAX_CMDLINECONSOLES CONFIG_MAX_CMDLINECONSOLES
 
 static struct console_cmdline console_cmdline[MAX_CMDLINECONSOLES];
 static int selected_console = -1;
