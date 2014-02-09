@@ -1045,6 +1045,18 @@ config AIO
           by some high performance threaded applications. Disabling
           this option saves about 7k.
 
+config FB_MODEDB
+	default n
+	bool "Configure a preferrable framebuffer mode" if EMBEDDED
+	depends on FB
+	help
+	  For a specific board, there should be a preferrable framebuffer mode,
+	  which may be not good to allow the users to change it. So, we can
+	  make this hardcoded and reduce the size of the modedb. But after
+	  enabling this, you must fill the modeb yourself.
+
+	  If unsure, save N.
+
 config FB_MAX
 	int "Config max number of framebuffers" if EMBEDDED
 	range 1 32

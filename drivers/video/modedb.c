@@ -35,6 +35,21 @@ EXPORT_SYMBOL_GPL(fb_mode_option);
      */
 
 static const struct fb_videomode modedb[] = {
+#ifdef CONFIG_FB_MODEDB
+#ifdef CONFIG_LEMOTE_MACH2F
+	{
+		/* 1024x768 @ 60 Hz, 48.4 kHz hsync */
+		NULL, 60, 1024, 768, 15384, 168, 8, 29, 3, 144, 6,
+		0, FB_VMODE_NONINTERLACED
+	},
+#else
+    /*
+     * If CONFIG_FB_MODEDB=y, the board should fill their preferrable modedb
+     * here.
+     */
+#error FB_MODEDB=y but no modedb configured.
+#endif
+#else /* !CONFIG_FB_MODEDB */
     {
 	/* 640x400 @ 70 Hz, 31.5 kHz hsync */
 	NULL, 70, 640, 400, 39721, 40, 24, 39, 9, 96, 2,
@@ -273,6 +288,7 @@ static const struct fb_videomode modedb[] = {
        NULL, 50, 800, 520, 58823, 144, 64, 72, 28, 80, 5,
        0, FB_VMODE_INTERLACED
     },
+#endif /* CONFIG_FB_MODEDB */
 };
 
 #ifdef CONFIG_FB_MODE_HELPERS
