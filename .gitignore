@@ -27,6 +27,9 @@
 *.gz
 *.bz2
 *.lzma
+*.tar
+*.tar.*
+*.xz
 *.patch
 *.gcno
 
@@ -73,5 +76,6 @@ GSYMS
 GTAGS
 
 *.orig
+*.rej
 *~
 \#*#
