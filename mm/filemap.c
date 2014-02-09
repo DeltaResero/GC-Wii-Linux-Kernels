@@ -139,6 +139,7 @@ void __remove_from_page_cache(struct page *page)
 		dec_bdi_stat(mapping->backing_dev_info, BDI_RECLAIMABLE);
 	}
 }
+EXPORT_SYMBOL(__remove_from_page_cache);
 
 void remove_from_page_cache(struct page *page)
 {
@@ -151,6 +152,7 @@ void remove_from_page_cache(struct page *page)
 	spin_unlock_irq(&mapping->tree_lock);
 	mem_cgroup_uncharge_cache_page(page);
 }
+EXPORT_SYMBOL(remove_from_page_cache);
 
 static int sync_page(void *word)
 {
@@ -969,6 +971,7 @@ static void shrink_readahead_size_eio(struct file *filp,
 {
 	ra->ra_pages /= 4;
 }
+EXPORT_SYMBOL(find_get_pages);
 
 /**
  * do_generic_file_read - generic file read routine
