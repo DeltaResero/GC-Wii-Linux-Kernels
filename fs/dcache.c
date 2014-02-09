@@ -35,7 +35,45 @@
 #include <linux/hardirq.h>
 #include "internal.h"
 
-int sysctl_vfs_cache_pressure __read_mostly = 100;
+/*
+ * Usage:
+ * dcache->d_inode->i_lock protects:
+ *   - i_dentry, d_alias, d_inode of aliases
+ * dcache_hash_bucket lock protects:
+ *   - the dcache hash table
+ * s_anon bl list spinlock protects:
+ *   - the s_anon list (see __d_drop)
+ * dcache_lru_lock protects:
+ *   - the dcache lru lists and counters
+ * d_lock protects:
+ *   - d_flags
+ *   - d_name
+ *   - d_lru
+ *   - d_count
+ *   - d_unhashed()
+ *   - d_parent and d_subdirs
+ *   - childrens' d_child and d_parent
+ *   - d_alias, d_inode
+ *
+ * Ordering:
+ * dentry->d_inode->i_lock
+ *   dentry->d_lock
+ *     dcache_lru_lock
+ *     dcache_hash_bucket lock
+ *     s_anon lock
+ *
+ * If there is an ancestor relationship:
+ * dentry->d_parent->...->d_parent->d_lock
+ *   ...
+ *     dentry->d_parent->d_lock
+ *       dentry->d_lock
+ *
+ * If no ancestor relationship:
+ * if (dentry1 < dentry2)
+ *   dentry1->d_lock
+ *     dentry2->d_lock
+ */
+int sysctl_vfs_cache_pressure __read_mostly = CONFIG_VFS_CACHE_PRESSURE;
 EXPORT_SYMBOL_GPL(sysctl_vfs_cache_pressure);
 
  __cacheline_aligned_in_smp DEFINE_SPINLOCK(dcache_lock);
