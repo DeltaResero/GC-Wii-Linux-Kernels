@@ -106,6 +106,9 @@ static int ssb_ohci_attach(struct ssb_device *dev)
 	int err = -ENOMEM;
 	u32 tmp, flags = 0;
 
+	if (ssb_dma_set_mask(dev, DMA_32BIT_MASK))
+		return -EOPNOTSUPP;
+
 	if (dev->id.coreid == SSB_DEV_USB11_HOSTDEV) {
 		/* Put the device into host-mode. */
 		flags |= SSB_OHCI_TMSLOW_HOSTMODE;
