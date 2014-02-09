@@ -1011,15 +1011,6 @@ config SHMEM
 	  option replaces shmem and tmpfs with the much simpler ramfs code,
 	  which may be appropriate on small systems without swap.
 
-config ASHMEM
-	bool "Enable the Anonymous Shared Memory Subsystem"
-	default n
-	depends on SHMEM || TINY_SHMEM
-	help
-	  The ashmem subsystem is a new shared memory allocator, similar to
-	  POSIX SHM but with different behavior and sporting a simpler
-	  file-based API.
-
 config INETPEER
 	default y
 	bool "Enable INET peer information storage" if EMBEDDED
@@ -1066,6 +1057,15 @@ config MEMPOOL
 	  Disabling this feature may make more memory available and
 	  will somewhat decrease code size, but with a higher risk of
 	  deadlock under some loads.
+
+config ASHMEM
+	bool "Enable the Anonymous Shared Memory Subsystem"
+	default n
+	depends on SHMEM || TINY_SHMEM
+	help
+	  The ashmem subsystem is a new shared memory allocator, similar to
+	  POSIX SHM but with different behavior and sporting a simpler
+	  file-based API.
 
 config HAVE_PERF_EVENTS
 	bool
