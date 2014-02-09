@@ -512,6 +512,7 @@ enum positive_aop_returns {
 struct page;
 struct address_space;
 struct writeback_control;
+struct bdi_writeback;
 
 struct iov_iter {
 	const struct iovec *iov;
@@ -1640,7 +1641,11 @@ struct super_operations {
 	int (*remount_fs) (struct super_block *, int *, char *);
 	void (*clear_inode) (struct inode *);
 	void (*umount_begin) (struct super_block *);
-
+	int (*writeback_inodes)(struct super_block *sb,
+				struct bdi_writeback *wb,
+				struct writeback_control *wbc);
+	void (*sync_inodes) (struct super_block *sb,
+				struct writeback_control *wbc);
 	int (*show_options)(struct seq_file *, struct vfsmount *);
 	int (*show_stats)(struct seq_file *, struct vfsmount *);
 #ifdef CONFIG_QUOTA
@@ -2153,6 +2158,12 @@ extern int invalidate_inode_pages2(struct address_space *mapping);
 extern int invalidate_inode_pages2_range(struct address_space *mapping,
 					 pgoff_t start, pgoff_t end);
 extern int write_inode_now(struct inode *, int);
+extern void writeback_skip_sb_inodes(struct super_block *sb,
+				     struct bdi_writeback *wb);
+extern void writeback_inodes_wbc(struct writeback_control *wbc);
+extern int generic_writeback_sb_inodes(struct super_block *sb,
+				       struct bdi_writeback *wb,
+				       struct writeback_control *wbc);
 extern int filemap_fdatawrite(struct address_space *);
 extern int filemap_flush(struct address_space *);
 extern int filemap_fdatawait(struct address_space *);
