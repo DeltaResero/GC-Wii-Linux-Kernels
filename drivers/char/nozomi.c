@@ -1629,10 +1629,10 @@ static void ntty_close(struct tty_struct *tty, struct file *file)
 
 	dc->open_ttys--;
 	port->count--;
-	tty_port_tty_set(port, NULL);
 
 	if (port->count == 0) {
 		DBG1("close: %d", nport->token_dl);
+		tty_port_tty_set(port, NULL);
 		spin_lock_irqsave(&dc->spin_mutex, flags);
 		dc->last_ier &= ~(nport->token_dl);
 		writew(dc->last_ier, dc->reg_ier);
@@ -1783,24 +1783,24 @@ static int ntty_cflags_changed(struct port *port, unsigned long flags,
 	return ret;
 }
 
-static int ntty_ioctl_tiocgicount(struct port *port, void __user *argp)
+static int ntty_tiocgicount(struct tty_struct *tty,
+				struct serial_icounter_struct *icount)
 {
+	struct port *port = tty->driver_data;
 	const struct async_icount cnow = port->tty_icount;
-	struct serial_icounter_struct icount;
 
-	icount.cts = cnow.cts;
-	icount.dsr = cnow.dsr;
-	icount.rng = cnow.rng;
-	icount.dcd = cnow.dcd;
-	icount.rx = cnow.rx;
-	icount.tx = cnow.tx;
-	icount.frame = cnow.frame;
-	icount.overrun = cnow.overrun;
-	icount.parity = cnow.parity;
-	icount.brk = cnow.brk;
-	icount.buf_overrun = cnow.buf_overrun;
-
-	return copy_to_user(argp, &icount, sizeof(icount)) ? -EFAULT : 0;
+	icount->cts = cnow.cts;
+	icount->dsr = cnow.dsr;
+	icount->rng = cnow.rng;
+	icount->dcd = cnow.dcd;
+	icount->rx = cnow.rx;
+	icount->tx = cnow.tx;
+	icount->frame = cnow.frame;
+	icount->overrun = cnow.overrun;
+	icount->parity = cnow.parity;
+	icount->brk = cnow.brk;
+	icount->buf_overrun = cnow.buf_overrun;
+	return 0;
 }
 
 static int ntty_ioctl(struct tty_struct *tty, struct file *file,
@@ -1819,9 +1819,7 @@ static int ntty_ioctl(struct tty_struct *tty, struct file *file,
 		rval = wait_event_interruptible(port->tty_wait,
 				ntty_cflags_changed(port, arg, &cprev));
 		break;
-	} case TIOCGICOUNT:
-		rval = ntty_ioctl_tiocgicount(port, argp);
-		break;
+	}
 	default:
 		DBG1("ERR: 0x%08X, %d", cmd, cmd);
 		break;
@@ -1895,6 +1893,7 @@ static const struct tty_operations tty_ops = {
 	.chars_in_buffer = ntty_chars_in_buffer,
 	.tiocmget = ntty_tiocmget,
 	.tiocmset = ntty_tiocmset,
+	.get_icount = ntty_tiocgicount,
 };
 
 /* Module initialization */

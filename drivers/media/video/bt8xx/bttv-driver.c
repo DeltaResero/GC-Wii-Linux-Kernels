@@ -3532,7 +3532,7 @@ static int radio_s_tuner(struct file *file, void *priv,
 	if (0 != t->index)
 		return -EINVAL;
 
-	bttv_call_all(btv, tuner, g_tuner, t);
+	bttv_call_all(btv, tuner, s_tuner, t);
 	return 0;
 }
 
@@ -4468,6 +4468,7 @@ static int __devinit bttv_probe(struct pci_dev *dev,
 		request_modules(btv);
 	}
 
+	init_bttv_i2c_ir(btv);
 	bttv_input_init(btv);
 
 	/* everything is fine */

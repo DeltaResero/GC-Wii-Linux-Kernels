@@ -195,6 +195,9 @@ void unmask_msi_irq(unsigned int irq)
 void read_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg)
 {
 	struct msi_desc *entry = get_irq_desc_msi(desc);
+
+	BUG_ON(entry->dev->current_state != PCI_D0);
+
 	if (entry->msi_attrib.is_msix) {
 		void __iomem *base = entry->mask_base +
 			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE;
@@ -228,10 +231,32 @@ void read_msi_msg(unsigned int irq, struct msi_msg *msg)
 	read_msi_msg_desc(desc, msg);
 }
 
+void get_cached_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg)
+{
+	struct msi_desc *entry = get_irq_desc_msi(desc);
+
+	/* Assert that the cache is valid, assuming that
+	 * valid messages are not all-zeroes. */
+	BUG_ON(!(entry->msg.address_hi | entry->msg.address_lo |
+		 entry->msg.data));
+
+	*msg = entry->msg;
+}
+
+void get_cached_msi_msg(unsigned int irq, struct msi_msg *msg)
+{
+	struct irq_desc *desc = irq_to_desc(irq);
+
+	get_cached_msi_msg_desc(desc, msg);
+}
+
 void write_msi_msg_desc(struct irq_desc *desc, struct msi_msg *msg)
 {
 	struct msi_desc *entry = get_irq_desc_msi(desc);
-	if (entry->msi_attrib.is_msix) {
+
+	if (entry->dev->current_state != PCI_D0) {
+		/* Don't touch the hardware now */
+	} else if (entry->msi_attrib.is_msix) {
 		void __iomem *base;
 		base = entry->mask_base +
 			entry->msi_attrib.entry_nr * PCI_MSIX_ENTRY_SIZE;
@@ -838,5 +863,15 @@ EXPORT_SYMBOL(pci_msi_enabled);
 
 void pci_msi_init_pci_dev(struct pci_dev *dev)
 {
+	int pos;
 	INIT_LIST_HEAD(&dev->msi_list);
+
+	/* Disable the msi hardware to avoid screaming interrupts
+	 * during boot.  This is the power on reset default so
+	 * usually this should be a noop.
+	 */
+	pos = pci_find_capability(dev, PCI_CAP_ID_MSI);
+	if (pos)
+		msi_set_enable(dev, pos, 0);
+	msix_set_enable(dev, 0);
 }
