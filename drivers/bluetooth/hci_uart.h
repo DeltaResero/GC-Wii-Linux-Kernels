@@ -66,8 +66,9 @@ struct hci_uart {
 	spinlock_t		rx_lock;
 };
 
-/* HCI_UART flag bits */
-#define HCI_UART_PROTO_SET	0
+/* HCI_UART proto flag bits */
+#define HCI_UART_PROTO_SET			0
+#define HCI_UART_PROTO_SET_IN_PROGRESS		1
 
 /* TX states  */
 #define HCI_UART_SENDING	1
