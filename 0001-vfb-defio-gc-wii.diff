@@ -15,9 +15,9 @@ Warning: Do not use with Xorg Cube driver
 -	select FB_CFB_FILLRECT
 -	select FB_CFB_COPYAREA
 -	select FB_CFB_IMAGEBLIT
-+	select FB_SYS_FILLRECT
-+	select FB_SYS_COPYAREA
-+	select FB_SYS_IMAGEBLIT
++	select FB_CFB_FILLRECT
++	select FB_CFB_COPYAREA
++	select FB_CFB_IMAGEBLIT
 +	select FB_SYS_FOPS
 +	select FB_DEFERRED_IO
  	help
@@ -182,7 +182,7 @@ Warning: Do not use with Xorg Cube driver
 +{
 +	struct vi_ctl *ctl = info->par;
 +
-+	sys_fillrect(info, rect);
++	cfb_fillrect(info, rect);
 +
 +	gcnfb_handle_damage(ctl, rect->dx, rect->dy, rect->width,
 +				rect->height, info->screen_base);
@@ -193,7 +193,7 @@ Warning: Do not use with Xorg Cube driver
 +{
 +	struct vi_ctl *ctl = info->par;
 +
-+	sys_copyarea(info, area);
++	cfb_copyarea(info, area);
 +
 +	gcnfb_handle_damage(ctl, area->dx, area->dy, area->width,
 +				area->height, info->screen_base);
@@ -204,7 +204,7 @@ Warning: Do not use with Xorg Cube driver
 +{
 +	struct vi_ctl *ctl = info->par;
 +
-+	sys_imageblit(info, image);
++	cfb_imageblit(info, image);
 +
 +	gcnfb_handle_damage(ctl, image->dx, image->dy, image->width,
 +				image->height, info->screen_base);
