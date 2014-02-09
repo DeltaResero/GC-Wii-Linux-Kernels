@@ -1288,8 +1288,8 @@ static void print_lock_class_header(struct lock_class *class, int depth)
 		if (class->usage_mask & (1 << bit)) {
 			int len = depth;
 
-			len += printk("%*s   %s", depth, "", usage_str[bit]);
-			len += printk(" at:\n");
+			len += printk_unfiltered("%*s   %s", depth, "", usage_str[bit]);
+			len += printk_unfiltered(" at:\n");
 			print_stack_trace(class->usage_traces + bit, len);
 		}
 	}

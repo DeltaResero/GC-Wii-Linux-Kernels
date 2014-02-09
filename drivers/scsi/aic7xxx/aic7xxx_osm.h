@@ -369,7 +369,7 @@ struct ahc_platform_data {
 };
 
 /************************** OS Utility Wrappers *******************************/
-#define printf printk
+#define printf printk_unfiltered
 #define M_NOWAIT GFP_ATOMIC
 #define M_WAITOK 0
 #define malloc(size, type, flags) kmalloc(size, flags)

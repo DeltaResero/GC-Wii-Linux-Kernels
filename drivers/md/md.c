@@ -51,7 +51,7 @@
 #include "bitmap.h"
 
 #define DEBUG 0
-#define dprintk(x...) ((void)(DEBUG && printk(x)))
+#define dprintk(x...) ((void)(DEBUG && printk_unfiltered(x)))
 
 
 #ifndef MODULE
