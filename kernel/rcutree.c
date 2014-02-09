@@ -839,7 +839,7 @@ cpu_quiet(int cpu, struct rcu_state *rsp, struct rcu_data *rdp, long lastcomp)
 
 	rnp = rdp->mynode;
 	spin_lock_irqsave(&rnp->lock, flags);
-	if (lastcomp != ACCESS_ONCE(rsp->completed)) {
+	if (lastcomp != rnp->completed) {
 
 		/*
 		 * Someone beat us to it for this grace period, so leave.
@@ -957,7 +957,6 @@ static void rcu_adopt_orphan_cbs(struct rcu_state *rsp)
 static void __rcu_offline_cpu(int cpu, struct rcu_state *rsp)
 {
 	unsigned long flags;
-	long lastcomp;
 	unsigned long mask;
 	struct rcu_data *rdp = rsp->rda[cpu];
 	struct rcu_node *rnp;
@@ -993,7 +992,6 @@ static void __rcu_offline_cpu(int cpu, struct rcu_state *rsp)
 		spin_unlock(&rnp->lock);	/* irqs remain disabled. */
 		rnp = rnp->parent;
 	} while (rnp != NULL);
-	lastcomp = rsp->completed;
 
 	spin_unlock_irqrestore(&rsp->onofflock, flags);
 
@@ -1167,7 +1165,7 @@ static int rcu_process_dyntick(struct rcu_state *rsp, long lastcomp,
 	rcu_for_each_leaf_node(rsp, rnp) {
 		mask = 0;
 		spin_lock_irqsave(&rnp->lock, flags);
-		if (rsp->completed != lastcomp) {
+		if (rnp->completed != lastcomp) {
 			spin_unlock_irqrestore(&rnp->lock, flags);
 			return 1;
 		}
@@ -1181,7 +1179,7 @@ static int rcu_process_dyntick(struct rcu_state *rsp, long lastcomp,
 			if ((rnp->qsmask & bit) != 0 && f(rsp->rda[cpu]))
 				mask |= bit;
 		}
-		if (mask != 0 && rsp->completed == lastcomp) {
+		if (mask != 0 && rnp->completed == lastcomp) {
 
 			/* cpu_quiet_msk() releases rnp->lock. */
 			cpu_quiet_msk(mask, rsp, rnp, flags);
@@ -1218,7 +1216,7 @@ static void force_quiescent_state(struct rcu_state *rsp, int relaxed)
 	lastcomp = rsp->completed;
 	signaled = rsp->signaled;
 	rsp->jiffies_force_qs = jiffies + RCU_JIFFIES_TILL_FORCE_QS;
-	if (lastcomp == rsp->gpnum) {
+	if(!rcu_gp_in_progress(rsp)) {
 		rsp->n_force_qs_ngp++;
 		spin_unlock(&rnp->lock);
 		goto unlock_ret;  /* no GP in progress, time updated. */
@@ -1246,7 +1244,8 @@ static void force_quiescent_state(struct rcu_state *rsp, int relaxed)
 		/* Update state, record completion counter. */
 		forcenow = 0;
 		spin_lock(&rnp->lock);
-		if (lastcomp == rsp->completed &&
+		if (lastcomp + 1 == rsp->gpnum &&
+		    lastcomp == rsp->completed &&
 		    rsp->signaled == signaled) {
 			rsp->signaled = RCU_FORCE_QS;
 			dyntick_record_completed(rsp, lastcomp);
@@ -1488,6 +1487,8 @@ EXPORT_SYMBOL_GPL(synchronize_rcu_bh);
  */
 static int __rcu_pending(struct rcu_state *rsp, struct rcu_data *rdp)
 {
+	struct rcu_node *rnp = rdp->mynode;
+
 	rdp->n_rcu_pending++;
 
 	/* Check for CPU stalls, if enabled. */
@@ -1512,13 +1513,13 @@ static int __rcu_pending(struct rcu_state *rsp, struct rcu_data *rdp)
 	}
 
 	/* Has another RCU grace period completed?  */
-	if (ACCESS_ONCE(rsp->completed) != rdp->completed) { /* outside lock */
+	if (ACCESS_ONCE(rnp->completed) != rdp->completed) { /* outside lock */
 		rdp->n_rp_gp_completed++;
 		return 1;
 	}
 
 	/* Has a new RCU grace period started? */
-	if (ACCESS_ONCE(rsp->gpnum) != rdp->gpnum) { /* outside lock */
+	if (ACCESS_ONCE(rnp->gpnum) != rdp->gpnum) { /* outside lock */
 		rdp->n_rp_gp_started++;
 		return 1;
 	}
