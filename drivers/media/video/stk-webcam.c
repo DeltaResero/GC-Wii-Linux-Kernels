@@ -386,8 +386,8 @@ static void stk_isoc_handler(struct urb *urb)
 
 	if (list_empty(&dev->sio_avail)) {
 		/*FIXME Stop streaming after a while */
-		(void) (printk_ratelimit() &&
-		STK_ERROR("isoc_handler without available buffer!\n"));
+		if (printk_ratelimit())
+			STK_ERROR("isoc_handler without available buffer!\n");
 		goto resubmit;
 	}
 	fb = list_first_entry(&dev->sio_avail,
@@ -422,10 +422,10 @@ static void stk_isoc_handler(struct urb *urb)
 			/* This marks a new frame */
 			if (fb->v4lbuf.bytesused != 0
 				&& fb->v4lbuf.bytesused != dev->frame_size) {
-				(void) (printk_ratelimit() &&
-				STK_ERROR("frame %d, "
-					"bytesused=%d, skipping\n",
-					i, fb->v4lbuf.bytesused));
+				if (printk_ratelimit())
+					STK_ERROR("frame %d, "
+						"bytesused=%d, skipping\n",
+						i, fb->v4lbuf.bytesused);
 				fb->v4lbuf.bytesused = 0;
 				fill = fb->buffer;
 			} else if (fb->v4lbuf.bytesused == dev->frame_size) {
@@ -450,8 +450,8 @@ static void stk_isoc_handler(struct urb *urb)
 
 		/* Our buffer is full !!! */
 		if (framelen + fb->v4lbuf.bytesused > dev->frame_size) {
-			(void) (printk_ratelimit() &&
-			STK_ERROR("Frame buffer overflow, lost sync\n"));
+			if (printk_ratelimit())
+				STK_ERROR("Frame buffer overflow, lost sync\n");
 			/*FIXME Do something here? */
 			continue;
 		}
