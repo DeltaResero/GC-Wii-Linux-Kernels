@@ -1044,6 +1044,13 @@ config BLKDEV_MAJOR_HASH_SIZE
 	help
 	  Allows to configure the size of the major_names[] array.
 
+config CHRDEV_MAJOR_HASH_SIZE
+	int "Config major hash size of chrdev" if EMBEDDED
+	range 1 255
+	default 255
+	help
+	  This allows you to configure the size of the chrdevs[] array.
+
 config NR_IRQS
 	int "Configure max number of IRQS" if EMBEDDED
 	range 8 256
