@@ -1384,6 +1384,11 @@ EXPORT_SYMBOL(printk_timed_ratelimit);
  *
  * This is printk().  It can be called from any context.  We want it to work.
  *
+ * Note that depending on the kernel configuration printk might be wrapped by
+ * a macro. In cases where it's important that the implementation is a function
+ * (for example when the return value of printk is of interest) printk_unfiltered
+ * which bypasses the macro should be used instead.
+ *
  * We try to grab the console_sem.  If we succeed, it's easy - we log the output and
  * call the console drivers.  If we fail to get the semaphore we place the output
  * into the log buffer and return.  The current holder of the console_sem will
@@ -1400,6 +1405,14 @@ EXPORT_SYMBOL(printk_timed_ratelimit);
  * See the vsnprintf() documentation for format string extensions over C99.
  */
 
+/*
+ * We need to #undef the printk macro from <linux/kernel.h> because
+ * it would otherwise conflict with the function implementation.
+ */
+#ifdef printk
+# undef printk
+#endif
+
 asmlinkage int printk(const char *fmt, ...)
 {
 	va_list args;
@@ -1412,4 +1425,15 @@ asmlinkage int printk(const char *fmt, ...)
 	return r;
 }
 EXPORT_SYMBOL(printk);
+ 
+/*
+ * Because printk might be wrapped by a macro which doesn't work in all
+ * circumstances (for example when the return value of printk is of
+ * interest) we make the functionality also available as a normal
+ * function.
+ */
+
+asmlinkage int printk_unfiltered(const char *fmt, ...)
+	__attribute__((alias("printk")));
+EXPORT_SYMBOL(printk_unfiltered);
 #endif 

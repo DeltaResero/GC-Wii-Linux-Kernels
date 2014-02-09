@@ -254,6 +254,8 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	__attribute__ ((format (printf, 1, 0)));
 asmlinkage int printk(const char * fmt, ...)
 	__attribute__ ((format (printf, 1, 2))) __cold;
+asmlinkage int printk_unfiltered(const char *fmt, ...)
+	__attribute__ ((format (printf, 1, 2))) __cold;
 
 extern int printk_ratelimit(void);
 extern bool printk_timed_ratelimit(unsigned long *caller_jiffies,
@@ -281,6 +283,9 @@ static inline int vprintk(const char *s, va_list args) { return 0; }
 static inline int printk(const char *s, ...)
 	__attribute__ ((format (printf, 1, 2)));
 static inline int __cold printk(const char *s, ...) { return 0; }
+static inline int printk_unfiltered(const char *s, ...)
+	__attribute__ ((format (printf, 1, 2)));
+static inline int __cold printk_unfiltered(const char *s, ...) { return 0; }
 static inline int printk_ratelimit(void) { return 0; }
 static inline bool printk_timed_ratelimit(unsigned long *caller_jiffies, \
 					  unsigned int interval_msec)	\
