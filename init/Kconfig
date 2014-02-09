@@ -1036,6 +1036,14 @@ config AIO
           by some high performance threaded applications. Disabling
           this option saves about 7k.
 
+config BLKDEV_MAJOR_HASH_SIZE
+	int "Config major hash size of blkdev" if EMBEDDED
+	range 1 255
+	default 255
+	depends on BLOCK
+	help
+	  Allows to configure the size of the major_names[] array.
+
 config NR_IRQS
 	int "Configure max number of IRQS" if EMBEDDED
 	range 8 256
