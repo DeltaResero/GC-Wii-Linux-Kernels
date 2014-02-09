@@ -914,6 +914,16 @@ config PRINTK_VERBOSITY
 
 	  If unsure, just move on and leave this option alone.
 
+config COMMAND_LINE_SIZE
+	int "Set the max length of the command line arguments" if EMBEDDED
+	default 128 if EMBEDDED
+	default 4096
+	help
+	  This allows users to set a smaller length for the command line
+	  arguments. You must ensure it is enough for your kernel arguments,
+	  otherwise, you may be impossible to make kernel recognize your
+	  arguments.
+
 config BUG
 	bool "BUG() support" if EMBEDDED
 	default y
