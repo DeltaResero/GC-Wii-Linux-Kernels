@@ -1700,7 +1700,8 @@ repeat:
 		page = __page_cache_alloc(gfp | __GFP_COLD);
 		if (!page)
 			return ERR_PTR(-ENOMEM);
-		err = add_to_page_cache_lru(page, mapping, index, gfp);
+		err = add_to_page_cache_lru(page, mapping, index,
+		mapping_gfp_mask(mapping));
 		if (unlikely(err)) {
 			page_cache_release(page);
 			if (err == -EEXIST)
