@@ -33,6 +33,7 @@ struct dev_archdata {
 #endif
 #ifdef CONFIG_SWIOTLB
 	dma_addr_t		max_direct_dma_addr;
+	dma_addr_t		min_direct_dma_addr;
 #endif
 #ifdef CONFIG_EEH
 	struct eeh_dev		*edev;
