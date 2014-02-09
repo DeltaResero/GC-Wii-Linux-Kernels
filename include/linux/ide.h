@@ -195,7 +195,12 @@ static inline void ide_std_init_ports(struct ide_hw *hw,
 	hw->io_ports.ctl_addr = ctl_addr;
 }
 
+#if defined(CONFIG_IDE_HWIFS) && CONFIG_IDE_HWIFS > 0
+#undef MAX_HWIFS
+#define MAX_HWIFS CONFIG_IDE_HWIFS
+#else
 #define MAX_HWIFS	10
+#endif
 
 /*
  * Now for the data we need to maintain per-drive:  ide_drive_t

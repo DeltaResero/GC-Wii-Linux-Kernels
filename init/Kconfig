@@ -1054,6 +1054,15 @@ config SERIAL_PCI
 	  this feature if you are only need legacy serial support.  Saves about
 	  9K.
 
+config IDE_HWIFS
+	depends on IDE
+	int "Number of IDE hardware interfaces (0 for default)" if EMBEDDED
+	range 0 20
+	default 0
+	help
+	  Select the maximum number of IDE interfaces (0 for default).
+	  Saves up to 14k.
+
 config FB_MODEDB
 	default n
 	bool "Configure a preferrable framebuffer mode" if EMBEDDED
