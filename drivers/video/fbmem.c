@@ -1008,12 +1008,12 @@ fb_set_var(struct fb_info *info, struct fb_var_screeninfo *var)
 int
 fb_blank(struct fb_info *info, int blank)
 {	
- 	int ret = -EINVAL;
+ 	int ret = 0;
 
  	if (blank > FB_BLANK_POWERDOWN)
  		blank = FB_BLANK_POWERDOWN;
 
-	if (info->fbops->fb_blank)
+	if (info->fbops->fb_blank && blank == FB_BLANK_UNBLANK)
  		ret = info->fbops->fb_blank(blank, info);
 
  	if (!ret) {
@@ -1023,6 +1023,10 @@ fb_blank(struct fb_info *info, int blank)
 		event.data = &blank;
 		fb_notifier_call_chain(FB_EVENT_BLANK, &event);
 	}
+
+	if (info->fbops->fb_blank && blank != FB_BLANK_UNBLANK)
+ 		ret = info->fbops->fb_blank(blank, info);
+
 
  	return ret;
 }
