@@ -18,8 +18,7 @@ config DEFCONFIG_LIST
 
 config CONSTRUCTORS
 	bool
-	depends on !UML
-	default y
+	default n
 
 menu "General setup"
 
