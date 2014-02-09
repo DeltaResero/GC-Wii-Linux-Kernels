@@ -282,8 +282,12 @@ struct rcu_state {
 						/*  Protected by fqslock. */
 };
 
-#ifdef RCU_TREE_NONCORE
+/* Return values for rcu_preempt_offline_tasks(). */
 
+#define RCU_OFL_TASKS_NORM_GP	0x1		/* Tasks blocking normal */
+						/*  GP were moved to root. */
+#define RCU_OFL_TASKS_EXP_GP	0x2		/* Tasks blocking expedited */
+						/*  GP were moved to root. */
 /*
  * RCU implementation internal declarations:
  */
@@ -298,7 +302,7 @@ extern struct rcu_state rcu_preempt_state;
 DECLARE_PER_CPU(struct rcu_data, rcu_preempt_data);
 #endif /* #ifdef CONFIG_TREE_PREEMPT_RCU */
 
-#else /* #ifdef RCU_TREE_NONCORE */
+#ifndef RCU_TREE_NONCORE
 
 static struct lock_class_key rcu_root_class;
 
@@ -326,4 +330,4 @@ static void __cpuinit rcu_preempt_init_percpu_data(int cpu);
 static void rcu_preempt_send_cbs_to_orphanage(void);
 static void __init __rcu_init_preempt(void);
 
-#endif /* #else #ifdef RCU_TREE_NONCORE */
+#endif /* #ifndef RCU_TREE_NONCORE */
