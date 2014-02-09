@@ -589,7 +589,7 @@ static int pci_timedia_init(struct pci_dev *dev)
 
 /*
  * Timedia/SUNIX uses a mixture of BARs and offsets
- * Ugh, this is ugly as all hell --- TYT
+ * Ugh, this is ugly --- TYT
  */
 static int
 pci_timedia_setup(struct serial_private *priv,

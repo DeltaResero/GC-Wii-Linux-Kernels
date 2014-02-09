@@ -1047,7 +1047,7 @@ static void tscam(struct Scsi_Host *host)
 	};
 
 /*  I can't believe we need this before we've even done anything.  Remove it
- *  and see if anyone bitches.
+ *  and see if anyone complains.
 	for (i = 0; i < 0x10; i++) {
 		udelay(0xffff);
 	}

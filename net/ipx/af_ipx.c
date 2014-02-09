@@ -816,7 +816,7 @@ static int ipxitf_pprop(struct ipx_interface *intrfc, struct sk_buff *skb)
 	    ntohs(ipx->ipx_pktsize) < sizeof(struct ipxhdr) +
 					IPX_MAX_PPROP_HOPS * sizeof(u32))
 		goto out;
-	/* are we broadcasting this damn thing? */
+	/* are we broadcasting this thing? */
 	rc = 0;
 	if (!sysctl_ipx_pprop_broadcasting)
 		goto out;

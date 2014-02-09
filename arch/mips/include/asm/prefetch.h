@@ -17,7 +17,7 @@
  * R5432 implements Load, Store, LoadStreamed, StoreStreamed, LoadRetained,
  * StoreRetained and WriteBackInvalidate but not Pref_PrepareForStore.
  *
- * Hell (and the book on my shelf I can't open ...) know what the R8000 does.
+ * Who knows what the R8000 does.
  *
  * RM7000 version 1.0 interprets all hints as Pref_Load; version 2.0 implements
  * Pref_PrepareForStore also.

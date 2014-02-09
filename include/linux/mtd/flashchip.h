@@ -53,7 +53,7 @@ struct flchip {
 	/* We omit len for now, because when we group them together
 	   we insist that they're all of the same size, and the chip size
 	   is held in the next level up. If we get more versatile later,
-	   it'll make it a damn sight harder to find which chip we want from
+	   it'll make it sight harder to find which chip we want from
 	   a given offset, and we'll want to add the per-chip length field
 	   back in.
 	*/

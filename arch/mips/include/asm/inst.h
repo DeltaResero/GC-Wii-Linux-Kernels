@@ -179,7 +179,7 @@ enum mad_func {
 };
 
 /*
- * Damn ...  bitfields depend from byteorder :-(
+ * bitfields depend from byteorder :-(
  */
 #ifdef __MIPSEB__
 struct j_format {	/* Jump format */

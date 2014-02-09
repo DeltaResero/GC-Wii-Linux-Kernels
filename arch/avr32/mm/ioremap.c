@@ -40,7 +40,7 @@ void __iomem *__ioremap(unsigned long phys_addr, size_t size,
 		return NULL;
 
 	/*
-	 * XXX: When mapping regular RAM, we'd better make damn sure
+	 * XXX: When mapping regular RAM, we'd better make sure
 	 * it's never used for anything else.  But this is really the
 	 * caller's responsibility...
 	 */

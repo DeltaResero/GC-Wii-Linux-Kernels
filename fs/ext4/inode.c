@@ -4401,7 +4401,7 @@ static void ext4_free_branches(handle_t *handle, struct inode *inode,
 			 * brelse() it.  That means that if the underlying
 			 * block is reallocated in ext4_get_block(),
 			 * unmap_underlying_metadata() will find this block
-			 * and will try to get rid of it.  damn, damn.
+			 * and will try to get rid of it.
 			 *
 			 * If this block has already been committed to the
 			 * journal, a revoke record will be written.  And

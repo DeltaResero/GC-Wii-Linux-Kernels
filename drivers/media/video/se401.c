@@ -1388,7 +1388,7 @@ static int se401_probe(struct usb_interface *intf,
 	} else
 		return -ENODEV;
 
-	/* Checking vendor/product should be enough, but what the hell */
+	/* Checking vendor/product should be enough */
 	if (interface->bInterfaceClass != 0x00)
 		return -ENODEV;
 	if (interface->bInterfaceSubClass != 0x00)

@@ -39,7 +39,7 @@ void __init plat_mem_setup(void)
 	board_be_init = ip22_be_init;
 
 	/* Init the INDY HPC I/O controller.  Need to call this before
-	 * fucking with the memory controller because it needs to know the
+	 * messing with the memory controller because it needs to know the
 	 * boardID and whether this is a Guiness or a FullHouse machine.
 	 */
 	sgihpc_init();

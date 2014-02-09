@@ -65,7 +65,7 @@ static inline __attribute_const__ unative_t MASK(unative_t v)
 }
 
 
-/* This is noinline to make damned sure that gcc doesn't move any of the
+/* This is noinline to make sure that gcc doesn't move any of the
    Altivec code around the enable/disable code */
 static void noinline
 raid6_altivec$#_gen_syndrome_real(int disks, size_t bytes, void **ptrs)

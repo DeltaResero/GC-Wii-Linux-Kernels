@@ -46,7 +46,7 @@ cputypvallen = cputypvar - cputypval
 
 	.align 4
 /*
- * Sun people can't spell worth damn. "compatability" indeed.
+ * "compatability" indeed.
  * At least we *know* we can't spell, and use a spell-checker.
  */
 
@@ -880,7 +880,7 @@ sun4d_init:
 	/* Fall through to sun4m_init */
 
 sun4m_init:
-	/* XXX Fucking Cypress... */
+	/* XXX Cypress... */
 	lda	[%g0] ASI_M_MMUREGS, %g5
 	srl	%g5, 28, %g4
 

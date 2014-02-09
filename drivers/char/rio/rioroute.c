@@ -151,7 +151,7 @@ int RIORouteRup(struct rio_info *p, unsigned int Rup, struct Host *HostP, struct
 		}
 
 		if (Lies) {
-			rio_dprintk(RIO_DEBUG_ROUTE, "LIES! DAMN LIES! %d LIES!\n", Lies);
+			rio_dprintk(RIO_DEBUG_ROUTE, "LIES! ALL LIES! %d LIES!\n", Lies);
 			rio_dprintk(RIO_DEBUG_ROUTE, "%d:%c %d:%c %d:%c %d:%c\n",
 				    readb(&PktCmdP->RouteTopology[0].Unit),
 				    'A' + readb(&PktCmdP->RouteTopology[0].Link),

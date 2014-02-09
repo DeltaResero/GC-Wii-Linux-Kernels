@@ -2134,7 +2134,7 @@ static void ir_tasklet_func(unsigned long data)
 
 		} /* for all packets */
 
-		wake = 1; /* why the hell not? */
+		wake = 1; /* why not? */
 
 	} /* receive interrupt */
 

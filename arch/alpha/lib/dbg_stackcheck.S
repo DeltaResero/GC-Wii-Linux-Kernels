@@ -21,7 +21,7 @@ _mcount:
 	cmpult	$30, $0, $0
 	bne	$0, 1f
 	ret	($28)
-1:	stq	$31, -8($31)	# oops me, damn it.
+1:	stq	$31, -8($31)	# oops me
 	br	1b
 
 	.end _mcount

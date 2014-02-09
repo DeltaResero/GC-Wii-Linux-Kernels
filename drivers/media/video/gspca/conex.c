@@ -743,7 +743,7 @@ static void cx11646_jpeg(struct gspca_dev*gspca_dev)
 		reg_w_val(gspca_dev, 0x0053, 0x00);
 	} while (--retry);
 	if (retry == 0)
-		PDEBUG(D_ERR, "Damned Errors sending jpeg Table");
+		PDEBUG(D_ERR, "Errors sending jpeg Table");
 	/* send the qtable now */
 	reg_r(gspca_dev, 0x0001, 1);		/* -> 0x18 */
 	length = 8;

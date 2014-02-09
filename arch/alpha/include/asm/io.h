@@ -552,7 +552,7 @@ extern void outsl (unsigned long port, const void *src, unsigned long count);
  * Some mucking forons use if[n]def writeq to check if platform has it.
  * It's a bloody bad idea and we probably want ARCH_HAS_WRITEQ for them
  * to play with; for now just use cpp anti-recursion logics and make sure
- * that damn thing is defined and expands to itself.
+ * that thing is defined and expands to itself.
  */
 
 #define writeq writeq

@@ -103,7 +103,7 @@ static int jffs2_garbage_collect_thread(void *_c)
 		 * doesn't help, either (presumably because userspace and GCD
 		 * are generally competing for a higher latency resource -
 		 * disk).
-		 * This forces the GCD to slow the hell down.   Pulling an
+		 * This forces the GCD to slow down.   Pulling an
 		 * inode in with read_inode() is much preferable to having
 		 * the GC thread get there first. */
 		schedule_timeout_interruptible(msecs_to_jiffies(50));

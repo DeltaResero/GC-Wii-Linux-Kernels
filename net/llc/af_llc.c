@@ -284,7 +284,6 @@ out:
  *	If the user desires to bind to a specific mac + sap, it is possible to
  *	have multiple sap connections via multiple macs.
  *	Bind and autobind for that matter must enforce the correct sap usage
- *	otherwise all hell will break loose.
  *	Returns: 0 upon success, negative otherwise.
  */
 static int llc_ui_bind(struct socket *sock, struct sockaddr *uaddr, int addrlen)

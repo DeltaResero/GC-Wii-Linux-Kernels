@@ -318,7 +318,7 @@ int add_mtd_device(struct mtd_info *mtd)
 			mutex_unlock(&mtd_table_mutex);
 			/* We _know_ we aren't being removed, because
 			   our caller is still holding us here. So none
-			   of this try_ nonsense, and no bitching about it
+			   of this try_ nonsense, and no complaining about it
 			   either. :) */
 			__module_get(THIS_MODULE);
 			return 0;

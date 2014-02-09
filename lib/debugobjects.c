@@ -934,7 +934,7 @@ static int debug_objects_replace_static_objects(void)
 	/*
 	 * When debug_objects_mem_init() is called we know that only
 	 * one CPU is up, so disabling interrupts is enough
-	 * protection. This avoids the lockdep hell of lock ordering.
+	 * protection. This avoids the lockdep lock ordering.
 	 */
 	local_irq_disable();
 

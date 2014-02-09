@@ -26,7 +26,7 @@
 #define PROM_GETPKT		20	/* XXX */
 #define PROM_PUTPKT		21	/* XXX */
 
-/* More PROM shit.  Probably has to do with VME RMW cycles??? */
+/* More PROM stuff.  Probably has to do with VME RMW cycles??? */
 #define PROM_ORW_RMW		22	/* XXX */
 #define PROM_ORH_RMW		23	/* XXX */
 #define PROM_ORB_RMW		24	/* XXX */

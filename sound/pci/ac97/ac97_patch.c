@@ -3614,7 +3614,7 @@ static int patch_vt1617a(struct snd_ac97 * ac97)
  *        OUT_1    Reserved
  *        OUT_2    Reserved
  *
- * I have no idea what the hell Reserved does, but on an MSI
+ * I have no idea what Reserved does, but on an MSI
  * CN700T, I have to set it to get 5.1 output - YMMV, bad
  * things may happen.
  *

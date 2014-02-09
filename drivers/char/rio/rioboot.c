@@ -351,7 +351,7 @@ int RIOBootCodeHOST(struct rio_info *p, struct DownLoad *rbp)
 		 **        jump .O+2
 		 **
 		 ** The nfix operator is used, so that the startup code will be
-		 ** compatible with the whole Tp family. (lies, damn lies, it'll never
+		 ** compatible with the whole Tp family. (lies, all lies, it'll never
 		 ** work in a month of Sundays).
 		 **
 		 ** The nfix nyble is the 1s complement of the nyble value you

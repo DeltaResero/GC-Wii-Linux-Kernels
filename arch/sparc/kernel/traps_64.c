@@ -279,7 +279,6 @@ void spitfire_data_access_exception(struct pt_regs *regs, unsigned long sfsr, un
 			regs->tnpc = regs->tpc + 4;
 			return;
 		}
-		/* Shit... */
 		printk("spitfire_data_access_exception: SFSR[%016lx] "
 		       "SFAR[%016lx], going.\n", sfsr, sfar);
 		die_if_kernel("Dax", regs);

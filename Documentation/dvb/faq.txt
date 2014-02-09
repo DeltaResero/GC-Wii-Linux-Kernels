@@ -127,7 +127,7 @@ Some very frequently asked questions about linuxtv-dvb
 	lookup" is disabled:
 	  $ "echo 0 > /proc/sys/net/ipv4/conf/dvb0/rp_filter"
 
-7. What the hell are all those modules that need to be loaded?
+7. What are all those modules that need to be loaded?
 
 	For a dvb-ttpci av7110 based full-featured card the following
 	modules are loaded:

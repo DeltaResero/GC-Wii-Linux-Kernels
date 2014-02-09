@@ -1438,7 +1438,7 @@ scc_start_calibrate(struct scc_channel *scc, int duration, unsigned char pattern
 
 	/* 
 	 * Don't know if this works. 
-	 * Damn, where is my Z8530 programming manual...? 
+	 * Where is my Z8530 programming manual...? 
 	 */
 
 	Outb(scc->ctrl,RES_EXT_INT);	/* reset ext/status interrupts */

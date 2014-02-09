@@ -197,7 +197,7 @@ do {	if (test_thread_flag(TIF_PERFCTR)) {				\
 	        "l1", "l2", "l3", "l4", "l5", "l6", "l7",		\
 	  "i0", "i1", "i2", "i3", "i4", "i5",				\
 	  "o0", "o1", "o2", "o3", "o4", "o5",       "o7");		\
-	/* If you fuck with this, update ret_from_syscall code too. */	\
+	/* If you mess with this, update ret_from_syscall code too. */	\
 	if (test_thread_flag(TIF_PERFCTR)) {				\
 		write_pcr(current_thread_info()->pcr_reg);		\
 		reset_pic();						\

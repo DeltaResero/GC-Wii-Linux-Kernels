@@ -269,7 +269,7 @@ static unsigned int __init spider_find_cascade_and_node(struct spider_pic *pic)
 		of_node_put(iic);
 		return NO_IRQ;
 	}
-	/* ugly as hell but works for now */
+	/* ugly but works for now */
 	pic->node_id = (*tmp) >> 1;
 	of_node_put(iic);
 

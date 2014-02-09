@@ -137,7 +137,7 @@ int mga_warp_init(drm_mga_private_t * dev_priv)
 {
 	u32 wmisc;
 
-	/* FIXME: Get rid of these damned magic numbers...
+	/* FIXME: Get rid of these magic numbers...
 	 */
 	switch (dev_priv->chipset) {
 	case MGA_CARD_TYPE_G400:

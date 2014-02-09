@@ -54,7 +54,7 @@ void __fsnotify_update_child_dentry_flags(struct inode *inode)
 
 	spin_lock(&dcache_lock);
 	/* run all of the dentries associated with this inode.  Since this is a
-	 * directory, there damn well better only be one item on this list */
+	 * directory, there better only be one item on this list */
 	list_for_each_entry(alias, &inode->i_dentry, d_alias) {
 		struct dentry *child;
 
@@ -162,7 +162,7 @@ void fsnotify(struct inode *to_tell, __u32 mask, void *data, int data_is, const 
 				event = fsnotify_create_event(to_tell, mask, data,
 							      data_is, file_name, cookie,
 							      GFP_KERNEL);
-				/* shit, we OOM'd and now we can't tell, maybe
+				/* We OOM'd and now we can't tell, maybe
 				 * someday someone else will want to do something
 				 * here */
 				if (!event)

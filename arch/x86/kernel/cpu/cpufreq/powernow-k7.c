@@ -617,7 +617,7 @@ static int __init acer_cpufreq_pst(const struct dmi_system_id *d)
 }
 
 /*
- * Some Athlon laptops have really fucked PST tables.
+ * Some Athlon laptops have really messed up PST tables.
  * A BIOS update is all that can save them.
  * Mention this, and disable cpufreq.
  */

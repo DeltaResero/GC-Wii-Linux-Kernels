@@ -43,7 +43,7 @@
    bottom to top and left to right.
 
    ZAM-FIXME-HANS: order not just node locks in this way, order atom locks, and
-   kill those damn busy loops.
+   kill those busy loops.
    ANSWER(ZAM): atom locks (which are introduced by ASTAGE_CAPTURE_WAIT atom
    stage) cannot be ordered that way. There are no rules what nodes can belong
    to the atom and what nodes cannot.  We cannot define what is right or left

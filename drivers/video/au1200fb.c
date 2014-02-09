@@ -1569,8 +1569,8 @@ static int au1200fb_init_fbinfo(struct au1200fb_device *fbdev)
 	bpp = winbpp(win->w[fbdev->plane].mode_winctrl1);
 
 	/* Copy monitor specs from panel data */
-	/* fixme: we're setting up LCD controller windows, so these dont give a
-	damn as to what the monitor specs are (the panel itself does, but that
+	/* fixme: we're setting up LCD controller windows, so these dont care
+	as to what the monitor specs are (the panel itself does, but that
 	isnt done here...so maybe need a generic catchall monitor setting??? */
 	memcpy(&fbi->monspecs, &panel->monspecs, sizeof(struct fb_monspecs));
 

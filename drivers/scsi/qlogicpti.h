@@ -61,7 +61,7 @@
 #define REQUEST_QUEUE_WAKEUP		0x8005
 #define EXECUTION_TIMEOUT_RESET		0x8006
 
-/* Am I fucking pedantic or what? */
+/* Am I pedantic or what? */
 struct Entry_header {
 #ifdef __BIG_ENDIAN
 	u8	entry_cnt;

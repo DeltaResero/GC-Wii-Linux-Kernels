@@ -103,8 +103,7 @@ struct wusb_cbaf_host_info {
 
 /* Device Info (AMS1.0[T4-8])
  *
- * I still don't get this tag'n'header stuff for each goddamn
- * field...
+ * I still don't get this tag'n'header stuff for each field...
  */
 struct wusb_cbaf_device_info {
 	struct wusb_cbaf_attr_hdr Length_hdr;

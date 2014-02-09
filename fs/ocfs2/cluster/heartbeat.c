@@ -1716,7 +1716,7 @@ static struct config_item_type o2hb_heartbeat_group_type = {
 };
 
 /* this is just here to avoid touching group in heartbeat.h which the
- * entire damn world #includes */
+ * entire world #includes */
 struct config_group *o2hb_alloc_hb_set(void)
 {
 	struct o2hb_heartbeat_group *hs = NULL;

@@ -92,7 +92,7 @@ NESTED(except_vec3_r4000, 0, sp)
 	jr	k0
 
 	/*
-	 * Big shit, we now may have two dirty primary cache lines for the same
+	 * We now may have two dirty primary cache lines for the same
 	 * physical address.  We can safely invalidate the line pointed to by
 	 * c0_badvaddr because after return from this exception handler the
 	 * load / store will be re-executed.

@@ -1336,7 +1336,7 @@ static void radeon_cp_dispatch_clear(struct drm_device * dev,
 
 	/* Increment the clear counter.  The client-side 3D driver must
 	 * wait on this value before performing the clear ioctl.  We
-	 * need this because the card's so damned fast...
+	 * need this because the card's so fast...
 	 */
 	sarea_priv->last_clear++;
 

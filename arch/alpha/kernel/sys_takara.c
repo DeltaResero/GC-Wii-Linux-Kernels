@@ -167,7 +167,7 @@ takara_init_irq(void)
  * also be jumpered to slots 8, 7, and 6 respectively, which is fun
  * because the SIO ISA bridge can also be slot 7. However, the SIO
  * doesn't explicitly generate PCI-type interrupts, so we can
- * assign it whatever the hell IRQ we like and it doesn't matter.
+ * assign it whatever IRQ we like and it doesn't matter.
  */
 
 static int __init

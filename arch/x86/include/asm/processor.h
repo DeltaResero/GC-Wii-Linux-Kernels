@@ -479,7 +479,7 @@ struct thread_struct {
 
 static inline unsigned long native_get_debugreg(int regno)
 {
-	unsigned long val = 0;	/* Damn you, gcc! */
+	unsigned long val = 0;	/* gcc! */
 
 	switch (regno) {
 	case 0:

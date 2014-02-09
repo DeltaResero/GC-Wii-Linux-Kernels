@@ -2394,7 +2394,7 @@ smb_proc_readdir_long(struct file *filp, void *dirent, filldir_t filldir,
 		}
 
 		if (req->rq_rcls == ERRSRV && req->rq_err == ERRerror) {
-			/* a damn Win95 bug - sometimes it clags if you 
+			/* A Win95 bug - sometimes it clags if you
 			   ask it too fast */
 			schedule_timeout_interruptible(msecs_to_jiffies(200));
 			continue;

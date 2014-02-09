@@ -240,8 +240,7 @@ Version 3.6
 
 - Argument to volume option could overflow the
   name buffer. It is now silently truncated to
-  30 characters. (Damn it! This kind of bug
-  is too embarrassing.)
+  30 characters. (This kind of bug is too embarrassing)
 
 - Split inode.c into 2 files, the superblock
   routines desperately wanted their own file.

@@ -341,8 +341,7 @@ int register_mtd_blktrans(struct mtd_blktrans_ops *tr)
 	int ret, i;
 
 	/* Register the notifier if/when the first device type is
-	   registered, to prevent the link/init ordering from fucking
-	   us over. */
+	   registered, to prevent the link/init ordering from causing issues. */
 	if (!blktrans_notifier.list.next)
 		register_mtd_user(&blktrans_notifier);
 

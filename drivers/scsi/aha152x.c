@@ -223,7 +223,7 @@
  * reading data works.  Mounted a msdos partition.
  *
  * Revision 0.1  1993/08/25  13:38:30  root
- * first "damn thing doesn't work" version
+ * first "doesn't work" version
  *
  * Revision 0.0  1993/08/14  19:54:25  root
  * empty function bodies; detect() works.

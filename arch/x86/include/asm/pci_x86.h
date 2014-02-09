@@ -74,7 +74,7 @@ struct irq_routing_table {
 					   PCI usage */
 	u16 rtr_vendor, rtr_device;	/* Vendor and device ID of
 					   interrupt router */
-	u32 miniport_data;		/* Crap */
+	u32 miniport_data;
 	u8 rfu[11];
 	u8 checksum;			/* Modulo 256 checksum must give 0 */
 	struct irq_info slots[0];

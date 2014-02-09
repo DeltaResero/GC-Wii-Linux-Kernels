@@ -938,8 +938,8 @@ err_out_kobj_put:
  *
  * Adds the cpufreq interface for a CPU device.
  *
- * The Oracle says: try running cpufreq registration/unregistration concurrently
- * with with cpu hotplugging and all hell will break loose. Tried to clean this
+ * The Oracle says: running cpufreq registration/unregistration concurrently
+ * with with cpu hotplugging will not work. Tried to clean this
  * mess up, but more thorough testing is needed. - Mathieu
  */
 static int cpufreq_add_dev(struct sys_device *sys_dev)

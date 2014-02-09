@@ -534,7 +534,7 @@ static int __devinit acenic_probe_one(struct pci_dev *pdev,
 	/*
 	 * Remap the regs into kernel space - this is abuse of
 	 * dev->base_addr since it was means for I/O port
-	 * addresses but who gives a damn.
+	 * addresses but who cares.
 	 */
 	dev->base_addr = pci_resource_start(pdev, 0);
 	ap->regs = ioremap(dev->base_addr, 0x4000);

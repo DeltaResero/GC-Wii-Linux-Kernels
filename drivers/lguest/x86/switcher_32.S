@@ -146,7 +146,7 @@ ENTRY(switch_to_guest)
 	// The TSS entry which controls traps
 	// Must be loaded up with "ltr" now:
 	// The GDT entry that TSS uses 
-	// Changes type when we load it: damn Intel!
+	// Changes type when we load it: ...Intel!
 	// For after we switch over our page tables
 	// That entry will be read-only: we'd crash.
 	movl	$(GDT_ENTRY_TSS*8), %edx

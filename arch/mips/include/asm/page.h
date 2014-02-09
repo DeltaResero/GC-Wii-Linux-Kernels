@@ -171,7 +171,7 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define pfn_valid(pfn)							\
 ({									\
 	unsigned long __pfn = (pfn);					\
-	/* avoid <linux/bootmem.h> include hell */			\
+	/* avoid <linux/bootmem.h> */					\
 	extern unsigned long min_low_pfn;				\
 									\
 	__pfn >= min_low_pfn && __pfn < max_mapnr;			\

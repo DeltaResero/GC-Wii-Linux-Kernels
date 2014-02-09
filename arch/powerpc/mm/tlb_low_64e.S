@@ -145,7 +145,7 @@
 	mtspr	SPRN_MAS1,r10
 	beq+	normal_tlb_miss
 
-	/* We got a crappy address, just fault */
+	/* We got a bad address, just fault */
 	TLB_MISS_STATS_I(MMSTAT_TLB_MISS_NORM_FAULT)
 	TLB_MISS_EPILOG_ERROR
 	b	exc_instruction_storage_book3e
@@ -156,11 +156,11 @@
  *
  * r16 = faulting address
  * r15 = region ID
- * r14 = crap (free to use)
+ * r14 = free to use
  * r13 = PACA
  * r12 = TLB exception frame in PACA
  * r11 = PTE permission mask
- * r10 = crap (free to use)
+ * r10 = free to use
  */
 normal_tlb_miss:
 	/* So we first construct the page table address. We do that by
@@ -216,7 +216,7 @@ finish_normal_tlb_miss:
 	 *
 	 * TODO: mix up code below for better scheduling
 	 */
-	clrrdi	r11,r16,12		/* Clear low crap in EA */
+	clrrdi	r11,r16,12		/* Clear low data in EA */
 	rlwimi	r11,r14,32-19,27,31	/* Insert WIMGE */
 	mtspr	SPRN_MAS2,r11
 
@@ -235,7 +235,7 @@ finish_normal_tlb_miss:
 1:
 	/* Move RPN in position */
 	rldicr	r11,r14,64-(PTE_RPN_SHIFT-PAGE_SHIFT),63-PAGE_SHIFT
-	clrldi	r15,r11,12		/* Clear crap at the top */
+	clrldi	r15,r11,12		/* Clear data at the top */
 	rlwimi	r15,r14,32-8,22,25	/* Move in U bits */
 	rlwimi	r15,r14,32-2,26,31	/* Move in BAP bits */
 
@@ -286,11 +286,11 @@ normal_tlb_miss_access_fault:
  *
  * r16 = virtual page table faulting address
  * r15 = region (top 4 bits of address)
- * r14 = crap (free to use)
+ * r14 = free to use
  * r13 = PACA
  * r12 = TLB exception frame in PACA
- * r11 = crap (free to use)
- * r10 = crap (free to use)
+ * r11 = free to use
+ * r10 = free to use
  *
  * Note that this should only ever be called as a second level handler
  * with the current scheme when using SW load.
@@ -505,7 +505,7 @@ virt_page_table_tlb_miss_whacko_fault:
 	ld	r15,PACA_KERNELPGD(r13)	/* Load kernel pgdir */
 	beq+	htw_tlb_miss
 
-	/* We got a crappy address, just fault with whatever DEAR and ESR
+	/* We got a bad address, just fault with whatever DEAR and ESR
 	 * are here
 	 */
 	TLB_MISS_STATS_D(MMSTAT_TLB_MISS_NORM_FAULT)
@@ -549,7 +549,7 @@ virt_page_table_tlb_miss_whacko_fault:
 	ld	r15,PACA_KERNELPGD(r13)		/* Load kernel pgdir */
 	beq+	htw_tlb_miss
 
-	/* We got a crappy address, just fault */
+	/* We got a bad address, just fault */
 	TLB_MISS_STATS_I(MMSTAT_TLB_MISS_NORM_FAULT)
 	TLB_MISS_EPILOG_ERROR
 	b	exc_instruction_storage_book3e
@@ -564,8 +564,8 @@ virt_page_table_tlb_miss_whacko_fault:
  * r14 = ESR
  * r13 = PACA
  * r12 = TLB exception frame in PACA
- * r11 = crap (free to use)
- * r10 = crap (free to use)
+ * r11 = free to use
+ * r10 = free to use
  *
  * It can be re-entered by the linear mapping miss handler. However, to
  * avoid too much complication, it will save/restore things for us
@@ -680,12 +680,12 @@ htw_tlb_miss_fault:
  *
  *
  * r16 = faulting address
- * r15 = crap (free to use)
+ * r15 = free to use
  * r14 = ESR (data) or -1 (instruction)
  * r13 = PACA
  * r12 = TLB exception frame in PACA
- * r11 = crap (free to use)
- * r10 = crap (free to use)
+ * r11 = free to use
+ * r10 = free to use
  *
  * In addition we know that we will not re-enter, so in theory, we could
  * use a simpler epilog not restoring SRR0/1 etc.. but we'll do that later.

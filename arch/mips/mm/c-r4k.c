@@ -1086,8 +1086,7 @@ static int __cpuinit probe_scache(void)
 	end = begin + (4 * 1024 * 1024);
 
 	/*
-	 * This is such a bitch, you'd think they would make it easy to do
-	 * this.  Away you daemons of stupidity!
+	 * You'd think they would make it easy to do
 	 */
 	local_irq_save(flags);
 

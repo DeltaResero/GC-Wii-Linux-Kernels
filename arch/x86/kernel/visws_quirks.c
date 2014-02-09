@@ -282,7 +282,7 @@ void __init visws_early_detect(void)
 	/*
 	 * Now, we have to map the power management section to write
 	 * a bit which enables access to the GPIO registers.
-	 * What lunatic came up with this shit?
+	 * Who came up with this junk?
 	 */
 	outb_p(SIO_DEV_SEL, SIO_INDEX);
 	outb_p(SIO_PM_DEV, SIO_DATA);	/* Talk to GPIO regs. */

@@ -477,8 +477,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 	 * user space does not need to know the hardware cache layout.
 	 *
 	 * r2 contains flags.  It should ALWAYS be passed as ZERO until it
-	 * is defined to be something else.  For now we ignore it, but may
-	 * the fires of hell burn in your belly if you break this rule. ;)
+	 * is defined to be something else.  For now we ignore it.
 	 *
 	 * (at a later date, we may want to allow this call to not flush
 	 * various aspects of the cache.  Passing '0' will guarantee that

@@ -71,7 +71,7 @@ void
 __jffs2_dbg_fragtree_paranoia_check_nolock(struct jffs2_inode_info *f)
 {
 	struct jffs2_node_frag *frag;
-	int bitched = 0;
+	int complained = 0;
 
 	for (frag = frag_first(&f->fragtree); frag; frag = frag_next(frag)) {
 		struct jffs2_full_dnode *fn = frag->node;
@@ -83,7 +83,7 @@ __jffs2_dbg_fragtree_paranoia_check_nolock(struct jffs2_inode_info *f)
 			if (fn->frags > 1) {
 				JFFS2_ERROR("REF_PRISTINE node at 0x%08x had %d frags. Tell dwmw2.\n",
 					ref_offset(fn->raw), fn->frags);
-				bitched = 1;
+				complained = 1;
 			}
 
 			/* A hole node which isn't multi-page should be garbage-collected
@@ -95,19 +95,19 @@ __jffs2_dbg_fragtree_paranoia_check_nolock(struct jffs2_inode_info *f)
 					&& frag_prev(frag)->size < PAGE_CACHE_SIZE && frag_prev(frag)->node) {
 				JFFS2_ERROR("REF_PRISTINE node at 0x%08x had a previous non-hole frag in the same page. Tell dwmw2.\n",
 					ref_offset(fn->raw));
-				bitched = 1;
+				complained = 1;
 			}
 
 			if ((frag->ofs+frag->size) & (PAGE_CACHE_SIZE-1) && frag_next(frag)
 					&& frag_next(frag)->size < PAGE_CACHE_SIZE && frag_next(frag)->node) {
 				JFFS2_ERROR("REF_PRISTINE node at 0x%08x (%08x-%08x) had a following non-hole frag in the same page. Tell dwmw2.\n",
 				       ref_offset(fn->raw), frag->ofs, frag->ofs+frag->size);
-				bitched = 1;
+				complained = 1;
 			}
 		}
 	}
 
-	if (bitched) {
+	if (complained) {
 		JFFS2_ERROR("fragtree is corrupted.\n");
 		__jffs2_dbg_dump_fragtree_nolock(f);
 		BUG();

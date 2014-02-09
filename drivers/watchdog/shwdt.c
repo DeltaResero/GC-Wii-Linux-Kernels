@@ -115,10 +115,6 @@ static void sh_wdt_start(void)
 
 #ifdef CONFIG_CPU_SH2
 	/*
-	 * Whoever came up with the RSTCSR semantics must've been smoking
-	 * some of the good stuff, since in addition to the WTCSR/WTCNT write
-	 * brain-damage, it's managed to fuck things up one step further..
-	 *
 	 * If we need to clear the WOVF bit, the upper byte has to be 0xa5..
 	 * but if we want to touch RSTE or RSTS, the upper byte has to be
 	 * 0x5a..

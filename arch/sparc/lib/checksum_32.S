@@ -324,8 +324,7 @@ cc_dword_align:
 	 andcc	%g1, 0xffffff80, %g0
 
 	/* Sun, you just can't beat me, you just can't.  Stop trying,
-	 * give up.  I'm serious, I am going to kick the living shit
-	 * out of you, game over, lights out.
+	 * give up.
 	 */
 	.align	8
 	.globl	__csum_partial_copy_sparc_generic

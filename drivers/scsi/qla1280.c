@@ -3263,7 +3263,7 @@ qla1280_req_pkt(struct scsi_qla_host *ha)
 	ENTER("qla1280_req_pkt");
 
 	/*
-	 * This can be called from interrupt context, damn it!!!
+	 * This can be called from interrupt context
 	 */
 	/* Wait for 30 seconds for slot. */
 	for (timer = 15000000; timer; timer--) {

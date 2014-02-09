@@ -196,7 +196,7 @@ static void write_config_nybble(struct pci_dev *router, unsigned offset,
 }
 
 /*
- * ALI pirq entries are damn ugly, and completely undocumented.
+ * ALI pirq entries are ugly, and completely undocumented.
  * This has been figured out from pirq tables, and it's not a pretty
  * picture.
  */

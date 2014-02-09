@@ -855,7 +855,7 @@ static int uart_set_info(struct uart_state *state,
 		    old_custom_divisor != uport->custom_divisor) {
 			/*
 			 * If they're setting up a custom divisor or speed,
-			 * instead of clearing it, then bitch about it. No
+			 * instead of clearing it, then complain about it. No
 			 * need to rate-limit; it's CAP_SYS_ADMIN only.
 			 */
 			if (uport->flags & UPF_SPD_MASK) {

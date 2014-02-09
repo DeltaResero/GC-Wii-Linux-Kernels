@@ -60,7 +60,7 @@
  *		Pop == "move gc_current to parent". We keep only pointers to
  *		parents (->gc_tree).
  *	AV		1 Mar 1999
- *		Damn. Added missing check for ->dead in listen queues scanning.
+ *		Added missing check for ->dead in listen queues scanning.
  *
  *	Miklos Szeredi 25 Jun 2007
  *		Reimplement with a cycle collecting algorithm. This should

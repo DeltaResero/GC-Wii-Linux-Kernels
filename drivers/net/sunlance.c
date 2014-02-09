@@ -48,7 +48,7 @@
  *	11/17/96: Handle LE_C0_MERR in lance_interrupt(). (ecd@skynet.be)
  *
  *	12/22/96: Don't loop forever in lance_rx() on incomplete packets.
- *		  This was the sun4c killer. Shit, stupid bug.
+ *		  This was the sun4c killer.
  *		  (ecd@skynet.be)
  *
  * 1.10:

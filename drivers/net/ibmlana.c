@@ -66,8 +66,7 @@ History:
 	reset interrupt status immediately after CAM load
 	add a recovery delay after releasing the chip's reset line
   May 24th, 2000
-	finally found the bug in the address filter setup - damned signed
-        chars!
+	finally found the bug in the address filter setup - signed chars!
   June 1st, 2000
 	corrected version codes, added support for the latest 2.3 changes
   Oct 28th, 2002

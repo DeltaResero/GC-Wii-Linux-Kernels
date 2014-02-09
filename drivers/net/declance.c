@@ -29,7 +29,7 @@
  *      v0.006: added pointer arrays to lance_private and setup routine for
  *              them in dec_lance_init. HK
  *
- *      v0.007: Big shit. The LANCE seems to use a different DMA mechanism to
+ *      v0.007: The LANCE seems to use a different DMA mechanism to
  *              access the init block. This looks like one (short) word at a
  *              time, but the smallest amount the IOASIC can transfer is a
  *              (long) word. So we have a 2-2 padding here. Changed

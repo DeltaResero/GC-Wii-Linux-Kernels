@@ -3468,7 +3468,7 @@ int __init ip_rt_init(void)
 
 #ifdef CONFIG_SYSCTL
 /*
- * We really need to sanitize the damn ipv4 init order, then all
+ * We really need to sanitize the ipv4 init order, then all
  * this nonsense will go away.
  */
 void __init ip_static_sysctl_init(void)

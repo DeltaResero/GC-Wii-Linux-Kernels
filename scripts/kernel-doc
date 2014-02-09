@@ -92,7 +92,7 @@ use strict;
 # e.g.
 # /**
 #  * my_function - does my stuff
-#  * @my_arg: its mine damnit
+#  * @my_arg: its mine
 #  *
 #  * Does my stuff explained.
 #  */
@@ -100,7 +100,7 @@ use strict;
 #  or, could also use:
 # /**
 #  * my_function - does my stuff
-#  * @my_arg: its mine damnit
+#  * @my_arg: its mine
 #  * Description: Does my stuff explained.
 #  */
 # etc.

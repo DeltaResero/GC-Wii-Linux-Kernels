@@ -855,7 +855,7 @@ static int jffs2_rename (struct inode *old_dir_i, struct dentry *old_dentry,
 	/* We don't touch inode->i_nlink */
 
 	if (ret) {
-		/* Oh shit. We really ought to make a single node which can do both atomically */
+		/* We really ought to make a single node which can do both atomically */
 		struct jffs2_inode_info *f = JFFS2_INODE_INFO(old_dentry->d_inode);
 		mutex_lock(&f->sem);
 		inc_nlink(old_dentry->d_inode);

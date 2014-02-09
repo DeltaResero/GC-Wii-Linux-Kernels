@@ -2325,7 +2325,7 @@ static void rx_data(struct net_device *dev, struct rcs __iomem *prcs,
 	      rx_len);
 
 /************************/
-	/* Reserve enough room for the whole damn packet. */
+	/* Reserve enough room for the whole packet. */
 	rx_ptr = skb_put(skb, total_len);
 	/* Copy the whole packet to sk_buff */
 	rx_ptr +=

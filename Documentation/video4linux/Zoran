@@ -4,9 +4,9 @@ subject: unified zoran driver (zr360x7, zoran, buz, dc10(+), dc30(+), lml33)
 website: http://mjpeg.sourceforge.net/driver-zoran/
 
 1. What cards are supported
-1.1 What the TV decoder can do an what not
-1.2 What the TV encoder can do an what not
-2. How do I get this damn thing to work
+1.1 What the TV decoder can do and what not
+1.2 What the TV encoder can do and what not
+2. How do I get this thing to work
 3. What mainboard should I use (or why doesn't my card work)
 4. Programming interface
 5. Applications
@@ -134,7 +134,7 @@ Note: use encoder=X or decoder=X for non-default i2c chips (see i2c-id.h)
 
 ===========================
 
-1.1 What the TV decoder can do an what not
+1.1 What the TV decoder can do and what not
 
 The best know TV standards are NTSC/PAL/SECAM. but for decoding a frame that
 information is not enough. There are several formats of the TV standards.
@@ -213,7 +213,7 @@ can handle: NTSC-M/N/44, PAL-M/N/B/G/H/I/D/K/L and SECAM
 
 ===========================
 
-1.2 What the TV encoder can do an what not
+1.2 What the TV encoder can do and what not
 
 The TV encoder are doing the "same" as the decoder, but in the oder direction.
 You feed them digital data and the generate a Composite or SVHS signal.
@@ -250,7 +250,7 @@ to generate PAL N, maybe it would work if you use the PAL M settings.
 
 ==========================
 
-2. How do I get this damn thing to work
+2. How do I get this thing to work
 
 Load zr36067.o. If it can't autodetect your card, use the card=X insmod
 option with X being the card number as given in the previous section.

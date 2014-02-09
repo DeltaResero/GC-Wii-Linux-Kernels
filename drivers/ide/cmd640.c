@@ -11,7 +11,7 @@
  *  This file provides support for the advanced features and bugs
  *  of IDE interfaces using the CMD Technologies 0640 IDE interface chip.
  *
- *  These chips are basically fucked by design, and getting this driver
+ *  These chips are basically bad by design, and getting this driver
  *  to work on every motherboard design that uses this screwed chip seems
  *  bloody well impossible.  However, we're still trying.
  *

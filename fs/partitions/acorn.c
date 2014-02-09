@@ -501,7 +501,7 @@ static const char eesox_name[] = {
 /*
  * EESOX SCSI partition format.
  *
- * This is a goddamned awful partition format.  We don't seem to store
+ * This is an awful partition format.  We don't seem to store
  * the size of the partition in this table, only the start addresses.
  *
  * There are two possibilities where the size comes from:

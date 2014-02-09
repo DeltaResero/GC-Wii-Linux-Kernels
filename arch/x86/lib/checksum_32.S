@@ -284,7 +284,7 @@ unsigned int csum_partial_copy_generic (const char *src, char *dst,
  * thus we can call a custom exception handler for all access types.
  *
  * FIXME: could someone double-check whether I haven't mixed up some SRC and
- *	  DST definitions? It's damn hard to trigger all cases.  I hope I got
+ *	  DST definitions? It's hard to trigger all cases.  I hope I got
  *	  them all but there's no guarantee.
  */
 

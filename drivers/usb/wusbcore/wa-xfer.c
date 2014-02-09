@@ -288,7 +288,7 @@ out:
  *
  * We need to use a sequential number; if we use the pointer or the
  * hash of the pointer, it can repeat over sequential transfers and
- * then it will confuse the HWA....wonder why in hell they put a 32
+ * then it will confuse the HWA....wonder why they put a 32
  * bit handle in there then.
  */
 static void wa_xfer_id_init(struct wa_xfer *xfer)

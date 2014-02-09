@@ -379,7 +379,7 @@ static inline unsigned long cfi_merge_status(map_word val, struct map_info *map,
 	int i;
 
 	/* We do it this way to give the compiler a fighting chance
-	   of optimising away all the crap for 'bankwidth' larger than
+	   of optimising away for 'bankwidth' larger than
 	   an unsigned long, in the common case where that support is
 	   disabled */
 	if (map_bankwidth_is_large(map)) {

@@ -237,8 +237,8 @@ struct ub_capacity {
  * The difference is that I do not wait on this thing, just poll.
  * When I want to wait (ub_probe), I just use the stock completion.
  *
- * Note that INIT_COMPLETION takes no lock. It is correct. But why
- * in the bloody hell that thing takes struct instead of pointer to struct
+ * Note that INIT_COMPLETION takes no lock. It is correct. Why
+ * that thing takes struct instead of pointer to struct
  * is quite beyond me. I just copied it from the stock completion.
  */
 struct ub_completion {
@@ -1090,7 +1090,7 @@ static void ub_scsi_urb_compl(struct ub_dev *sc, struct ub_scsi_cmd *cmd)
 				    "unable to submit clear (%d)\n",
 				    sc->name, rc);
 				/*
-				 * This is typically ENOMEM or some other such shit.
+				 * This is typically ENOMEM or some others.
 				 * Retrying is pointless. Just do Bad End on it...
 				 */
 				ub_state_done(sc, cmd, rc);

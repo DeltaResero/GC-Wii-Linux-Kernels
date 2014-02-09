@@ -132,7 +132,7 @@ asmlinkage unsigned long sys_mmap(unsigned long addr, unsigned long len,
 	}
 }
 
-/* Fucking broken ABI */
+/* Broken ABI */
 
 #ifdef CONFIG_64BIT
 asmlinkage long parisc_truncate64(const char __user * path,

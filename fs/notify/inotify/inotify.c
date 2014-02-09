@@ -506,7 +506,7 @@ EXPORT_SYMBOL_GPL(inotify_init_watch);
 /*
  * Watch removals suck violently.  To kick the watch out we need (in this
  * order) inode->inotify_mutex and ih->mutex.  That's fine if we have
- * a hold on inode; however, for all other cases we need to make damn sure
+ * a hold on inode; however, for all other cases we need to make sure
  * we don't race with umount.  We can *NOT* just grab a reference to a
  * watch - inotify_unmount_inodes() will happily sail past it and we'll end
  * with reference to inode potentially outliving its superblock.  Ideally
@@ -531,7 +531,7 @@ EXPORT_SYMBOL_GPL(inotify_init_watch);
  *
  * That still can be dealt with - we need to save watch->wd, do idr_find()
  * and compare its result with our pointer.  If they match, we either have
- * the damn thing still alive or we'd lost not one but two races at once,
+ * the thing still alive or we'd lost not one but two races at once,
  * the watch had been killed and a new one got created with the same ->wd
  * at the same address.  That couldn't have happened in inotify_destroy(),
  * but inotify_rm_wd() could run into that.  Still, "new one got created"

@@ -685,7 +685,7 @@ int bus_add_driver(struct device_driver *drv)
 	}
 	error = driver_add_attrs(bus, drv);
 	if (error) {
-		/* How the hell do we get out of this pickle? Give up */
+		/* How do we get out of this pickle? Give up */
 		printk(KERN_ERR "%s: driver_add_attrs(%s) failed\n",
 			__func__, drv->name);
 	}

@@ -1036,7 +1036,7 @@ static inline void ioc3_stop(struct ioc3_private *ip)
 {
 	struct ioc3 *ioc3 = ip->regs;
 
-	ioc3_w_emcr(0);				/* Shutup */
+	ioc3_w_emcr(0);
 	ioc3_w_eier(0);				/* Disable interrupts */
 	(void) ioc3_r_eier();			/* Flush */
 }

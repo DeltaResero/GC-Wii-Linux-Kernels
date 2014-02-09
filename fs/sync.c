@@ -211,7 +211,7 @@ int vfs_fsync_range(struct file *file, struct dentry *dentry, loff_t start,
 	/*
 	 * Get mapping and operations from the file in case we have
 	 * as file, or get the default values for them in case we
-	 * don't have a struct file available.  Damn nfsd..
+	 * don't have a struct file available.
 	 */
 	if (file) {
 		mapping = file->f_mapping;

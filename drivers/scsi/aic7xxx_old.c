@@ -8743,7 +8743,7 @@ aic7xxx_load_seeprom(struct aic7xxx_host *p, unsigned char *sxfrctl1)
          * while on the IBM Netfinity 5000 they want the same thing
          * to be something else, while flags[i] & CFXFER == 0x03 and
          * SYNCHISULTRA false should be 40MByte/s.  So, we set both to
-         * 40MByte/s and the lower speeds be damned.  People will have
+         * 40MByte/s.  People will have
          * to select around the conversely mapped lower speeds in order
          * to select lower speeds on these boards.
          */

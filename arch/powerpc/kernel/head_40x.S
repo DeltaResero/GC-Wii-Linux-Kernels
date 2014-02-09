@@ -760,7 +760,7 @@ DataAccess:
  * reserved.
  */
 
-	/* Damn, I came up one instruction too many to fit into the
+	/* I came up one instruction too many to fit into the
 	 * exception space :-).  Both the instruction and data TLB
 	 * miss get to this point to load the TLB.
 	 * 	r10 - TLB_TAG value

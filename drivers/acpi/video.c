@@ -1013,7 +1013,7 @@ static void acpi_video_device_find_cap(struct acpi_video_device *device)
 			/*
 			 * Set cooling_dev to NULL so we don't crash trying to
 			 * free it.
-			 * Also, why the hell we are returning early and
+			 * Also, why are we returning early and
 			 * not attempt to register video output if cooling
 			 * device registration failed?
 			 * -- dtor

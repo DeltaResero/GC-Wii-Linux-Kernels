@@ -19,9 +19,7 @@
 
 	/* Basically, most of the Spitfire vs. Cheetah madness
 	 * has to do with the fact that Cheetah does not support
-	 * IMMU flushes out of the secondary context.  Someone needs
-	 * to throw a south lake birthday party for the folks
-	 * in Microelectronics who refused to fix this shit.
+	 * IMMU flushes out of the secondary context.
 	 */
 
 	/* This file is meant to be read efficiently by the CPU, not humans.

@@ -27,7 +27,7 @@ extern void sun3_enable_interrupts (void);
 extern void sun3_disable_interrupts (void);
 extern volatile unsigned char* sun3_intreg;
 
-/* master list of VME vectors -- don't fuck with this */
+/* master list of VME vectors -- don't mess with this */
 #define SUN3_VEC_FLOPPY		(IRQ_USER+0)
 #define SUN3_VEC_VMESCSI0	(IRQ_USER+0)
 #define SUN3_VEC_VMESCSI1	(IRQ_USER+1)

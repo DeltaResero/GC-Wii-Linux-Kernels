@@ -816,7 +816,7 @@ static void __devinit smp_core99_kick_cpu(int nr)
 
 	/* FIXME: We wait a bit for the CPU to take the exception, I should
 	 * instead wait for the entry code to set something for me. Well,
-	 * ideally, all that crap will be done in prom.c and the CPU left
+	 * ideally, all that will be done in prom.c and the CPU left
 	 * in a RAM-based wait loop like CHRP.
 	 */
 	mdelay(1);

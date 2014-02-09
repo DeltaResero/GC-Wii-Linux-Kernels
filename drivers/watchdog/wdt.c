@@ -584,7 +584,7 @@ static void __exit wdt_exit(void)
  * 	wdt_init:
  *
  *	Set up the WDT watchdog board. All we have to do is grab the
- *	resources we require and bitch if anyone beat us to them.
+ *	resources we require and complain if anyone beat us to them.
  *	The open() function will actually kick the board off.
  */
 

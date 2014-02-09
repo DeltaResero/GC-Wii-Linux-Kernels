@@ -281,7 +281,7 @@ static void radeon_pm_disable_dynamic_mode(struct radeonfb_info *rinfo)
 		OUTPLL(pllMCLK_CNTL, tmp);
 		radeon_msleep(16);
 	}
-	/* Hrm... same shit, X doesn't do that but I have to */
+	/* Hrm... same stuff, X doesn't do that but I have to */
 	else if (rinfo->is_mobility) {
 		tmp = INPLL(pllMCLK_CNTL);
 		tmp |= (MCLK_CNTL__FORCE_MCLKA |

@@ -538,7 +538,7 @@ Sun Nov 1  14H00 1998 Gerard Roudier (groudier@club-internet.fr)
 
 Wed Oct 30 22H00 1998 Gerard Roudier (groudier@club-internet.fr)
 	* version pre-sym53c8xx-0.12
-	- Damned! I just broke the driver for Alpha by leaving a stale 
+	- I just broke the driver for Alpha by leaving a stale 
 	  instruction in the source code. Hopefully fixed.
 	- Do not set PFEN when it is useless. Doing so we are sure that BOF 
 	  will be active, since the manual appears to be very unclear on what 

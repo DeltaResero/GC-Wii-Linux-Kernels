@@ -994,7 +994,7 @@ static void lguest_time_init(void)
 
 	clocksource_register(&lguest_clock);
 
-	/* We can't set cpumask in the initializer: damn C limitations!  Set it
+	/* We can't set cpumask in the initializer: C limitations!  Set it
 	 * here and register our timer device. */
 	lguest_clockevent.cpumask = cpumask_of(0);
 	clockevents_register_device(&lguest_clockevent);

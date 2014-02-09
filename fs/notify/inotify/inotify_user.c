@@ -397,7 +397,7 @@ static void inotify_remove_from_idr(struct fsnotify_group *group,
 	if (unlikely(found_ientry != ientry)) {
 		/* We found an entry in the idr with the right wd, but it's
 		 * not the entry we were told to remove.  eparis seriously
-		 * fucked up somewhere. */
+		 * messed up somewhere. */
 		WARN_ON(1);
 		ientry->wd = -1;
 		goto out;

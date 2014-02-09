@@ -1518,7 +1518,7 @@ static int __devinit tulip_init_one (struct pci_dev *pdev,
 				sa_offset = 0x19A;
 		} else if (ee_data[0] == 0xff  &&  ee_data[1] == 0xff &&
 				   ee_data[2] == 0) {
-			sa_offset = 2;		/* Grrr, damn Matrox boards. */
+			sa_offset = 2;		/* Matrox boards. */
 			multiport_cnt = 4;
 		}
 #ifdef CONFIG_MIPS_COBALT

@@ -515,7 +515,7 @@ static struct miscdevice pc87413_miscdev = {
  * 	pc87413_init: module's "constructor"
  *
  *	Set up the WDT watchdog board. All we have to do is grab the
- *	resources we require and bitch if anyone beat us to them.
+ *	resources we require and complain if anyone beat us to them.
  *	The open() function will actually kick the board off.
  */
 

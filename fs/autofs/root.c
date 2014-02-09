@@ -122,7 +122,7 @@ static int try_to_fill_dentry(struct dentry *dentry, struct super_block *sb, str
 		dentry->d_inode = inode;
 	}
 
-	/* If this is a directory that isn't a mount point, bitch at the
+	/* If this is a directory that isn't a mount point, complain at the
 	   daemon and fix it in user space */
 	if (S_ISDIR(dentry->d_inode->i_mode) && !d_mountpoint(dentry)) {
 		return !autofs_wait(sbi, &dentry->d_name);

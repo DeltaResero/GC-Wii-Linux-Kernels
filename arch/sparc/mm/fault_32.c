@@ -393,7 +393,7 @@ asmlinkage void do_sun4c_fault(struct pt_regs *regs, int text_fault, int write,
 	if (!mm) {
 		/* We are oopsing. */
 		do_sparc_fault(regs, text_fault, write, address);
-		BUG();	/* P3 Oops already, you bitch */
+		BUG();	/* P3 Oops already */
 	}
 
 	pgdp = pgd_offset(mm, address);

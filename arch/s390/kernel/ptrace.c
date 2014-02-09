@@ -319,8 +319,8 @@ poke_user(struct task_struct *child, addr_t addr, addr_t data)
 	addr_t mask;
 
 	/*
-	 * Stupid gdb peeks/pokes the access registers in 64 bit with
-	 * an alignment of 4. Programmers from hell indeed...
+	 * gdb peeks/pokes the access registers in 64 bit with
+	 * an alignment of 4...
 	 */
 	mask = __ADDR_MASK;
 #ifdef CONFIG_64BIT

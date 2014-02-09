@@ -1027,7 +1027,7 @@ static void hex_dump(const unsigned char *buf, size_t len)
 
 /*
  * Parse and mangle SNMP message according to mapping.
- * (And this is the fucking 'basic' method).
+ * (And this is the 'basic' method).
  */
 static int snmp_parse_mangle(unsigned char *msg,
 			     u_int16_t len,

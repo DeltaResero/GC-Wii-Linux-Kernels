@@ -569,7 +569,7 @@ s3c2410_dma_lastxfer(struct s3c2410_dma_chan *chan)
 
 	}
 
-	/* hopefully this'll shut the damned thing up after the transfer... */
+	/* hopefully this'll quite things up after the transfer... */
 	dma_wrreg(chan, S3C2410_DMA_DCON, chan->dcon | S3C2410_DCON_NORELOAD);
 }
 

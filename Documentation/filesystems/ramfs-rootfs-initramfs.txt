@@ -315,7 +315,7 @@ the above threads) is:
    extract this format anyway.  Using an existing standard was preferable,
    but not essential.
 
-5) Al Viro made the decision (quote: "tar is ugly as hell and not going to be
+5) Al Viro made the decision (quote: "tar is ugly and not going to be
    supported on the kernel side"):
 
       http://www.uwsg.iu.edu/hypermail/linux/kernel/0112.2/1540.html

@@ -691,7 +691,7 @@ void handle_vm86_fault(struct kernel_vm86_regs *regs, long error_code)
 
 	/* sti */
 	/*
-	 * Damn. This is incorrect: the 'sti' instruction should actually
+	 * This is incorrect: the 'sti' instruction should actually
 	 * enable interrupts after the /next/ instruction. Not good.
 	 *
 	 * Probably needs some horsing around with the TF flag. Aiee..

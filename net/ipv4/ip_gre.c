@@ -419,10 +419,6 @@ static void ipgre_err(struct sk_buff *skb, u32 info)
    Moreover, Cisco "wise men" put GRE key to the third word
    in GRE header. It makes impossible maintaining even soft state for keyed
    GRE tunnels with enabled checksum. Tell them "thank you".
-
-   Well, I wonder, rfc1812 was written by Cisco employee,
-   what the hell these idiots break standrads established
-   by themself???
  */
 
 	struct iphdr *iph = (struct iphdr *)skb->data;

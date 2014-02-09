@@ -29,7 +29,7 @@
 #define SEEQCMD_DMA_INT_EN	(0x0001)	/* DMA Interrupt Enable */
 #define SEEQCMD_RX_INT_EN	(0x0002)	/* Receive Interrupt Enable */
 #define SEEQCMD_TX_INT_EN	(0x0004)	/* Transmit Interrupt Enable */
-#define SEEQCMD_WINDOW_INT_EN	(0x0008)	/* What the hell is this for?? */
+#define SEEQCMD_WINDOW_INT_EN	(0x0008)	/* What's this for? */
 #define SEEQCMD_INT_MASK	(0x000f)
 
 #define SEEQCMD_DMA_INT_ACK	(0x0010)	/* DMA ack */

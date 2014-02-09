@@ -79,7 +79,7 @@ static inline int adfs_readname(char *buf, char *ptr, int maxlen)
 
 /*
  * There are some algorithms that are nice in
- * assembler, but a bitch in C...  This is one
+ * assembler, but problematic in C...  This is one
  * of them.
  */
 static u8
