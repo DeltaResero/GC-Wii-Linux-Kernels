@@ -248,7 +248,7 @@ void __weak x86_pci_root_bus_res_quirks(struct pci_bus *b)
 
 /*
  *  If we set up a device for bus mastering, we need to check the latency
- *  timer as certain crappy BIOSes forget to set it properly.
+ *  timer as certain buggy BIOSes forget to set it properly.
  */
 unsigned int pcibios_max_latency = 255;
 
@@ -296,8 +296,7 @@ int pci_mmap_page_range(struct pci_dev *dev, struct vm_area_struct *vma,
 	else if (pat_enabled || boot_cpu_data.x86 > 3)
 		/*
 		 * ioremap() and ioremap_nocache() defaults to UC MINUS for now.
-		 * To avoid attribute conflicts, request UC MINUS here
-		 * aswell.
+		 * To avoid attribute conflicts, request UC MINUS here as well.
 		 */
 		prot |= _PAGE_CACHE_UC_MINUS;
 

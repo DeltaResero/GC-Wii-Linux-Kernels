@@ -855,7 +855,7 @@ static int ov7670_store_cmatrix(struct v4l2_subdev *sd,
 	unsigned char signbits = 0;
 
 	/*
-	 * Weird crap seems to exist in the upper part of
+	 * Seems to exist in the upper part of
 	 * the sign bits register, so let's preserve it.
 	 */
 	ret = ov7670_read(sd, REG_CMATRIX_SIGN, &signbits);

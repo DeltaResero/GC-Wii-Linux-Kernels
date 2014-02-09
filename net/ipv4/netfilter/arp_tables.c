@@ -81,8 +81,8 @@ static inline int arp_devaddr_compare(const struct arpt_devaddr_info *ap,
 }
 
 /*
- * Unfortunatly, _b and _mask are not aligned to an int (or long int)
- * Some arches dont care, unrolling the loop is a win on them.
+ * Unfortunately, _b and _mask are not aligned to an int (or long int)
+ * Some arches don't care, unrolling the loop is a win on them.
  * For other arches, we only have a 16bit alignement.
  */
 static unsigned long ifname_compare(const char *_a, const char *_b, const char *_mask)
@@ -1024,7 +1024,7 @@ static int __do_replace(struct net *net, const char *name,
 
 	/* You lied! */
 	if (valid_hooks != t->valid_hooks) {
-		duprintf("Valid hook crap: %08X vs %08X\n",
+		duprintf("Valid hook: %08X vs %08X\n",
 			 valid_hooks, t->valid_hooks);
 		ret = -EINVAL;
 		goto put_module;

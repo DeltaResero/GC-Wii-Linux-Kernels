@@ -477,7 +477,7 @@ static int mixer_vol_tlv(struct snd_kcontrol *kcontrol, int op_flag,
 			scale[3] = 0;
 		else if (scale[2] > 0)
 			scale[2] = 0;
-		else /* totally crap, return an error */
+		else /* total nonsense, return an error */
 			return -EINVAL;
 	}
 	if (copy_to_user(_tlv, scale, sizeof(scale)))

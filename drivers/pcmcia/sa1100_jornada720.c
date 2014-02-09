@@ -27,7 +27,7 @@ static int jornada720_pcmcia_hw_init(struct soc_pcmcia_socket *skt)
 	unsigned int pin = GPIO_A0 | GPIO_A1 | GPIO_A2 | GPIO_A3;
 
 	/*
-	* What is all this crap for?
+	* What is all this for?
 	*/
 	GRER |= 0x00000002;
 	/* Set GPIO_A<3:1> to be outputs for PCMCIA/CF power controller: */

@@ -588,9 +588,9 @@ static __always_inline int __vfs_follow_link(struct nameidata *nd, const char *l
 	if (nd->depth || res || nd->last_type!=LAST_NORM)
 		return res;
 	/*
-	 * If it is an iterative symlinks resolution in open_namei() we
-	 * have to copy the last component. And all that crap because of
-	 * bloody create() on broken symlinks. Furrfu...
+	 * If it is an iterative symlinks resolution in open_namei() we have to
+	 * copy the last component. And all that because of a create()
+	 * on broken symlinks.
 	 */
 	name = __getname();
 	if (unlikely(!name)) {
@@ -651,7 +651,7 @@ static __always_inline int __do_follow_link(struct path *path, struct nameidata 
 }
 
 /*
- * This limits recursive symlink follows to 8, while
+ * This limits recursive symlink follows to 8, while 
  * limiting consecutive symlinks to 40.
  *
  * Without that kind of total limit, nasty chains of consecutive
@@ -702,9 +702,7 @@ int follow_up(struct path *path)
 	return 1;
 }
 
-/* no need for dcache_lock, as serialization is taken care in
- * namespace.c
- */
+/* no need for dcache_lock, as serialization is taken care in namespace.c */
 static int __follow_mount(struct path *path)
 {
 	int res = 0;
@@ -735,9 +733,7 @@ static void follow_mount(struct path *path)
 	}
 }
 
-/* no need for dcache_lock, as serialization is taken care in
- * namespace.c
- */
+/* no need for dcache_lock, as serialization is taken care in namespace.c */
 int follow_down(struct path *path)
 {
 	struct vfsmount *mounted;

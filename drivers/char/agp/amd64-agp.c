@@ -273,7 +273,7 @@ static __devinit int fix_northbridge(struct pci_dev *nb, struct pci_dev *agp,
 	pci_read_config_dword(nb, AMD64_GARTAPERTUREBASE, &nb_base);
 	nb_aper = nb_base << 25;
 
-	/* Northbridge seems to contain crap. Try the AGP bridge. */
+	/* Northbridge seems to have issues. Try the AGP bridge. */
 
 	pci_read_config_word(agp, cap+0x14, &apsize);
 	if (apsize == 0xffff) {

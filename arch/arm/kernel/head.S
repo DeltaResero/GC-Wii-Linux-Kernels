@@ -70,8 +70,8 @@
  * See linux/arch/arm/tools/mach-types for the complete list of machine
  * numbers for r1.
  *
- * We're trying to keep crap to a minimum; DO NOT add any machine specific
- * crap here - that's what the boot loader (or in extreme, well justified
+ * We're trying to keep junk to a minimum; DO NOT add any machine specific
+ * code here - that's what the boot loader (or in extreme, well justified
  * circumstances, zImage) is for.
  */
 	.section ".text.head", "ax"

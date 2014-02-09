@@ -67,7 +67,7 @@ SECTIONS
 
 	RODATA
 
-	/* writeable */
+	/* writable */
 	.data : {	/* Data */
 		. = . + DATAOFFSET;		/* for CONFIG_MAPPED_KERNEL */
 
@@ -84,9 +84,9 @@ SECTIONS
 	.lit4 : {
 		*(.lit4)
 	}
-	/* We want the small data sections together, so single-instruction offsets
-	   can access them all, and initialized data all before uninitialized, so
-	   we can shorten the on-disk segment size.  */
+	/* We want the small data sections together, so single-instruction
+	 * offsets can access them all, and initialized data all before
+	 * uninitialized, so we can shorten the on-disk segment size.  */
 	.sdata : {
 		*(.sdata)
 	}
@@ -146,7 +146,7 @@ SECTIONS
 	/* Sections to be discarded */
 	DISCARDS
 	/DISCARD/ : {
-		/* ABI crap starts here */
+		/* ABI stuff starts here */
 		*(.MIPS.options)
 		*(.options)
 		*(.pdr)

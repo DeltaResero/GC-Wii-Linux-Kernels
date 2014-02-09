@@ -657,11 +657,11 @@ static int __devexit wf_smu_remove(struct platform_device *ddev)
 	msleep(1000);
 
 	/* Release all sensors */
-	/* One more crappy race: I don't think we have any guarantee here
-	 * that the attribute callback won't race with the sensor beeing
+	/* One more race: I don't think we have any guarantee here
+	 * that the attribute callback won't race with the sensor being
 	 * disposed of, and I'm not 100% certain what best way to deal
 	 * with that except by adding locks all over... I'll do that
-	 * eventually but heh, who ever rmmod this module anyway ?
+	 * eventually but heh, who ever rmmod this module anyway?
 	 */
 	if (sensor_cpu_power)
 		wf_put_sensor(sensor_cpu_power);

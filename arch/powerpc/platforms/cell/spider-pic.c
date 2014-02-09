@@ -155,7 +155,7 @@ static int spider_set_irq_type(unsigned int virq, unsigned int type)
 
 	/* Configure the source. One gross hack that was there before and
 	 * that I've kept around is the priority to the BE which I set to
-	 * be the same as the interrupt source number. I don't know wether
+	 * be the same as the interrupt source number. I don't know whether
 	 * that's supposed to make any kind of sense however, we'll have to
 	 * decide that, but for now, I'm not changing the behaviour.
 	 */
@@ -221,9 +221,9 @@ static void spider_irq_cascade(unsigned int irq, struct irq_desc *desc)
 }
 
 /* For hooking up the cascace we have a problem. Our device-tree is
- * crap and we don't know on which BE iic interrupt we are hooked on at
+ * lousy and we don't know on which BE iic interrupt we are hooked on at
  * least not the "standard" way. We can reconstitute it based on two
- * informations though: which BE node we are connected to and wether
+ * informations though: which BE node we are connected to and whether
  * we are connected to IOIF0 or IOIF1. Right now, we really only care
  * about the IBM cell blade and we know that its firmware gives us an
  * interrupt-map property which is pretty strange.
@@ -235,7 +235,7 @@ static unsigned int __init spider_find_cascade_and_node(struct spider_pic *pic)
 	int imaplen, intsize, unit;
 	struct device_node *iic;
 
-	/* First, we check wether we have a real "interrupts" in the device
+	/* First, we check whether we have a real "interrupts" in the device
 	 * tree in case the device-tree is ever fixed
 	 */
 	struct of_irq oirq;
@@ -263,7 +263,7 @@ static unsigned int __init spider_find_cascade_and_node(struct spider_pic *pic)
 	intsize = *tmp;
 	/* Assume unit is last entry of interrupt specifier */
 	unit = imap[intsize - 1];
-	/* Ok, we have a unit, now let's try to get the node */
+	/* OK, we have a unit, now let's try to get the node */
 	tmp = of_get_property(iic, "ibm,interrupt-server-ranges", NULL);
 	if (tmp == NULL) {
 		of_node_put(iic);
@@ -273,7 +273,7 @@ static unsigned int __init spider_find_cascade_and_node(struct spider_pic *pic)
 	pic->node_id = (*tmp) >> 1;
 	of_node_put(iic);
 
-	/* Ok, now let's get cracking. You may ask me why I just didn't match
+	/* OK, now let's get cracking. You may ask me why I just didn't match
 	 * the iic host from the iic OF node, but that way I'm still compatible
 	 * with really really old old firmwares for which we don't have a node
 	 */

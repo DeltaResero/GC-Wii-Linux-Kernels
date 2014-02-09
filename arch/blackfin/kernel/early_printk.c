@@ -168,7 +168,7 @@ asmlinkage void __init init_early_exception_vectors(void)
 	SSYNC();
 
 	/*
-	 * This starts up the shadow buffer, incase anything crashes before
+	 * This starts up the shadow buffer, in case anything crashes before
 	 * setup arch
 	 */
 	mark_shadow_error();
@@ -214,7 +214,7 @@ asmlinkage void __init early_trap_c(struct pt_regs *fp, void *retaddr)
 		setup_early_printk(DEFAULT_EARLY_PORT);
 
 	if (!shadow_console_enabled()) {
-		/* crap - we crashed before setup_arch() */
+		/* We crashed before setup_arch() */
 		early_shadow_puts("panic before setup_arch\n");
 		early_shadow_puts("IPEND:");
 		early_shadow_reg(fp->ipend, 16);

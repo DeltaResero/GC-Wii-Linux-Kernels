@@ -3,7 +3,7 @@
     Driver for National Instruments daqcard-1200 boards
     Copyright (C) 2001, 2002, 2003 Frank Mori Hess <fmhess@users.sourceforge.net>
 
-    PCMCIA crap is adapted from dummy_cs.c 1.31 2001/08/24 12:13:13
+    PCMCIA is adapted from dummy_cs.c 1.31 2001/08/24 12:13:13
     from the pcmcia package.
     The initial developer of the pcmcia dummy_cs.c code is David A. Hinds
     <dahinds@users.sourceforge.net>.  Portions created by David A. Hinds

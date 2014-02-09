@@ -1,6 +1,6 @@
 /*
     comedi/drivers/poc.c
-    Mini-drivers for POC (Piece of Crap) boards
+    Mini-drivers for POC (proof of concept) boards
     Copyright (C) 2000 Frank Mori Hess <fmhess@users.sourceforge.net>
     Copyright (C) 2001 David A. Schleef <ds@schleef.org>
 

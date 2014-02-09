@@ -31,7 +31,7 @@ extern int pxa_pm_prepare(void);
 extern void pxa_pm_finish(void);
 
 /* NOTE: this is for PM debugging on Lubbock,  it's really a big
- * ugly, but let's keep the crap minimum here, instead of direct
+ * ugly, but let's keep it minimal here, instead of direct
  * accessing the LUBBOCK CPLD registers in arch/arm/mach-pxa/pm.c
  */
 #ifdef CONFIG_ARCH_LUBBOCK

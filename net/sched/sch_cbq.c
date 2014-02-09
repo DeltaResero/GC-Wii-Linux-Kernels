@@ -421,7 +421,7 @@ static void cbq_ovl_classic(struct cbq_class *cl)
 		   Class goes to sleep, so that it will have no
 		   chance to work avgidle. Let's forgive it 8)
 
-		   BTW cbq-2.0 has a crap in this
+		   BTW cbq-2.0 has an issue in this
 		   place, apparently they forgot to shift it by cl->ewma_log.
 		 */
 		if (cl->avgidle < 0)

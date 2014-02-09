@@ -215,9 +215,6 @@ out:
 	return error;
 }
 
-/*
- * Compacrapability ...
- */
 SYSCALL_DEFINE1(uname, struct old_utsname __user *, name)
 {
 	if (name && !copy_to_user(name, utsname(), sizeof (*name)))
@@ -225,9 +222,6 @@ SYSCALL_DEFINE1(uname, struct old_utsname __user *, name)
 	return -EFAULT;
 }
 
-/*
- * Compacrapability ...
- */
 SYSCALL_DEFINE1(olduname, struct oldold_utsname __user *, name)
 {
 	int error;

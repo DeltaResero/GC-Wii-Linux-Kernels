@@ -223,12 +223,12 @@ void write_timestamp(struct lg_cpu *cpu);
  * Let's step aside for the moment, to study one important routine that's used
  * widely in the Host code.
  *
- * There are many cases where the Guest can do something invalid, like pass crap
- * to a hypercall.  Since only the Guest kernel can make hypercalls, it's quite
- * acceptable to simply terminate the Guest and give the Launcher a nicely
- * formatted reason.  It's also simpler for the Guest itself, which doesn't
- * need to check most hypercalls for "success"; if you're still running, it
- * succeeded.
+ * There are many cases where the Guest can do something invalid, like pass 
+ * irrelivant data to a hypercall.  Since only the Guest kernel can make
+ * hypercalls, it's quite acceptable to simply terminate the Guest and give the
+ * Launcher a nicely formatted reason.  It's also simpler for the Guest itself,
+ * which doesn't need to check most hypercalls for "success"; if you're still
+ * running, it succeeded.
  *
  * Once this is called, the Guest will never run again, so most Host code can
  * call this then continue as if nothing had happened.  This means many

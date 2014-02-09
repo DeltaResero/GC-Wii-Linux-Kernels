@@ -867,7 +867,7 @@ struct eeprom_function_cfg {
  */
 struct eeprom_data {
 	u8 asicId[4];
-	u16 version_and_numPorts; /* together to avoid endianness crap */
+	u16 version_and_numPorts; /* together to avoid endianness issues */
 	u16 boardId;
 
 #define EEPROM_BOARDID_STR_SIZE   16

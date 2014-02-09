@@ -45,7 +45,7 @@ static struct proc_dir_entry *hashlimit_procdir4;
 static struct proc_dir_entry *hashlimit_procdir6;
 static const struct file_operations dl_file_ops;
 
-/* hash table crap */
+/* hash table stuff */
 struct dsthash_dst {
 	union {
 		struct {

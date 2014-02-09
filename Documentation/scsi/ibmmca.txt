@@ -612,8 +612,8 @@
 	in mind that not everyone is a kernel hacker.
 	- be consistent with the BIOS ordering of the drives.  In the
 	BIOS, id 6 is C:, id 0 might be D:.  With this scheme, they'd be
-	backwards.  This confuses the crap out of those heathens who've
-	got a impure Linux installation (which, <wince>, I'm one of).
+	backwards.  This confuses the those who've got a impure Linux 
+	installation (which, <wince>, I'm one of).
     This whole problem arises because IBM is actually non-standard with
     the id to BIOS mappings.  You'll find, in fdomain.c, a similar
     comment about a few FD BIOS revisions.  The Linux (and apparently

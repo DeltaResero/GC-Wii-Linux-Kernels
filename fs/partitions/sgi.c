@@ -12,7 +12,7 @@ struct sgi_disklabel {
 	__be16 root_part_num;		/* Root partition number */
 	__be16 swap_part_num;		/* Swap partition number */
 	s8 boot_file[16];		/* Name of boot file for ARCS */
-	u8 _unused0[48];		/* Device parameter useless crapola.. */
+	u8 _unused0[48];		/* Device parameter */
 	struct sgi_volume {
 		s8 name[8];		/* Name of volume */
 		__be32 block_num;		/* Logical block number */

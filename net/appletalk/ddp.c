@@ -1421,7 +1421,7 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
 	skb_trim(skb, min_t(unsigned int, skb->len, len_hops & 1023));
 
 	/*
-	 * Size check to see if ddp->deh_len was crap
+	 * Size check to see if ddp->deh_len was wrong
 	 * (Otherwise we'll detonate most spectacularly
 	 * in the middle of atalk_checksum() or recvmsg()).
 	 */

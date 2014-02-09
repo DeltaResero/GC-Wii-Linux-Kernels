@@ -9907,9 +9907,8 @@ SetDelayComp(struct SiS_Private *SiS_Pr, unsigned short ModeNo)
         return;
      }
 
-     /* This is a piece of typical SiS crap: They code the OEM LCD
-      * delay into the code, at no defined place in the BIOS.
-      * We now have to start doing a PCI subsystem check here.
+     /* Typical SiS: They code the OEM LCD delay into the code, at no defined
+      * place in the BIOS.  We now have to start doing a PCI subsystem check here.
       */
 
      switch(SiS_Pr->SiS_CustomT) {

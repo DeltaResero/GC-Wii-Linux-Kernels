@@ -247,7 +247,7 @@ static int i2sbus_add_dev(struct macio_dev *macio,
 
 
 	/* Resource handling is problematic as some device-trees contain
-	 * useless crap (ugh ugh ugh). We work around that here by calling
+	 * useless data. We work around that here by calling
 	 * specific functions for calculating the appropriate resources.
 	 *
 	 * This will all be moved to macio_asic.c at one point

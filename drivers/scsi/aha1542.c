@@ -1430,7 +1430,7 @@ static int aha1542_bus_reset(Scsi_Cmnd * SCpnt)
 	 * Now try to pick up the pieces.  For all pending commands,
 	 * free any internal data structures, and basically clear things
 	 * out.  We do not try and restart any commands or anything - 
-	 * the strategy handler takes care of that crap.
+	 * the strategy handler takes care of that.
 	 */
 	printk(KERN_WARNING "Sent BUS RESET to scsi host %d\n", SCpnt->device->host->host_no);
 
@@ -1499,7 +1499,7 @@ static int aha1542_host_reset(Scsi_Cmnd * SCpnt)
 	 * Now try to pick up the pieces.  For all pending commands,
 	 * free any internal data structures, and basically clear things
 	 * out.  We do not try and restart any commands or anything - 
-	 * the strategy handler takes care of that crap.
+	 * the strategy handler takes care of that.
 	 */
 	printk(KERN_WARNING "Sent BUS RESET to scsi host %d\n", SCpnt->device->host->host_no);
 

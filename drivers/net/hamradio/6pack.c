@@ -502,7 +502,7 @@ static void __tnc_set_sync_state(struct sixpack *sp, int new_tnc_state)
 	char *msg;
 
 	switch (new_tnc_state) {
-	default:			/* gcc oh piece-o-crap ... */
+	default:
 	case TNC_UNSYNC_STARTUP:
 		msg = "Synchronizing with TNC";
 		break;

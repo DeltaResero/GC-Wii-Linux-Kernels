@@ -648,7 +648,7 @@ struct Scsi_Host {
 	 */
 	struct request_queue *uspace_req_q;
 
-	/* legacy crap */
+	/* legacy stuff */
 	unsigned long base;
 	unsigned long io_port;
 	unsigned char n_io_port;

@@ -650,10 +650,9 @@ void vio_conn_reset(struct vio_driver_state *vio)
 }
 EXPORT_SYMBOL(vio_conn_reset);
 
-/* The issue is that the Solaris virtual disk server just mirrors the
- * SID values it gets from the client peer.  So we work around that
- * here in vio_{validate,send}_sid() so that the drivers don't need
- * to be aware of this crap.
+/* The issue is that the Solaris virtual disk server just mirrors the SID values
+ * it gets from the client peer.  So we work around that here in
+ * vio_{validate,send}_sid() so that the drivers don't need to be aware of this.
  */
 int vio_validate_sid(struct vio_driver_state *vio, struct vio_msg_tag *tp)
 {
@@ -667,7 +666,7 @@ int vio_validate_sid(struct vio_driver_state *vio, struct vio_msg_tag *tp)
 	    tp->stype_env == VIO_VER_INFO)
 		return 0;
 
-	/* Ok, now figure out which SID to use.  */
+	/* OK, now figure out which SID to use.  */
 	switch (vio->dev_class) {
 	case VDEV_NETWORK:
 	case VDEV_NETWORK_SWITCH:

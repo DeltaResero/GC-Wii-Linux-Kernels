@@ -296,7 +296,7 @@ union pptp_ctrl_union {
 	struct PptpSetLinkInfo		setlink;
 };
 
-/* crap needed for nf_conntrack_compat.h */
+/* needed for nf_conntrack_compat.h */
 struct nf_conn;
 struct nf_conntrack_expect;
 

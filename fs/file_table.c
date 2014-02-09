@@ -191,7 +191,7 @@ EXPORT_SYMBOL(alloc_file);
  * avoids making mistakes like forgetting the mntget() or
  * forgetting to take a write on the mnt.
  *
- * Note: This is a crappy interface.  It is here to make
+ * Note: This is a bad interface.  It is here to make
  * merging with the existing users of get_empty_filp()
  * who have complex failure logic easier.  All users
  * of this should be moving to alloc_file().
@@ -318,7 +318,7 @@ EXPORT_SYMBOL(fget);
 
 /*
  * Lightweight file lookup - no refcnt increment if fd table isn't shared. 
- * You can use this only if it is guranteed that the current task already 
+ * You can use this only if it is guaranteed that the current task already 
  * holds a refcnt to that file. That check has to be done at fget() only
  * and a flag is returned to be passed to the corresponding fput_light().
  * There must not be a cloning between an fget_light/fput_light pair.
@@ -388,7 +388,7 @@ int fs_may_remount_ro(struct super_block *sb)
 		if (inode->i_nlink == 0)
 			goto too_bad;
 
-		/* Writeable file? */
+		/* Writable file? */
 		if (S_ISREG(inode->i_mode) && (file->f_mode & FMODE_WRITE))
 			goto too_bad;
 	}

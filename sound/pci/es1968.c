@@ -1155,7 +1155,7 @@ static void snd_es1968_capture_setup(struct es1968 *chip, struct esschan *es,
 	   and out to the real 'buffer'.  ok.  sure.  */
 
 	/* input mixer (left/mono) */
-	/* parallel in crap, see maestro reg 0xC [8-11] */
+	/* see maestro reg 0xC [8-11] */
 	init_capture_apu(chip, es, 2,
 			 es->mixbuf->buf.addr, ESM_MIXBUF_SIZE/4, /* in words */
 			 ESM_APU_INPUTMIXER, 0x14);

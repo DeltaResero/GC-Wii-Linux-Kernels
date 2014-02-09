@@ -240,7 +240,7 @@ static int cryptomgr_schedule_test(struct crypto_alg *alg)
 	memcpy(param->alg, alg->cra_name, sizeof(param->alg));
 	type = alg->cra_flags;
 
-	/* This piece of crap needs to disappear into per-type test hooks. */
+	/* This needs to disappear into per-type test hooks. */
 	if ((!((type ^ CRYPTO_ALG_TYPE_BLKCIPHER) &
 	       CRYPTO_ALG_TYPE_BLKCIPHER_MASK) && !(type & CRYPTO_ALG_GENIV) &&
 	     ((alg->cra_flags & CRYPTO_ALG_TYPE_MASK) ==

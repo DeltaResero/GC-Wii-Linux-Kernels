@@ -270,7 +270,7 @@ static void imx_stop_tx(struct uart_port *port)
 
 		/*
 		 * half duplex - reactivate receive mode,
-		 * flush receive pipe echo crap
+		 * flush receive pipe echo
 		 */
 		if (readl(sport->port.membase + USR2) & USR2_TXDC) {
 			temp = readl(sport->port.membase + UCR1);

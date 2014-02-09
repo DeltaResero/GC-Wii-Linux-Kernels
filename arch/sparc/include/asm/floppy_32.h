@@ -18,7 +18,7 @@
 #include <asm/auxio.h>
 #include <asm/irq.h>
 
-/* We don't need no stinkin' I/O port allocation crap. */
+/* We don't need I/O port allocation */
 #undef release_region
 #undef request_region
 #define release_region(X, Y)	do { } while(0)

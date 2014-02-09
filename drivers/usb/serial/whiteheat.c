@@ -38,12 +38,11 @@
  *	core needs it.
  *
  * (10/03/2000) smd
- *	firmware is improved to guard against crap sent to device
- *	firmware now replies CMD_FAILURE on bad things
- *	read_callback fix you provided for private info struct
- *	command_finished now indicates success or fail
- *	setup_port struct now packed to avoid gcc padding
- *	firmware uses 1 based port numbering, driver now handles that
+ *	firmware is improved to guard against bad data sent to device firmware
+ *	now replies CMD_FAILURE on bad things read_callback fix you provided for
+ *	 private info struct command_finished now indicates success or fail
+ *	setup_port struct now packed to avoid gcc padding firmware uses 1 based
+ *	port numbering, driver now handles that
  *
  * (09/11/2000) gkh
  *	Removed DEBUG #ifdefs with call to usb_serial_debug_data

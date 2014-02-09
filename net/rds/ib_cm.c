@@ -376,7 +376,7 @@ static u32 rds_ib_protocol_compatible(struct rdma_cm_event *event)
 		return 0;
 	}
 
-	/* Even if len is crap *now* I still want to check it. -ASG */
+	/* Even if len is junk *now* I still want to check it. -ASG */
 	if (event->param.conn.private_data_len < sizeof (*dp)
 	    || dp->dp_protocol_major == 0)
 		return RDS_PROTOCOL_3_0;
@@ -429,10 +429,9 @@ int rds_ib_cm_handle_connect(struct rdma_cm_id *cm_id,
 	}
 
 	/*
-	 * The connection request may occur while the
-	 * previous connection exist, e.g. in case of failover.
-	 * But as connections may be initiated simultaneously
-	 * by both hosts, we have a random backoff mechanism -
+	 * The connection request may occur while the previous connection exist,
+	 * e.g. in case of failover. But as connections may be initiated
+	 * simultaneously by both hosts, we have a random backoff mechanism -
 	 * see the comment above rds_queue_reconnect()
 	 */
 	mutex_lock(&conn->c_cm_lock);
@@ -502,10 +501,10 @@ int rds_ib_cm_initiate_connect(struct rdma_cm_id *cm_id)
 	struct rds_ib_connect_private dp;
 	int ret;
 
-	/* If the peer doesn't do protocol negotiation, we must
+	/* If the peer doesn't do protocol negotiation, we must 
 	 * default to RDSv3.0 */
 	rds_ib_set_protocol(conn, RDS_PROTOCOL_3_0);
-	ic->i_flowctl = rds_ib_sysctl_flow_control;	/* advertise flow control */
+	ic->i_flowctl = rds_ib_sysctl_flow_control; /* advertise flow control */
 
 	ret = rds_ib_setup_qp(conn);
 	if (ret) {
@@ -520,9 +519,8 @@ int rds_ib_cm_initiate_connect(struct rdma_cm_id *cm_id)
 		rds_ib_conn_error(conn, "rdma_connect failed (%d)\n", ret);
 
 out:
-	/* Beware - returning non-zero tells the rdma_cm to destroy
-	 * the cm_id. We should certainly not do it as long as we still
-	 * "own" the cm_id. */
+	/* Beware - returning non-zero tells the rdma_cm to destroy the cm_id. 
+	 * We should certainly not do it as long as we still "own" the cm_id. */
 	if (ret) {
 		if (ic->i_cm_id == cm_id)
 			ret = 0;
@@ -572,9 +570,9 @@ out:
 }
 
 /*
- * This is so careful about only cleaning up resources that were built up
- * so that it can be called at any point during startup.  In fact it
- * can be called multiple times for a given connection.
+ * This is so careful about only cleaning up resources that were built up so
+ * that it can be called at any point during startup.  In fact it can be called
+ * multiple times for a given connection.
  */
 void rds_ib_conn_shutdown(struct rds_connection *conn)
 {
@@ -591,8 +589,8 @@ void rds_ib_conn_shutdown(struct rds_connection *conn)
 		rdsdebug("disconnecting cm %p\n", ic->i_cm_id);
 		err = rdma_disconnect(ic->i_cm_id);
 		if (err) {
-			/* Actually this may happen quite frequently, when
-			 * an outgoing connect raced with an incoming connect.
+			/* Actually this may happen quite frequently, when an
+			 * outgoing connect raced with an incoming connect.
 			 */
 			rdsdebug("failed to disconnect, cm: %p err %d\n",
 				ic->i_cm_id, err);
@@ -700,8 +698,8 @@ int rds_ib_conn_alloc(struct rds_connection *conn, gfp_t gfp)
 #endif
 
 	/*
-	 * rds_ib_conn_shutdown() waits for these to be emptied so they
-	 * must be initialized before it can be called.
+	 * rds_ib_conn_shutdown() waits for these to be emptied so they must be
+	 * initialized before it can be called.
 	 */
 	rds_ib_ring_init(&ic->i_send_ring, rds_ib_sysctl_max_send_wr);
 	rds_ib_ring_init(&ic->i_recv_ring, rds_ib_sysctl_max_recv_wr);

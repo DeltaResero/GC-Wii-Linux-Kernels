@@ -40,7 +40,7 @@
  *
  * TODO:
  *
- * 1. Locking and life cycle management is crappy still. All entry
+ * 1. Locking and life cycle management is buggy still. All entry
  *    points to the UWB HCD API assume you have a reference on the
  *    uwb_rc structure and that it won't go away. They mutex lock it
  *    before doing anything.
@@ -61,7 +61,7 @@
 
 
 /**
- * If a beacon dissapears for longer than this, then we consider the
+ * If a beacon disappears for longer than this, then we consider the
  * device who was represented by that beacon to be gone.
  *
  * ECMA-368[17.2.3, last para] establishes that a device must not

@@ -753,7 +753,7 @@ static void del_battery_timer(void)
  * a chunk of system memory.  But that should never happen, since validation
  * happens at open or mount time, when locks are held.
  *
- *	That's crap, since doing that while some partitions are opened
+ * That's false, since doing that while some partitions are opened
  * or mounted will give you really nasty results.
  */
 static int mm_revalidate(struct gendisk *disk)

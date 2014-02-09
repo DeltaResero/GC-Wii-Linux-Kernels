@@ -315,10 +315,9 @@ static inline map_word cfi_build_cmd(u_long cmd, struct map_info *map, struct cf
 	unsigned long onecmd;
 	int i;
 
-	/* We do it this way to give the compiler a fighting chance
-	   of optimising away all the crap for 'bankwidth' larger than
-	   an unsigned long, in the common case where that support is
-	   disabled */
+	/* We do it this way to give the compiler a fighting chance of
+	   optimizing away all the junk for 'bankwidth' larger than an
+	   unsigned long, in the common case where that support is disabled */
 	if (map_bankwidth_is_large(map)) {
 		wordwidth = sizeof(unsigned long);
 		words_per_bus = (map_bankwidth(map)) / wordwidth; // i.e. normally 1

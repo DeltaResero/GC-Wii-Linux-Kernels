@@ -28,7 +28,7 @@ static int __init read_initrd(void)
 		return 0;
 
 	/*
-	 * This is necessary because alloc_bootmem craps out if you
+	 * This is necessary because alloc_bootmem has a issue if you
 	 * ask for no memory.
 	 */
 	if (size == 0) {

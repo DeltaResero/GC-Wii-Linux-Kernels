@@ -368,10 +368,10 @@ int jffs2_garbage_collect_pass(struct jffs2_sb_info *c)
 		return 0;
 	}
 
-	/* OK. Now if the inode is in state INO_STATE_GC, we are going to copy the
-	   node intact, and we don't have to muck about with the fragtree etc.
-	   because we know it's not in-core. If it _was_ in-core, we go through
-	   all the iget() crap anyway */
+	/* OK. Now if the inode is in state INO_STATE_GC, we are going to copy
+	 * the node intact, and we don't have to muck about with the fragtree
+	 * etc.because we know it's not in-core. If it _was_ in-core, we go
+	 * through iget() anyway */
 
 	if (ic->state == INO_STATE_GC) {
 		spin_unlock(&c->inocache_lock);
@@ -390,12 +390,11 @@ int jffs2_garbage_collect_pass(struct jffs2_sb_info *c)
 		/* Fall through if it wanted us to, with inocache_lock held */
 	}
 
-	/* Prevent the fairly unlikely race where the gcblock is
-	   entirely obsoleted by the final close of a file which had
-	   the only valid nodes in the block, followed by erasure,
-	   followed by freeing of the ic because the erased block(s)
-	   held _all_ the nodes of that inode.... never been seen but
-	   it's vaguely possible. */
+	/* Prevent the fairly unlikely race where the gcblock is entirely
+	 * obsoleted by the final close of a file which had the only valid nodes
+	 * in the block, followed by erasure, followed by freeing of the ic
+	 * because the erased block(s) held _all_ the nodes of that inode....
+	 * never been seen but it's vaguely possible. */
 
 	inum = ic->ino;
 	nlink = ic->pino_nlink;
@@ -453,8 +452,8 @@ static int jffs2_garbage_collect_live(struct jffs2_sb_info *c,  struct jffs2_era
 
 	mutex_lock(&f->sem);
 
-	/* Now we have the lock for this inode. Check that it's still the one at the head
-	   of the list. */
+	/* Now we have the lock for this inode. Check that it's still the one at
+	 * the head of the list. */
 
 	spin_lock(&c->erase_completion_lock);
 
@@ -662,8 +661,8 @@ static int jffs2_garbage_collect_pristine(struct jffs2_sb_info *c,
 			jffs2_dbg_acct_paranoia_check(c, jeb);
 
 			ret = jffs2_reserve_space_gc(c, rawlen, &dummy, rawlen);
-						/* this is not the exact summary size of it,
-							it is only an upper estimation */
+				/* this is not the exact summary size of it,
+				it is only an upper estimation */
 
 			if (!ret) {
 				D1(printk(KERN_DEBUG "Allocated space at 0x%08x to retry failed write.\n", phys_ofs));
@@ -1232,11 +1231,11 @@ static int jffs2_garbage_collect_dnode(struct jffs2_sb_info *c, struct jffs2_era
 	}
 
 	/* First, use readpage() to read the appropriate page into the page cache */
-	/* Q: What happens if we actually try to GC the _same_ page for which commit_write()
-	 *    triggered garbage collection in the first place?
-	 * A: I _think_ it's OK. read_cache_page shouldn't deadlock, we'll write out the
-	 *    page OK. We'll actually write it out again in commit_write, which is a little
-	 *    suboptimal, but at least we're correct.
+	/* Q: What happens if we actually try to GC the _same_ page for which 
+	 *    commit_write() triggered garbage collection in the first place?
+	 * A: I _think_ it's OK. read_cache_page shouldn't deadlock, we'll write
+	 *    out the page OK. We'll actually write it out again in commit_write,
+	 *    which is a little suboptimal, but at least we're correct.
 	 */
 	pg_ptr = jffs2_gc_fetch_page(c, f, start, &pg);
 

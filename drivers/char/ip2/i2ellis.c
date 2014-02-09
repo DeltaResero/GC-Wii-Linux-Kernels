@@ -542,7 +542,7 @@ ii2DelayTimer(unsigned int mseconds)
 #if 0
 //static void ii2DelayIO(unsigned int);
 //******************************************************************************
-// !!! Not Used, this is DOS crap, some of you young folks may be interested in
+// !!! Not Used, this is DOS stuff, some of you young folks may be interested in
 //     in how things were done in the stone age of caculating machines       !!!
 // Function:   ii2DelayIO(mseconds)
 // Parameters: mseconds - number of milliseconds to delay
@@ -1377,7 +1377,7 @@ iiDownloadAll(i2eBordStrPtr pB, loadHdrStrPtr pSource, int isStandard, int size)
 
 	while (size > 0) {
 		size -= LOADWARE_BLOCK_SIZE;	// How much data should there be left to
-										// load after the following operation ?
+						// load after the following operation ?
 
 		// Note we just bump pSource by "one", because its size is actually that
 		// of an entire block, same as LOADWARE_BLOCK_SIZE.

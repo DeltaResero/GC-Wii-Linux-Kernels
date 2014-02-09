@@ -436,7 +436,7 @@ static int dio700_detach(struct comedi_device *dev)
 	return 0;
 };
 
-/* PCMCIA crap */
+/* PCMCIA */
 
 /*
    All the PCMCIA modules use PCMCIA_DEBUG to control debugging.  If

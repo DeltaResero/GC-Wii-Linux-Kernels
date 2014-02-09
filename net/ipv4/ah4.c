@@ -34,7 +34,7 @@ static int ip_clear_mutable_options(struct iphdr *iph, __be32 *daddr)
 			return -EINVAL;
 		switch (*optptr) {
 		case IPOPT_SEC:
-		case 0x85:	/* Some "Extended Security" crap. */
+		case 0x85:	/* Some "Extended Security" nonsense. */
 		case IPOPT_CIPSO:
 		case IPOPT_RA:
 		case 0x80|21:	/* RFC1770 */

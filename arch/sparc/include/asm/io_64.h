@@ -9,7 +9,7 @@
 #include <asm/system.h>
 #include <asm/asi.h>
 
-/* PC crapola... */
+/* PC stuff... */
 #define __SLOW_DOWN_IO	do { } while (0)
 #define SLOW_DOWN_IO	do { } while (0)
 

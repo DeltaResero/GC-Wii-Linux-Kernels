@@ -2304,9 +2304,9 @@ static struct sk_buff *sky2_receive(struct net_device *dev,
 	sky2->rx_next = (sky2->rx_next + 1) % sky2->rx_pending;
 	prefetch(sky2->rx_ring + sky2->rx_next);
 
-	/* This chip has hardware problems that generates bogus status.
+	/* This chip has hardware problems that generates bogus status.  
 	 * So do only marginal checking and expect higher level protocols
-	 * to handle crap frames.
+	 * to handle bad frames.
 	 */
 	if (sky2->hw->chip_id == CHIP_ID_YUKON_FE_P &&
 	    sky2->hw->chip_rev == CHIP_REV_YU_FE2_A0 &&
@@ -2488,8 +2488,8 @@ static int sky2_status_intr(struct sky2_hw *hw, int to_do, u16 idx)
 
 			/* Both checksum counters are programmed to start at
 			 * the same offset, so unless there is a problem they
-			 * should match. This failure is an early indication that
-			 * hardware receive checksumming won't work.
+			 * should match. This failure is an early indication
+			 * that hardware receive checksumming won't work.
 			 */
 			if (likely(status >> 16 == (status & 0xffff))) {
 				skb = sky2->rx_ring[sky2->rx_next].skb;

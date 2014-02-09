@@ -628,7 +628,7 @@ EXPORT_SYMBOL(usbvideo_HexDump);
 
 /* ******************************************************************** */
 
-/* XXX: this piece of crap really wants some error handling.. */
+/* XXX: this really wants some error handling.. */
 static int usbvideo_ClientIncModCount(struct uvd *uvd)
 {
 	if (uvd == NULL) {

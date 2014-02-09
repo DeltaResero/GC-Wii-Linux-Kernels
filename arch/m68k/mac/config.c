@@ -7,7 +7,7 @@
  */
 
 /*
- * Miscellaneous linux stuff
+ * Miscellaneous Linux stuff
  */
 
 #include <linux/module.h>
@@ -137,8 +137,8 @@ int __init mac_parse_bootinfo(const struct bi_record *record)
 
 /*
  * Flip into 24bit mode for an instant - flushes the L2 cache card. We
- * have to disable interrupts for this. Our IRQ handlers will crap
- * themselves if they take an IRQ in 24bit mode!
+ * have to disable interrupts for this. Our IRQ handlers shouldn't 
+ * take an IRQ in 24bit mode!
  */
 
 static void mac_cache_card_flush(int writeback)

@@ -1720,7 +1720,7 @@ void __init trap_init(void)
 		 * unaligned ldc1/sdc1 exception.  The handlers have not been
 		 * written yet.  Well, anyway there is no R6000 machine on the
 		 * current list of targets for Linux/MIPS.
-		 * (Duh, crap, there is someone with a triple R6k machine)
+		 * (There is someone with a triple R6k machine)
 		 */
 		//set_except_vector(14, handle_mc);
 		//set_except_vector(15, handle_ndc);

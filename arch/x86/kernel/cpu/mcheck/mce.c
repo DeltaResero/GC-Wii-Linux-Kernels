@@ -1300,7 +1300,7 @@ static int __cpuinit mce_cpu_quirks(struct cpuinfo_x86 *c)
 		if (c->x86 <= 17 && mce_bootlog < 0) {
 			/*
 			 * Lots of broken BIOS around that don't clear them
-			 * by default and leave crap in there. Don't log:
+			 * by default and leave junk in there. Don't log:
 			 */
 			mce_bootlog = 0;
 		}

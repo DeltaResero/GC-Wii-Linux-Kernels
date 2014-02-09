@@ -922,7 +922,7 @@ static void sunsu_config_port(struct uart_port *port, int flags)
 	if (flags & UART_CONFIG_TYPE) {
 		/*
 		 * We are supposed to call autoconfig here, but this requires
-		 * splitting all the OBP probing crap from the UART probing.
+		 * splitting all the OBP probing from the UART probing.
 		 * We'll do it when we kill sunsu.c altogether.
 		 */
 		port->type = up->type_probed;	/* XXX */

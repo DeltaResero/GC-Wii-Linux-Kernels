@@ -536,7 +536,7 @@ unsigned long ata_acpi_gtm_xfermask(struct ata_device *dev,
 	int unit;
 	u8 mode;
 
-	/* we always use the 0 slot for crap hardware */
+	/* we always use the 0 slot for bad hardware */
 	unit = dev->devno;
 	if (!(gtm->flags & 0x10))
 		unit = 0;

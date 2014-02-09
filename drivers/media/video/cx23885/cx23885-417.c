@@ -1617,7 +1617,7 @@ static int mpeg_release(struct file *file)
 
 	dprintk(2, "%s()\n", __func__);
 
-	/* FIXME: Review this crap */
+	/* FIXME: Review this*/
 	/* Shut device down on last close */
 	if (atomic_cmpxchg(&fh->v4l_reading, 1, 0) == 1) {
 		if (atomic_dec_return(&dev->v4l_reader_count) == 0) {

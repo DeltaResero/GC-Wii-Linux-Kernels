@@ -1553,9 +1553,8 @@ no_dma:
 		uap->rx_dma_irq = irq_create_mapping(NULL, 64 + 5);
 	}
 
-	/* Setup some valid baud rate information in the register
-	 * shadows so we don't write crap there before baud rate is
-	 * first initialized.
+	/* Setup some valid baud rate information in the register shadows so we
+	 * don't write there before baud rate is first initialized.
 	 */
 	pmz_convert_to_zs(uap, CS8, 0, 9600);
 
@@ -1758,8 +1757,7 @@ static int pmz_resume(struct macio_dev *mdev)
 /*
  * Probe all ports in the system and build the ports array, we register
  * with the serial layer at this point, the macio-type probing is only
- * used later to "attach" to the sysfs tree so we get power management
- * events
+ * used later to "attach" to the sysfs tree so we get power management events
  */
 static int __init pmz_probe(void)
 {
@@ -1913,11 +1911,10 @@ static int __init init_pmz(void)
 	printk(KERN_INFO "%s\n", version);
 
 	/* 
-	 * First, we need to do a direct OF-based probe pass. We
-	 * do that because we want serial console up before the
-	 * macio stuffs calls us back, and since that makes it
-	 * easier to pass the proper number of channels to
-	 * uart_register_driver()
+	 * First, we need to do a direct OF-based probe pass. We do that because
+	 * we want serial console up before the macio stuffs calls us back, and
+	 * since that makes it 	 * easier to pass the proper number of channels 
+	 * to uart_register_driver()
 	 */
 	if (pmz_ports_count == 0)
 		pmz_probe();
@@ -2026,9 +2023,8 @@ static int __init pmz_console_setup(struct console *co, char *options)
 	 	baud = 57600;
 
 	/*
-	 * Check whether an invalid uart number has been specified, and
-	 * if so, search for the first available port that does have
-	 * console support.
+	 * Check whether an invalid uart number has been specified, and if so,
+	 * search for the first available port that does have console support.
 	 */
 	if (co->index >= pmz_ports_count)
 		co->index = 0;

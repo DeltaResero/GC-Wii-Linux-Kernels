@@ -576,7 +576,7 @@ static int sstfb_set_par(struct fb_info *info)
 		fbiinit1 |= ((ntiles & 0x20) >> 5) << TILES_IN_X_MSB_SHIFT
 		            | ((ntiles & 0x1e) >> 1) << TILES_IN_X_SHIFT;
 /* as the only value of importance for us in fbiinit6 is tiles in X (lsb),
-   and as reading fbinit 6 will return crap (see FBIINIT6_DEFAULT) we just
+   and as reading fbinit 6 will return junk (see FBIINIT6_DEFAULT) we just
    write our value. BTW due to the dac unable to read odd number of tiles, this
    field is always null ... */
 		fbiinit6 = (ntiles & 0x1) << TILES_IN_X_LSB_SHIFT;

@@ -553,10 +553,9 @@ static void lbs_tx_timeout(struct net_device *dev)
 	   to kick it somehow? */
 	lbs_host_to_card_done(priv);
 
-	/* More often than not, this actually happens because the
-	   firmware has crapped itself -- rather than just a very
-	   busy medium. So send a harmless command, and if/when
-	   _that_ times out, we'll kick it in the head. */
+	/* More often than not, this actually happens as a result of the firmware
+	 * rather than just a very busy medium. So send a harmless command, and
+	 * if/when _that_ times out, we'll kick it. */
 	lbs_prepare_and_send_command(priv, CMD_802_11_RSSI, 0,
 				     0, 0, NULL);
 

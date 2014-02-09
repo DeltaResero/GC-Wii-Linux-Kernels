@@ -178,7 +178,7 @@ static int get_port(const char *data, int start, size_t dlen, char delim,
 		}
 		else if (data[i] >= '0' && data[i] <= '9')
 			tmp_port = tmp_port*10 + data[i] - '0';
-		else { /* Some other crap */
+		else { /* Some other stuff */
 			pr_debug("get_port: invalid char.\n");
 			break;
 		}

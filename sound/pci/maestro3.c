@@ -361,7 +361,7 @@ MODULE_PARM_DESC(amp_gpio, "GPIO pin number for external amp. (default = -1)");
 #define DSP2HOST_REQ_TIMER      0x04
 
 /* AC97 registers */
-/* XXX fix this crap up */
+/* XXX fix this*/
 /*#define AC97_RESET              0x00*/
 
 #define AC97_VOL_MUTE_B         0x8000

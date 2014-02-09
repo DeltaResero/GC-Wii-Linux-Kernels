@@ -44,7 +44,7 @@
    this for the 64K version would require a lot of heinous bank
    switching, which I'm sure not interested in doing.  If you try to
    implement a bank switching version, you'll basically have to remember
-   what bank is enabled and do a switch everytime you access a memory
+   what bank is enabled and do a switch every time you access a memory
    location that's not current.  You'll also have to remap pointers on
    the driver side, because it only knows about 16K of the memory.
    Anyone desperate or masochistic enough to try?
@@ -243,7 +243,7 @@ static void elmc_do_attn586(int ioaddr, int ints)
 	   card slightly.  If someone who knows a little more about Linux
 	   timing would care to play with these, I'd appreciate it. */
 
-	/* this bit masking stuff is crap.  I'd rather have separate
+	/* this bit masking stuff is garbage.  I'd rather have separate
 	   registers with strobe triggers for each of these functions.  <sigh>
 	   Ya take what ya got. */
 

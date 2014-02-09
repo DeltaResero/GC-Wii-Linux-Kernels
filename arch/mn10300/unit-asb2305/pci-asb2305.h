@@ -65,7 +65,7 @@ struct irq_routing_table {
 	u8 rtr_bus, rtr_devfn;		/* Where the interrupt router lies */
 	u16 exclusive_irqs;		/* IRQs devoted exclusively to PCI usage */
 	u16 rtr_vendor, rtr_device;	/* Vendor and device ID of interrupt router */
-	u32 miniport_data;		/* Crap */
+	u32 miniport_data;
 	u8 rfu[11];
 	u8 checksum;			/* Modulo 256 checksum must give zero */
 	struct irq_info slots[0];

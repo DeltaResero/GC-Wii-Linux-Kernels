@@ -195,8 +195,8 @@ static void cmd640_hardware_init(struct pci_dev *pdev)
 	 * A reporter a long time ago
 	 * Had problems with the data fifo
 	 * So don't run the risk
-	 * Of putting crap on the disk
-	 * For its better just to go slow
+	 * Of putting garbage on the disk
+	 * For it's better just to go slow
 	 */
 	/* Do channel 0 */
 	pci_read_config_byte(pdev, CNTRL, &ctrl);

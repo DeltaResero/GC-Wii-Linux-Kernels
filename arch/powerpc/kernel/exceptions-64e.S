@@ -353,7 +353,7 @@ interrupt_end_book3e:
 	mfspr	r13,SPRN_SPRG_PACA	/* get our PACA */
 	b	system_call_common
 
-/* Auxillary Processor Unavailable Interrupt */
+/* Auxiliary Processor Unavailable Interrupt */
 	START_EXCEPTION(ap_unavailable);
 	NORMAL_EXCEPTION_PROLOG(0xf20, PROLOG_ADDITION_NONE)
 	EXCEPTION_COMMON(0xf20, PACA_EXGEN, INTS_KEEP)
@@ -843,7 +843,7 @@ have_hes:
 	bctr
 
 1:	/* We are now running at PAGE_OFFSET, clean the TLB of everything
-	 * else (XXX we should scan for bolted crap from the firmware too)
+	 * else (XXX we should scan for junk from the firmware too)
 	 */
 	PPC_TLBILX(0,0,0)
 	sync

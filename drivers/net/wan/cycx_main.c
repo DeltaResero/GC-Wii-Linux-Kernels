@@ -19,7 +19,7 @@
 * 
 * 2001/05/09	acme		Fix MODULE_DESC for debug, .bss nitpicks,
 * 				some cleanups
-* 2000/07/13	acme		remove useless #ifdef MODULE and crap
+* 2000/07/13	acme		remove useless #ifdef MODULE and others
 *				#if KERNEL_VERSION > blah
 * 2000/07/06	acme		__exit at cyclomx_cleanup
 * 2000/04/02	acme		dprintk and cycx_debug

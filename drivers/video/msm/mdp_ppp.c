@@ -229,7 +229,7 @@ static int scale_params(uint32_t dim_in, uint32_t dim_out, uint32_t origin,
 	do_div(n, d);
 	k3 = (n + 1) >> 1;
 	if ((k3 >> 4) < (1LL << 27) || (k3 >> 4) > (1LL << 31)) {
-		DLOG("crap bad scale\n");
+		DLOG("bad scale\n");
 		return -1;
 	}
 	n = ((uint64_t)dim_in) << 34;

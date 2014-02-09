@@ -139,7 +139,7 @@ ath5k_hw_setup_2word_tx_desc(struct ath5k_hw *ah, struct ath5k_desc *desc,
 #undef _TX_FLAGS
 
 	/*
-	 * WEP crap
+	 * WEP stuff
 	 */
 	if (key_index != AR5K_TXKEYIX_INVALID) {
 		tx_ctl->tx_control_0 |=
@@ -249,7 +249,7 @@ static int ath5k_hw_setup_4word_tx_desc(struct ath5k_hw *ah,
 #undef _TX_FLAGS
 
 	/*
-	 * WEP crap
+	 * WEP stuff
 	 */
 	if (key_index != AR5K_TXKEYIX_INVALID) {
 		tx_ctl->tx_control_0 |= AR5K_4W_TX_DESC_CTL0_ENCRYPT_KEY_VALID;

@@ -93,7 +93,7 @@
  * things more complicated...
  *
  * The first reason is flexibility : this allow us to create IrNET
- * instances on demand (no /dev/ircommX crap) and to allow linkname
+ * instances on demand (no /dev/ircommX) and to allow linkname
  * specification on pppd command line...
  *
  * Second reason is speed optimisation. If you look closely at the

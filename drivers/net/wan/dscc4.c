@@ -5,7 +5,7 @@
  * GNU General Public License.
  *
  * The author may be reached as romieu@cogenit.fr.
- * Specific bug reports/asian food will be welcome.
+ * Specific bug reports/Asian food will be welcome.
  *
  * Special thanks to the nice people at CS-Telecom for the hardware and the
  * access to the test/measure tools.
@@ -47,7 +47,7 @@
  * Tx direction
  * When the tx ring is full, the xmit routine issues a call to netdev_stop.
  * The device is supposed to be enabled again during an ALLS irq (we could
- * use HI but as it's easy to lose events, it's fscked).
+ * use HI but as it's easy to lose events).
  *
  * Rx direction
  * The received frames aren't supposed to span over multiple receiving areas.
@@ -56,12 +56,12 @@
  * IV. Notes
  * The current error (XDU, RFO) recovery code is untested.
  * So far, RDO takes his RX channel down and the right sequence to enable it
- * again is still a mistery. If RDO happens, plan a reboot. More details
+ * again is still a mystery. If RDO happens, plan a reboot. More details
  * in the code (NB: as this happens, TX still works).
  * Don't mess the cables during operation, especially on DTE ports. I don't
  * suggest it for DCE either but at least one can get some messages instead
  * of a complete instant freeze.
- * Tests are done on Rev. 20 of the silicium. The RDO handling changes with
+ * Tests are done on Rev. 20 of the Silicium. The RDO handling changes with
  * the documentation/chipset releases.
  *
  * TODO:
@@ -77,7 +77,7 @@
  * - old style interface removal
  * - dscc4_release_ring fix (related to DMA mapping)
  * - hard_start_xmit fix (hint: TxSizeMax)
- * - misc crapectomy.
+ * - misc
  */
 
 #include <linux/module.h>
@@ -1600,7 +1600,7 @@ try:
 						dev->name, cur);
 			}
 			/*
-			 * If the driver ends sending crap on the wire, it
+			 * If the driver ends sending garbage on the wire, it
 			 * will be way easier to diagnose than the (not so)
 			 * random freeze induced by null sized tx frames.
 			 */

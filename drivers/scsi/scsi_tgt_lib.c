@@ -353,7 +353,7 @@ static int scsi_tgt_transfer_response(struct scsi_cmnd *cmd)
 	return 0;
 }
 
-/* TODO: test this crap and replace bio_map_user with new interface maybe */
+/* TODO: test this and replace bio_map_user with new interface maybe */
 static int scsi_map_user_pages(struct scsi_tgt_cmd *tcmd, struct scsi_cmnd *cmd,
 			       unsigned long uaddr, unsigned int len, int rw)
 {

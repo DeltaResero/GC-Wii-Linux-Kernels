@@ -27,8 +27,7 @@ struct omap_kp_platform_data {
 
 /* Group (0..3) -- when multiple keys are pressed, only the
  * keys pressed in the same group are considered as pressed. This is
- * in order to workaround certain crappy HW designs that produce ghost
- * keypresses. */
+ * in order to workaround certain HW designs that produce ghost keypresses. */
 #define GROUP_0		(0 << 16)
 #define GROUP_1		(1 << 16)
 #define GROUP_2		(2 << 16)

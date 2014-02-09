@@ -114,10 +114,9 @@
 
 #ifdef DEBUG_MASK
 /*
- * print a debug message - this is formated with KERN_DEBUG, then the
- * driver name followed by a ": " and then the message is output. 
- * This also checks that the specified debug level is enabled before
- * outputing the message
+ * print a debug message - this is formatted with KERN_DEBUG, then the driver
+ * name followed by a ": " and then the message is output.  This also checks
+ * that the specified debug level is enabled before outputting the message
  */
 #define dprintkdbg(type, format, arg...) \
 	do { \
@@ -905,7 +904,7 @@ static void waiting_process_next(struct AdapterCtlBlk *acb)
 
 	/*
 	 * Loop over the dcb, but we start somewhere (potentially) in
-	 * the middle of the loop so we need to manully do this.
+	 * the middle of the loop so we need to manually do this.
 	 */
 	pos = start;
 	do {
@@ -1144,9 +1143,9 @@ static int dc395x_queue_command(struct scsi_cmnd *cmd, void (*done)(struct scsi_
 
 complete:
 	/*
-	 * Complete the command immediatey, and then return 0 to
+	 * Complete the command immediately, and then return 0 to
 	 * indicate that we have handled the command. This is usually
-	 * done when the commad is for things like non existent
+	 * done when the command is for things like non existent
 	 * devices.
 	 */
 	done(cmd);
@@ -1772,7 +1771,7 @@ static void dc395x_handle_interrupt(struct AdapterCtlBlk *acb,
 		dc395x_statev(acb, srb, &scsi_status);
 
 		/* 
-		 * if there were any exception occured scsi_status
+		 * if there were any exception occurred scsi_status
 		 * will be modify to bus free phase new scsi_status
 		 * transfer out from ... previous dc395x_statev
 		 */
@@ -3682,7 +3681,7 @@ static void request_sense(struct AdapterCtlBlk *acb, struct DeviceCtlBlk *dcb,
 	srb->adapter_status = 0;
 	srb->target_status = 0;
 
-	/* KG: Can this prevent crap sense data ? */
+	/* KG: Can this prevent nonsense data ? */
 	memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
 
 	/* Save some data */

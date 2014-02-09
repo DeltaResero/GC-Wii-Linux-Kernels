@@ -567,7 +567,7 @@ int dm_set_geometry(struct mapped_device *md, struct hd_geometry *geo)
  *   merge fn, unfortunately there are a couple of changes to
  *   the block layer that I want to make for this.  So in the
  *   interests of getting something for people to use I give
- *   you this clearly demarcated crap.
+ *   you this clearly unfinished code.
  *---------------------------------------------------------------*/
 
 static int __noflush_suspending(struct mapped_device *md)
@@ -1144,7 +1144,7 @@ static int __clone_and_map(struct clone_info *ci)
 
 	if (ci->sector_count <= max) {
 		/*
-		 * Optimise for the simple case where we can do all of
+		 * Optimize for the simple case where we can do all of
 		 * the remaining io with a single clone.
 		 */
 		clone = clone_bio(bio, ci->sector, ci->idx,

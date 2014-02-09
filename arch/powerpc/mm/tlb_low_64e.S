@@ -100,7 +100,7 @@
 	mtspr	SPRN_MAS1,r10
 	beq+	normal_tlb_miss
 
-	/* We got a crappy address, just fault with whatever DEAR and ESR
+	/* We got a bad address, just fault with whatever DEAR and ESR
 	 * are here
 	 */
 	TLB_MISS_STATS_D(MMSTAT_TLB_MISS_NORM_FAULT)

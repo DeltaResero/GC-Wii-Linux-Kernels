@@ -231,8 +231,8 @@ int pci_read_irq_line(struct pci_dev *pci_dev)
 	unsigned int virq;
 
 	/* The current device-tree that iSeries generates from the HV
-	 * PCI informations doesn't contain proper interrupt routing,
-	 * and all the fallback would do is print out crap, so we
+	 * PCI information doesn't contain proper interrupt routing,
+	 * and all the fallback would do is print out nonsense, so we
 	 * don't attempt to resolve the interrupts here at all, some
 	 * iSeries specific fixup does it.
 	 *

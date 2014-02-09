@@ -1219,7 +1219,7 @@ __do_replace(struct net *net, const char *name, unsigned int valid_hooks,
 
 	/* You lied! */
 	if (valid_hooks != t->valid_hooks) {
-		duprintf("Valid hook crap: %08X vs %08X\n",
+		duprintf("Valid hook: %08X vs %08X\n",
 			 valid_hooks, t->valid_hooks);
 		ret = -EINVAL;
 		goto put_module;

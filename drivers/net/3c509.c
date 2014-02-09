@@ -1,4 +1,4 @@
-/* 3c509.c: A 3c509 EtherLink3 ethernet driver for linux. */
+/* 3c509.c: A 3c509 EtherLink3 Ethernet driver for linux. */
 /*
 	Written 1993-2000 by Donald Becker.
 
@@ -857,7 +857,7 @@ el3_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	 *	an RX during a TX upload. That sucks a bit with SMP
 	 *	on an original 3c509 (2K buffer)
 	 *
-	 *	Using disable_irq stops us crapping on other
+	 *	Using disable_irq stops us from having issues with
 	 *	time sensitive devices.
 	 */
 
@@ -1506,7 +1506,7 @@ MODULE_PARM_DESC(max_interrupt_work, "maximum events handled per interrupt");
 module_param(nopnp, int, 0);
 MODULE_PARM_DESC(nopnp, "disable ISA PnP support (0-1)");
 #endif	/* CONFIG_PNP */
-MODULE_DESCRIPTION("3Com Etherlink III (3c509, 3c509B, 3c529, 3c579) ethernet driver");
+MODULE_DESCRIPTION("3Com Etherlink III (3c509, 3c509B, 3c529, 3c579) Ethernet driver");
 MODULE_LICENSE("GPL");
 
 static int __init el3_init_module(void)

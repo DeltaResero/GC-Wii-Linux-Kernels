@@ -3376,7 +3376,7 @@ static void __init parport_pc_find_ports(int autoirq, int autodma)
 }
 
 /*
- *	Piles of crap below pretend to be a parser for module and kernel
+ *	The following pretends to be a parser for module and kernel
  *	parameters.  Say "thank you" to whoever had come up with that
  *	syntax and keep in mind that code below is a cleaned up version.
  */

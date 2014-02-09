@@ -354,7 +354,7 @@ typedef struct pal_cache_line_info_s {
 } pal_cache_line_info_t;
 
 
-/* Machine Check related crap */
+/* Machine Check related stuff */
 
 /* Pending event status bits  */
 typedef u64					pal_mc_pending_events_t;

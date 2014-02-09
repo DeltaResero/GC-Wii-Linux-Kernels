@@ -78,7 +78,7 @@
 /* Normally all expected status in abituguru_ready, are reported after the
    first read, but sometimes not and we need to poll. */
 #define ABIT_UGURU_READY_TIMEOUT		5
-/* Maximum 3 retries on timedout reads/writes, delay 200 ms before retrying */
+/* Maximum 3 retries on timed out reads/writes, delay 200 ms before retrying */
 #define ABIT_UGURU_MAX_RETRIES			3
 #define ABIT_UGURU_RETRY_DELAY			(HZ/5)
 /* Maximum 2 timeouts in abituguru_update_device, iow 3 in a row is an error */
@@ -135,7 +135,7 @@ static const u8 abituguru_bank2_max_threshold = 50;
    are temperature trip points. */
 static const int abituguru_pwm_settings_multiplier[5] = { 0, 1, 1, 1000, 1000 };
 /* Min / Max allowed values for pwm_settings. Note: pwm1 (CPU fan) is a
-   special case the minium allowed pwm% setting for this is 30% (77) on
+   special case the minimum allowed pwm% setting for this is 30% (77) on
    some MB's this special case is handled in the code! */
 static const u8 abituguru_pwm_min[5] = { 0, 170, 170, 25, 25 };
 static const u8 abituguru_pwm_max[5] = { 0, 255, 255, 75, 75 };
@@ -422,7 +422,7 @@ abituguru_detect_bank1_sensor_type(struct abituguru_data *data,
 	u8 val, test_flag, buf[3];
 	int i, ret = -ENODEV; /* error is the most common used retval :| */
 
-	/* If overriden by the user return the user selected type */
+	/* If overridden by the user return the user selected type */
 	if (bank1_types[sensor_addr] >= ABIT_UGURU_IN_SENSOR &&
 			bank1_types[sensor_addr] <= ABIT_UGURU_NC) {
 		ABIT_UGURU_DEBUG(2, "assuming sensor type %d for bank1 sensor "
@@ -449,7 +449,7 @@ abituguru_detect_bank1_sensor_type(struct abituguru_data *data,
 	}
 
 	ABIT_UGURU_DEBUG(2, "testing bank1 sensor %d\n", (int)sensor_addr);
-	/* Volt sensor test, enable volt low alarm, set min value ridicously
+	/* Volt sensor test, enable volt low alarm, set min value ridiculously
 	   high, or vica versa if the reading is very high. If its a volt
 	   sensor this should always give us an alarm. */
 	if (val <= 240u) {
@@ -492,7 +492,7 @@ abituguru_detect_bank1_sensor_type(struct abituguru_data *data,
 			"test\n");
 
 	/* Temp sensor test, enable sensor as a temp sensor, set beep value
-	   ridicously low (but not too low, otherwise uguru ignores it).
+	   ridiculously low (but not too low, otherwise uguru ignores it).
 	   If its a temp sensor this should always give us an alarm. */
 	buf[0] = ABIT_UGURU_TEMP_HIGH_ALARM_ENABLE;
 	buf[1] = 5;
@@ -1179,7 +1179,7 @@ static int __devinit abituguru_probe(struct platform_device *pdev)
 	}
 	/* Note: We don't know how many bank2 sensors / pwms there really are,
 	   but in order to "detect" this we need to read the maximum amount
-	   anyways. If we read sensors/pwms not there we'll just read crap
+	   anyways. If we read sensors/pwms not there we'll just read garbage
 	   this can't hurt. We need the detection because we don't want
 	   unwanted writes, which will hurt! */
 	for (i = 0; i < ABIT_UGURU_MAX_BANK2_SENSORS; i++) {
@@ -1420,7 +1420,7 @@ static int __init abituguru_detect(void)
 	   at DATA and 0xAC, when this driver has already been loaded once
 	   DATA will hold 0x08. For most uGuru's CMD will hold 0xAC in either
 	   scenario but some will hold 0x00.
-	   Some uGuru's initally hold 0x09 at DATA and will only hold 0x08
+	   Some uGuru's initially hold 0x09 at DATA and will only hold 0x08
 	   after reading CMD first, so CMD must be read first! */
 	u8 cmd_val = inb_p(ABIT_UGURU_BASE + ABIT_UGURU_CMD);
 	u8 data_val = inb_p(ABIT_UGURU_BASE + ABIT_UGURU_DATA);

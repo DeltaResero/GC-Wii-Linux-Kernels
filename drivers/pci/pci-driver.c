@@ -386,7 +386,7 @@ static int pci_device_remove(struct device * dev)
 	 * unfortunate fact is there are too many odd BIOS and bridge setups
 	 * that don't like drivers doing that all of the time.  
 	 * Oh well, we can dream of sane hardware when we sleep, no matter how
-	 * horrible the crap we have to deal with is when we are awake...
+	 * bad it is that we have to deal with when we are awake...
 	 */
 
 	pci_dev_put(pci_dev);

@@ -276,8 +276,7 @@ int __init linux_main(int argc, char **argv)
 
 	host_task_size = os_get_top_address();
 	/*
-	 * TASK_SIZE needs to be PGDIR_SIZE aligned or else exit_mmap craps
-	 * out
+	 * TASK_SIZE needs to be PGDIR_SIZE aligned for exit_mmap
 	 */
 	task_size = host_task_size & PGDIR_MASK;
 

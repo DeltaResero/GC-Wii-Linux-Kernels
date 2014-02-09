@@ -33,5 +33,5 @@
 
 dedekind:
 1. __jffs2_flush_wbuf() has a strange 'pad' parameter. Eliminate.
-2. get_sb()->build_fs()->scan() path... Why get_sb() removes scan()'s crap in
+2. get_sb()->build_fs()->scan() path... Why get_sb() removes scan()'s stuff in
    case of failure? scan() does not clean everything. Fix.

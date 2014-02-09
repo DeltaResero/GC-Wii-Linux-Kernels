@@ -1596,20 +1596,19 @@ static void __cpuinit poke_swift(void)
 {
 	unsigned long mreg;
 
-	/* Clear any crap from the cache or else... */
+	/* Clear any extra data from the cache or else... */
 	swift_flush_cache_all();
 
 	/* Enable I & D caches */
 	mreg = srmmu_get_mmureg();
 	mreg |= (SWIFT_IE | SWIFT_DE);
 	/*
-	 * The Swift branch folding logic is completely broken.  At
-	 * trap time, if things are just right, if can mistakenly
-	 * think that a trap is coming from kernel mode when in fact
-	 * it is coming from user mode (it mis-executes the branch in
-	 * the trap code).  So you see things like crashme completely
-	 * hosing your machine which is completely unacceptable.  Turn
-	 * this off...
+	 * The Swift branch folding logic is completely broken.  At trap time, 
+	 * if things are just right, it can mistakenly think that a trap is
+	 * coming from kernel mode when in fact it is coming from user mode
+	 * (it mis-executes the branch in the trap code).  So you see things
+	 * like crashme completely hosing your machine which is completely
+	 * unacceptable.  Turn this off...
 	 */
 	mreg &= ~(SWIFT_BF);
 	srmmu_set_mmureg(mreg);
@@ -1633,20 +1632,19 @@ static void __init init_swift(void)
 		srmmu_modtype = Swift_lots_o_bugs;
 		hwbug_bitmask |= (HWBUG_KERN_ACCBROKEN | HWBUG_KERN_CBITBROKEN);
 		/*
-		 * Gee george, I wonder why Sun is so hush hush about
-		 * this hardware bug... really braindamage stuff going
-		 * on here.  However I think we can find a way to avoid
-		 * all of the workaround overhead under Linux.  Basically,
-		 * any page fault can cause kernel pages to become user
-		 * accessible (the mmu gets confused and clears some of
-		 * the ACC bits in kernel ptes).  Aha, sounds pretty
-		 * horrible eh?  But wait, after extensive testing it appears
-		 * that if you use pgd_t level large kernel pte's (like the
-		 * 4MB pages on the Pentium) the bug does not get tripped
-		 * at all.  This avoids almost all of the major overhead.
-		 * Welcome to a world where your vendor tells you to,
-		 * "apply this kernel patch" instead of "sorry for the
-		 * broken hardware, send it back and we'll give you
+		 * Gee george, I wonder why Sun is so hush hush about this
+		 * hardware bug... really braindamage stuff going on here.
+		 * However I think we can find a way to avoid all of the
+		 * workaround overhead under Linux.  Basically, any page fault
+		 * can cause kernel pages to become user accessible
+		 * (the mmu gets confused and clears some of the ACC bits in
+		 * kernel ptes).  Aha, sounds pretty horrible eh?  But wait,
+		 * after extensive testing it appears that if you use pgd_t 
+		 * level large kernel pte's (like the 4MB pages on the Pentium)
+		 * the bug does not get tripped at all.  This avoids almost all
+		 * of the major overhead.  Welcome to a world where your vendor
+		 * tells you to, "apply this kernel patch" instead of "sorry for
+		 * the broken hardware, send it back and we'll give you
 		 * properly functioning parts"
 		 */
 		break;
@@ -1685,11 +1683,10 @@ static void __init init_swift(void)
 	flush_page_for_dma_global = 0;
 
 	/*
-	 * Are you now convinced that the Swift is one of the
-	 * biggest VLSI abortions of all time?  Bravo Fujitsu!
-	 * Fujitsu, the !#?!%$'d up processor people.  I bet if
-	 * you examined the microcode of the Swift you'd find
-	 * XXX's all over the place.
+	 * Are you now convinced that the Swift is one of the biggest VLSI
+	 * abortions of all time?  Bravo Fujitsu!  Fujitsu, the !#?!%$'d up 
+	 * processor people.  I bet if you examined the microcode of the Swift
+	 * you'd find XXX's all over the place.
 	 */
 	poke_srmmu = poke_swift;
 }

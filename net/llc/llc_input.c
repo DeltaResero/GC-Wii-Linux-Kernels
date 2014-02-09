@@ -154,7 +154,7 @@ int llc_rcv(struct sk_buff *skb, struct net_device *dev,
 		goto drop;
 
 	/*
-	 * When the interface is in promisc. mode, drop all the crap that it
+	 * When the interface is in promisc. mode, drop all the junk that it
 	 * receives, do not try to analyse it.
 	 */
 	if (unlikely(skb->pkt_type == PACKET_OTHERHOST)) {

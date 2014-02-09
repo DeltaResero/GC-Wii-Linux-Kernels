@@ -25,7 +25,7 @@
  *					We used to process them non broadcast and
  *					boy could that cause havoc.
  *		Alan Cox	:	ip_forward sets the free flag on the
- *					new frame it queues. Still crap because
+ *					new frame it queues. Still junk because
  *					it copies the frame but at least it
  *					doesn't eat memory too.
  *		Alan Cox	:	Generic queue code and memory fixes.
@@ -380,7 +380,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 	struct iphdr *iph;
 	u32 len;
 
-	/* When the interface is in promisc. mode, drop all the crap
+	/* When the interface is in promisc. mode, drop all the useless info
 	 * that it receives, do not try to analyse it.
 	 */
 	if (skb->pkt_type == PACKET_OTHERHOST)

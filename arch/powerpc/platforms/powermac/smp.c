@@ -333,9 +333,8 @@ static void __init smp_psurge_kick_cpu(int nr)
 	unsigned long a, flags;
 	int i, j;
 
-	/* Defining this here is evil ... but I prefer hiding that
-	 * crap to avoid giving people ideas that they can do the
-	 * same.
+	/* Defining this here is evil ... but I prefer hiding that to avoid
+	 * giving people ideas that they can do the same.
 	 */
 	extern volatile unsigned int cpu_callin_map[NR_CPUS];
 

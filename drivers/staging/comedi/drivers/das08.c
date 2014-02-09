@@ -530,7 +530,7 @@ static int das08_ai_rinsn(struct comedi_device *dev, struct comedi_subdevice *s,
 	chan = CR_CHAN(insn->chanspec);
 	range = CR_RANGE(insn->chanspec);
 
-	/* clear crap */
+	/* clear excess data */
 	inb(dev->iobase + DAS08_LSB);
 	inb(dev->iobase + DAS08_MSB);
 

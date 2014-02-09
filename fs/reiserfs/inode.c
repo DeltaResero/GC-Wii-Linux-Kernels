@@ -2205,7 +2205,7 @@ static int map_block_for_writepage(struct inode *inode,
 					 "bytes_copied %d", bytes_copied);
 		}
 		if (!get_block_num(item, pos_in_item)) {
-			/* crap, we are writing to a hole */
+			/* We are writing to a hole... */
 			use_get_block = 1;
 			goto out;
 		}
@@ -2578,7 +2578,7 @@ static int reiserfs_write_begin(struct file *file,
 	if (ret && reiserfs_transaction_running(inode->i_sb)) {
 		struct reiserfs_transaction_handle *th = current->journal_info;
 		/* this gets a little ugly.  If reiserfs_get_block returned an
-		 * error and left a transacstion running, we've got to close it,
+		 * error and left a transaction running, we've got to close it,
 		 * and we've got to free handle if it was a persistent transaction.
 		 *
 		 * But, if we had nested into an existing transaction, we need
@@ -2632,7 +2632,7 @@ int reiserfs_prepare_write(struct file *f, struct page *page,
 	if (ret && reiserfs_transaction_running(inode->i_sb)) {
 		struct reiserfs_transaction_handle *th = current->journal_info;
 		/* this gets a little ugly.  If reiserfs_get_block returned an
-		 * error and left a transacstion running, we've got to close it,
+		 * error and left a transaction running, we've got to close it,
 		 * and we've got to free handle if it was a persistent transaction.
 		 *
 		 * But, if we had nested into an existing transaction, we need

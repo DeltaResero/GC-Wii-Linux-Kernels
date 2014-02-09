@@ -642,7 +642,7 @@ out:
  *	@dev1: slave device
  *
  *	Analyse the drives on the interface and attempt to decide if we
- *	have the same drive viewed twice. This occurs with crap CF adapters
+ *	have the same drive viewed twice. This occurs with low-end CF adapters
  *	and PCMCIA sometimes.
  */
 
@@ -758,10 +758,9 @@ static int ide_init_queue(ide_drive_t *drive)
 	int max_sg_entries = PRD_ENTRIES;
 
 	/*
-	 *	Our default set up assumes the normal IDE case,
-	 *	that is 64K segmenting, standard PRD setup
-	 *	and LBA28. Some drivers then impose their own
-	 *	limits and LBA48 we could raise it but as yet
+	 *	Our default set up assumes the normal IDE case, that is 64K
+	 *	segmenting, standard PRD setup and LBA28. Some drivers then
+	 *	impose their own limits and LBA48 we could raise it but as yet
 	 *	do not.
 	 */
 
