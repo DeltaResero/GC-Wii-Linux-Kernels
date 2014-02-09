@@ -158,6 +158,7 @@ asmlinkage long compat_sys_nanosleep(struct compat_timespec __user *rqtp,
 	return ret;
 }
 
+#ifdef CONFIG_ITIMER
 static inline long get_compat_itimerval(struct itimerval *o,
 		struct compat_itimerval __user *i)
 {
@@ -210,6 +211,7 @@ asmlinkage long compat_sys_setitimer(int which,
 		return -EFAULT;
 	return 0;
 }
+#endif /* CONFIG_ITIMER */
 
 static compat_clock_t clock_t_to_compat_clock_t(clock_t x)
 {

@@ -253,7 +253,11 @@ extern void add_timer(struct timer_list *timer);
 extern void init_timers(void);
 extern void run_local_timers(void);
 struct hrtimer;
+#ifdef CONFIG_ITIMER
 extern enum hrtimer_restart it_real_fn(struct hrtimer *);
+#else
+#define it_real_fn NULL
+#endif
 
 unsigned long __round_jiffies(unsigned long j, int cpu);
 unsigned long __round_jiffies_relative(unsigned long j, int cpu);

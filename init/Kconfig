@@ -1041,6 +1041,12 @@ config EVENTFD
 
 	  If unsure, say Y.
 
+config ITIMER
+	bool "Enable alarm(), setitimer() & getitimer() system call" if EMBEDDED
+	default y
+	help
+	  Enable the sys_alarm, sys_setitimer() & sys_gettiimer system call.
+
 config SHMEM
 	bool "Use full shmem filesystem" if EMBEDDED
 	default y
