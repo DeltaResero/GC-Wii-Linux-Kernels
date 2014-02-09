@@ -1051,6 +1051,13 @@ config CHRDEV_MAJOR_HASH_SIZE
 	help
 	  This allows you to configure the size of the chrdevs[] array.
 
+config MAX_CLOCKS
+	int "Config max number of clocks" if EMBEDDED
+	range 1 16
+	default 16
+	help
+	  This allows you to configure the max available clocks.
+
 config NR_IRQS
 	int "Configure max number of IRQS" if EMBEDDED
 	range 8 256
