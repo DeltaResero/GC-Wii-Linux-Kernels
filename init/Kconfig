@@ -1045,6 +1045,15 @@ config AIO
           by some high performance threaded applications. Disabling
           this option saves about 7k.
 
+config SERIAL_PCI
+	depends on PCI && SERIAL_8250
+	default y
+	bool "Enable standard PCI serial support" if EMBEDDED
+	help
+	  This builds standard PCI serial support. You may be able to disable
+	  this feature if you are only need legacy serial support.  Saves about
+	  9K.
+
 config FB_MODEDB
 	default n
 	bool "Configure a preferrable framebuffer mode" if EMBEDDED
