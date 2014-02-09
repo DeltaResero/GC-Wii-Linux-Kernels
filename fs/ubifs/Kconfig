@@ -14,6 +14,7 @@ config UBIFS_FS
 config UBIFS_FS_XATTR
 	bool "Extended attributes support"
 	depends on UBIFS_FS
+	depends on XATTR
 	help
 	  This option enables support of extended attributes.
 

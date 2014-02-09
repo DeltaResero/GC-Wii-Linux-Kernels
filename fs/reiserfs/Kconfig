@@ -53,6 +53,7 @@ config REISERFS_PROC_INFO
 config REISERFS_FS_XATTR
 	bool "ReiserFS extended attributes"
 	depends on REISERFS_FS
+	depends on XATTR
 	help
 	  Extended attributes are name:value pairs associated with inodes by
 	  the kernel or by users (see the attr(5) manual page, or visit

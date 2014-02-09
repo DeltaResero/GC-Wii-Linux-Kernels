@@ -1176,6 +1176,12 @@ config MEMPOOL
 	  will somewhat decrease code size, but with a higher risk of
 	  deadlock under some loads.
 
+config XATTR
+	default y
+	bool "Enable filesystem extended attribute support" if EMBEDDED
+	help
+	  This enables the filesystem extended attribute syscalls.
+
 config VT_BUF_VRAM_ONLY
 	bool "Use VRAM Buffer Only" if EMBEDDED
 	default !FB
