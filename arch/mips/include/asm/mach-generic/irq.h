@@ -9,7 +9,7 @@
 #define __ASM_MACH_GENERIC_IRQ_H
 
 #ifndef NR_IRQS
-#define NR_IRQS	128
+#define NR_IRQS CONFIG_NR_IRQS
 #endif
 
 #ifdef CONFIG_I8259

@@ -1026,6 +1026,15 @@ config AIO
           by some high performance threaded applications. Disabling
           this option saves about 7k.
 
+config NR_IRQS
+	int "Configure max number of IRQS" if EMBEDDED
+	range 8 256
+	default 128
+	help
+	  Configure the max number of IRQS available on your board.
+
+	  If unsure, do touch it.
+
 config MAX_NR_CON_DRIVER
 	int "Number of console drivers" if EMBEDDED
 	range 1 16
