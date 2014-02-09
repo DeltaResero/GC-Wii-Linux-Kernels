@@ -315,10 +315,12 @@ _GLOBAL(DoSyscall)
 1:
 #endif /* CONFIG_TRACE_IRQFLAGS */
 	rlwinm	r10,r1,0,0,(31-THREAD_SHIFT)	/* current_thread_info() */
+#ifdef CONFIG_PTRACE
 	lwz	r11,TI_FLAGS(r10)
 	andi.	r11,r11,_TIF_SYSCALL_T_OR_A
 	bne-	syscall_dotrace
 syscall_dotrace_cont:
+#endif
 	cmplwi	0,r0,NR_syscalls
 	lis	r10,sys_call_table@h
 	ori	r10,r10,sys_call_table@l
@@ -412,6 +414,7 @@ ret_from_fork:
 	li	r3,0
 	b	ret_from_syscall
 
+#ifdef CONFIG_PTRACE
 /* Traced system call support */
 syscall_dotrace:
 	SAVE_NVGPRS(r1)
@@ -433,6 +436,7 @@ syscall_dotrace:
 	lwz	r8,GPR8(r1)
 	REST_NVGPRS(r1)
 	b	syscall_dotrace_cont
+#endif
 
 syscall_exit_work:
 	andi.	r0,r9,_TIF_RESTOREALL
@@ -477,6 +481,7 @@ syscall_exit_work:
 	SYNC
 	MTMSRD(r10)
 
+#ifdef CONFIG_PTRACE
 	/* Save NVGPRS if they're not saved already */
 	lwz	r4,_TRAP(r1)
 	andi.	r4,r4,1
@@ -487,6 +492,7 @@ syscall_exit_work:
 5:
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	do_syscall_trace_leave
+#endif
 	b	ret_from_except_full
 
 #ifdef SHOW_SYSCALLS

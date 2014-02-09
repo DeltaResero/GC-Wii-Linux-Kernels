@@ -191,3 +191,7 @@ cond_syscall(sys_eventfd2);
 
 /* performance counters: */
 cond_syscall(sys_perf_event_open);
+
+/* ptrace */
+cond_syscall(sys_ptrace);
+cond_syscall(compat_sys_ptrace);

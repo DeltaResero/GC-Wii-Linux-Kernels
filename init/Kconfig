@@ -338,6 +338,7 @@ config AUDIT
 config AUDITSYSCALL
 	bool "Enable system-call auditing support"
 	depends on AUDIT && (X86 || PPC || S390 || IA64 || UML || SPARC64 || SUPERH)
+	depends on PTRACE
 	default y if SECURITY_SELINUX
 	help
 	  Enable low-overhead system-call auditing infrastructure that
@@ -994,6 +995,13 @@ config FUTEX
 	  Disabling this option will cause the kernel to be built without
 	  support for "fast userspace mutexes".  The resulting kernel may not
 	  run glibc-based applications correctly.
+
+config PTRACE
+	bool "Enable ptrace support" if EMBEDDED && (PPC32 || PPC64)
+	default y
+	help
+	  Disabling this option will cause the kernel to be built without
+	  support for ptrace family of system support.
 
 config EPOLL
 	bool "Enable eventpoll support" if EMBEDDED

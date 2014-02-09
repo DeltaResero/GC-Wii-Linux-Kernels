@@ -90,16 +90,25 @@ extern void ptrace_disable(struct task_struct *);
 extern int ptrace_check_attach(struct task_struct *task, int kill);
 extern int ptrace_request(struct task_struct *child, long request, long addr, long data);
 extern void ptrace_notify(int exit_code);
+#define PTRACE_MODE_READ   1
+#define PTRACE_MODE_ATTACH 2
+
+#ifdef CONFIG_PTRACE
 extern void __ptrace_link(struct task_struct *child,
 			  struct task_struct *new_parent);
 extern void __ptrace_unlink(struct task_struct *child);
 extern void exit_ptrace(struct task_struct *tracer);
-#define PTRACE_MODE_READ   1
-#define PTRACE_MODE_ATTACH 2
-/* Returns 0 on success, -errno on denial. */
-extern int __ptrace_may_access(struct task_struct *task, unsigned int mode);
 /* Returns true on success, false on denial. */
 extern bool ptrace_may_access(struct task_struct *task, unsigned int mode);
+#else /* !CONFIG_PTRACE */
+#define __ptrace_link(child, new_parent) do { } while (0)
+#define __ptrace_unlink(child) do { } while (0)
+#define exit_ptrace(tracer) do { } while (0)
+/* No such function, only means ignore ptrace */
+#define ptrace_may_access(task, mode)	-ENODEV	
+#endif /* CONFIG_PTRACE */
+/* Returns 0 on success, -errno on denial. */
+extern int __ptrace_may_access(struct task_struct *task, unsigned int mode);
 
 static inline int ptrace_reparented(struct task_struct *child)
 {

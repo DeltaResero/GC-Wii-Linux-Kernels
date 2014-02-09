@@ -1574,6 +1574,7 @@ static int do_wait_thread(struct wait_opts *wo, struct task_struct *tsk)
 	return 0;
 }
 
+#ifdef CONFIG_PTRACE
 static int ptrace_do_wait(struct wait_opts *wo, struct task_struct *tsk)
 {
 	struct task_struct *p;
@@ -1586,6 +1587,9 @@ static int ptrace_do_wait(struct wait_opts *wo, struct task_struct *tsk)
 
 	return 0;
 }
+#else
+#define ptrace_do_wait(wo, tsk) (0)
+#endif
 
 static int child_wait_callback(wait_queue_t *wait, unsigned mode,
 				int sync, void *key)

@@ -201,8 +201,11 @@ struct user_regset_view {
  * For example, what it would access when it called ptrace().
  * Throughout the life of the process, this only changes at exec.
  */
+#ifdef CONFIG_PTRACE
 const struct user_regset_view *task_user_regset_view(struct task_struct *tsk);
-
+#else
+#define task_user_regset_view(tsk) NULL
+#endif
 
 /*
  * These are helpers for writing regset get/set functions in arch code.

@@ -138,10 +138,12 @@ END_FW_FTR_SECTION_IFSET(FW_FEATURE_ISERIES)
 	addi	r9,r1,STACK_FRAME_OVERHEAD
 #endif
 	clrrdi	r11,r1,THREAD_SHIFT
+#ifdef CONFIG_PTRACE
 	ld	r10,TI_FLAGS(r11)
 	andi.	r11,r10,_TIF_SYSCALL_T_OR_A
 	bne-	syscall_dotrace
 syscall_dotrace_cont:
+#endif
 	cmpldi	0,r0,NR_syscalls
 	bge-	syscall_enosys
 
@@ -234,7 +236,8 @@ syscall_error:
 	neg	r3,r3
 	std	r5,_CCR(r1)
 	b	syscall_error_cont
-	
+
+#ifdef CONFIG_PTRACE
 /* Traced system call support */
 syscall_dotrace:
 	bl	.save_nvgprs
@@ -256,6 +259,7 @@ syscall_dotrace:
 	clrrdi	r10,r1,THREAD_SHIFT
 	ld	r10,TI_FLAGS(r10)
 	b	syscall_dotrace_cont
+#endif
 
 syscall_enosys:
 	li	r3,-ENOSYS
@@ -304,9 +308,11 @@ syscall_exit_work:
 	mtmsrd	r10,1
 #endif /* CONFIG_PPC_BOOK3E */
 
+#ifdef CONFIG_PTRACE
 	bl	.save_nvgprs
 	addi	r3,r1,STACK_FRAME_OVERHEAD
 	bl	.do_syscall_trace_leave
+#endif
 	b	.ret_from_except
 
 /* Save non-volatile GPRs, if not already saved. */

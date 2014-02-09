@@ -162,8 +162,12 @@ extern int do_sys_settimeofday(struct timespec *tv, struct timezone *tz);
 #define do_posix_clock_monotonic_gettime(ts) ktime_get_ts(ts)
 extern long do_utimes(int dfd, char __user *filename, struct timespec *times, int flags);
 struct itimerval;
+#ifdef CONFIG_ITIMER
 extern int do_setitimer(int which, struct itimerval *value,
 			struct itimerval *ovalue);
+#else
+#define do_setitimer(a, b, c) (0)
+#endif
 extern unsigned int alarm_setitimer(unsigned int seconds);
 extern int do_getitimer(int which, struct itimerval *value);
 extern void getnstimeofday(struct timespec *tv);

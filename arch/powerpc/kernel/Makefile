@@ -26,14 +26,18 @@ CFLAGS_REMOVE_ftrace.o = -pg -mno-sched-epilog
 CFLAGS_REMOVE_time.o = -pg -mno-sched-epilog
 endif
 
-obj-y				:= cputable.o ptrace.o syscalls.o \
+obj-y				:= cputable.o syscalls.o \
 				   irq.o align.o signal_32.o pmc.o vdso.o \
 				   init_task.o process.o systbl.o idle.o \
 				   signal.o sysfs.o cacheinfo.o
 obj-y				+= vdso32/
 obj-$(CONFIG_PPC64)		+= setup_64.o sys_ppc32.o \
-				   signal_64.o ptrace32.o \
+				   signal_64.o \
 				   paca.o nvram_64.o firmware.o
+ifdef CONFIG_PTRACE
+obj-y				+= ptrace.o
+obj-$(CONFIG_PPC64)		+= ptrace32.o
+endif
 obj-$(CONFIG_PPC_BOOK3S_64)	+= cpu_setup_ppc970.o cpu_setup_pa6t.o
 obj64-$(CONFIG_RELOCATABLE)	+= reloc_64.o
 obj-$(CONFIG_PPC_BOOK3E_64)	+= exceptions-64e.o
