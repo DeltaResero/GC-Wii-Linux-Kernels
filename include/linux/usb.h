@@ -475,7 +475,8 @@ struct usb3_lpm_parameters {
  * @lpm_capable: device supports LPM
  * @usb2_hw_lpm_capable: device can perform USB2 hardware LPM
  * @usb2_hw_lpm_besl_capable: device can perform USB2 hardware BESL LPM
- * @usb2_hw_lpm_enabled: USB2 hardware LPM enabled
+ * @usb2_hw_lpm_enabled: USB2 hardware LPM is enabled
+ * @usb2_hw_lpm_allowed: Userspace allows USB 2.0 LPM to be enabled
  * @usb3_lpm_enabled: USB3 hardware LPM enabled
  * @string_langid: language ID for strings
  * @product: iProduct string, if present (static)
@@ -548,6 +549,7 @@ struct usb_device {
 	unsigned usb2_hw_lpm_capable:1;
 	unsigned usb2_hw_lpm_besl_capable:1;
 	unsigned usb2_hw_lpm_enabled:1;
+	unsigned usb2_hw_lpm_allowed:1;
 	unsigned usb3_lpm_enabled:1;
 	int string_langid;
 
@@ -1260,6 +1262,8 @@ typedef void (*usb_complete_t)(struct urb *);
  * @sg: scatter gather buffer list, the buffer size of each element in
  * 	the list (except the last) must be divisible by the endpoint's
  * 	max packet size if no_sg_constraint isn't set in 'struct usb_bus'
+ * 	(FIXME: scatter-gather under xHCI is broken for periodic transfers.
+ * 	Do not use urb->sg for interrupt endpoints for now, only bulk.)
  * @num_mapped_sgs: (internal) number of mapped sg entries
  * @num_sgs: number of entries in the sg list
  * @transfer_buffer_length: How big is transfer_buffer.  The transfer may

@@ -171,7 +171,7 @@ static const struct hda_codec_ops ad198x_auto_patch_ops = {
 };
 
 
-static int ad198x_parse_auto_config(struct hda_codec *codec)
+static int ad198x_parse_auto_config(struct hda_codec *codec, bool indep_hp)
 {
 	struct ad198x_spec *spec = codec->spec;
 	struct auto_pin_cfg *cfg = &spec->gen.autocfg;
@@ -181,7 +181,7 @@ static int ad198x_parse_auto_config(struct hda_codec *codec)
 	codec->no_trigger_sense = 1;
 	codec->no_sticky_stream = 1;
 
-	spec->gen.indep_hp = 1;
+	spec->gen.indep_hp = indep_hp;
 
 	err = snd_hda_parse_pin_defcfg(codec, cfg, NULL, 0);
 	if (err < 0)
@@ -219,8 +219,12 @@ static int alloc_ad_spec(struct hda_codec *codec)
 static void ad_fixup_inv_jack_detect(struct hda_codec *codec,
 				     const struct hda_fixup *fix, int action)
 {
-	if (action == HDA_FIXUP_ACT_PRE_PROBE)
+	struct ad198x_spec *spec = codec->spec;
+
+	if (action == HDA_FIXUP_ACT_PRE_PROBE) {
 		codec->inv_jack_detect = 1;
+		spec->gen.keep_eapd_on = 1;
+	}
 }
 
 enum {
@@ -260,11 +264,11 @@ static const struct hda_fixup ad1986a_fixups[] = {
 		.v.pins = (const struct hda_pintbl[]) {
 			{ 0x1a, 0x02214021 }, /* headphone */
 			{ 0x1b, 0x01014011 }, /* front */
-			{ 0x1c, 0x01013012 }, /* surround */
-			{ 0x1d, 0x01019015 }, /* clfe */
+			{ 0x1c, 0x01813030 }, /* line-in */
+			{ 0x1d, 0x01a19020 }, /* rear mic */
 			{ 0x1e, 0x411111f0 }, /* N/A */
 			{ 0x1f, 0x02a190f0 }, /* mic */
-			{ 0x20, 0x018130f0 }, /* line-in */
+			{ 0x20, 0x411111f0 }, /* N/A */
 			{}
 		},
 	},
@@ -320,6 +324,14 @@ static int patch_ad1986a(struct hda_codec *codec)
 {
 	int err;
 	struct ad198x_spec *spec;
+	static hda_nid_t preferred_pairs[] = {
+		0x1a, 0x03,
+		0x1b, 0x03,
+		0x1c, 0x04,
+		0x1d, 0x05,
+		0x1e, 0x03,
+		0
+	};
 
 	err = alloc_ad_spec(codec);
 	if (err < 0)
@@ -340,12 +352,17 @@ static int patch_ad1986a(struct hda_codec *codec)
 	 * So, let's disable the shared stream.
 	 */
 	spec->gen.multiout.no_share_stream = 1;
+	/* give fixed DAC/pin pairs */
+	spec->gen.preferred_dacs = preferred_pairs;
+
+	/* AD1986A can't manage the dynamic pin on/off smoothly */
+	spec->gen.auto_mute_via_amp = 1;
 
 	snd_hda_pick_fixup(codec, ad1986a_fixup_models, ad1986a_fixup_tbl,
 			   ad1986a_fixups);
 	snd_hda_apply_fixup(codec, HDA_FIXUP_ACT_PRE_PROBE);
 
-	err = ad198x_parse_auto_config(codec);
+	err = ad198x_parse_auto_config(codec, false);
 	if (err < 0) {
 		snd_hda_gen_free(codec);
 		return err;
@@ -447,7 +464,7 @@ static int patch_ad1983(struct hda_codec *codec)
 
 	spec->gen.beep_nid = 0x10;
 	set_beep_amp(spec, 0x10, 0, HDA_OUTPUT);
-	err = ad198x_parse_auto_config(codec);
+	err = ad198x_parse_auto_config(codec, false);
 	if (err < 0)
 		goto error;
 	err = ad1983_add_spdif_mux_ctl(codec);
@@ -547,7 +564,7 @@ static int patch_ad1981(struct hda_codec *codec)
 	snd_hda_pick_fixup(codec, NULL, ad1981_fixup_tbl, ad1981_fixups);
 	snd_hda_apply_fixup(codec, HDA_FIXUP_ACT_PRE_PROBE);
 
-	err = ad198x_parse_auto_config(codec);
+	err = ad198x_parse_auto_config(codec, false);
 	if (err < 0)
 		goto error;
 	err = ad1983_add_spdif_mux_ctl(codec);
@@ -873,7 +890,7 @@ static int patch_ad1988(struct hda_codec *codec)
 	snd_hda_pick_fixup(codec, ad1988_fixup_models, NULL, ad1988_fixups);
 	snd_hda_apply_fixup(codec, HDA_FIXUP_ACT_PRE_PROBE);
 
-	err = ad198x_parse_auto_config(codec);
+	err = ad198x_parse_auto_config(codec, true);
 	if (err < 0)
 		goto error;
 	err = ad1988_add_spdif_mux_ctl(codec);
@@ -957,6 +974,7 @@ static void ad1884_fixup_hp_eapd(struct hda_codec *codec,
 	switch (action) {
 	case HDA_FIXUP_ACT_PRE_PROBE:
 		spec->gen.vmaster_mute.hook = ad1884_vmaster_hp_gpio_hook;
+		spec->gen.own_eapd_ctl = 1;
 		snd_hda_sequence_write_cache(codec, gpio_init_verbs);
 		break;
 	case HDA_FIXUP_ACT_PROBE:
@@ -1046,7 +1064,7 @@ static int patch_ad1884(struct hda_codec *codec)
 	snd_hda_pick_fixup(codec, NULL, ad1884_fixup_tbl, ad1884_fixups);
 	snd_hda_apply_fixup(codec, HDA_FIXUP_ACT_PRE_PROBE);
 
-	err = ad198x_parse_auto_config(codec);
+	err = ad198x_parse_auto_config(codec, true);
 	if (err < 0)
 		goto error;
 	err = ad1983_add_spdif_mux_ctl(codec);
@@ -1088,7 +1106,7 @@ static int patch_ad1882(struct hda_codec *codec)
 	spec->gen.mixer_merge_nid = 0x21;
 	spec->gen.beep_nid = 0x10;
 	set_beep_amp(spec, 0x10, 0, HDA_OUTPUT);
-	err = ad198x_parse_auto_config(codec);
+	err = ad198x_parse_auto_config(codec, true);
 	if (err < 0)
 		goto error;
 	err = ad1988_add_spdif_mux_ctl(codec);
