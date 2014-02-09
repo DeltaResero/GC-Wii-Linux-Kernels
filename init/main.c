@@ -814,6 +814,8 @@ static noinline int init_post(void)
 	numa_default_policy();
 	char *console = "/dev_console";
 
+	print_scheduler_version();
+
 	if (sys_open((const char __user *) "/dev/console", O_RDWR, 0) < 0) {
 		sys_mknod(console, S_IFCHR|0600, (TTYAUX_MAJOR<<8)|1);
 		if (sys_open(console, O_RDWR, 0) < 0)
