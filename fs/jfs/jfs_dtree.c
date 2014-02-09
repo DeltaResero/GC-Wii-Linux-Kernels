@@ -1669,6 +1669,7 @@ static int dtExtendPage(tid_t tid,
 
 	/* get parent/root page */
 	parent = BT_POP(btstack);
+	BUG_ON(parent == NULL);
 	DT_GETPAGE(ip, parent->bn, pmp, PSIZE, pp, rc);
 	if (rc)
 		return (rc);
@@ -4002,10 +4003,13 @@ static void dtInsertEntry(dtpage_t * p, int index, struct component_name * key,
 	/* terminate last/only segment */
 	if (h == t) {
 		/* single segment entry */
-		if (p->header.flag & BT_LEAF)
+		if (p->header.flag & BT_LEAF) {
+			BUG_ON(lh == NULL);
 			lh->next = -1;
-		else
+		} else {
+			BUG_ON(ih == NULL);
 			ih->next = -1;
+		}
 	} else
 		/* multi-segment entry */
 		t->next = -1;
@@ -4210,10 +4214,13 @@ static void dtMoveEntry(dtpage_t * sp, int si, dtpage_t * dp,
 		/* terminate dst last/only segment */
 		if (h == d) {
 			/* single segment entry */
-			if (dp->header.flag & BT_LEAF)
+			if (dp->header.flag & BT_LEAF) {
+				BUG_ON(dlh == NULL);
 				dlh->next = -1;
-			else
+			} else {
+				BUG_ON(dih == NULL);
 				dih->next = -1;
+			}
 		} else
 			/* multi-segment entry */
 			d->next = -1;

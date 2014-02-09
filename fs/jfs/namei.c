@@ -884,7 +884,7 @@ static int jfs_symlink(struct inode *dip, struct dentry *dentry,
 	int ssize;		/* source pathname size */
 	struct btstack btstack;
 	struct inode *ip = dentry->d_inode;
-	unchar *i_fastsymlink;
+	u8 *i_fastsymlink;
 	s64 xlen = 0;
 	int bmask = 0, xsize;
 	s64 extent = 0, xaddr;

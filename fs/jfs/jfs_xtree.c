@@ -1067,6 +1067,8 @@ xtSplitPage(tid_t tid, struct inode *ip,
 		rp->header.nextindex = cpu_to_le16(XTENTRYSTART + 1);
 
 		if (!test_cflag(COMMIT_Nolink, ip)) {
+			BUG_ON(rxtlck == NULL);
+
 			/* rxtlck->lwm.offset = XTENTRYSTART; */
 			rxtlck->lwm.length = 1;
 		}
@@ -1138,6 +1140,7 @@ xtSplitPage(tid_t tid, struct inode *ip,
 		/* update page header */
 		sp->header.nextindex = cpu_to_le16(middle + 1);
 		if (!test_cflag(COMMIT_Nolink, ip)) {
+			BUG_ON(sxtlck == NULL);
 			sxtlck->lwm.offset = (sxtlck->lwm.offset) ?
 			    min(skip, (int)sxtlck->lwm.offset) : skip;
 		}
@@ -1168,6 +1171,7 @@ xtSplitPage(tid_t tid, struct inode *ip,
 		/* update page header */
 		sp->header.nextindex = cpu_to_le16(middle);
 		if (!test_cflag(COMMIT_Nolink, ip)) {
+			BUG_ON(sxtlck == NULL);
 			sxtlck->lwm.offset = (sxtlck->lwm.offset) ?
 			    min(middle, (int)sxtlck->lwm.offset) : middle;
 		}
@@ -1177,6 +1181,7 @@ xtSplitPage(tid_t tid, struct inode *ip,
 	}
 
 	if (!test_cflag(COMMIT_Nolink, ip)) {
+		BUG_ON(sxtlck == NULL);
 		sxtlck->lwm.length = le16_to_cpu(sp->header.nextindex) -
 		    sxtlck->lwm.offset;
 
@@ -1491,6 +1496,7 @@ int xtExtend(tid_t tid,		/* transaction id */
 		xad->flag |= XAD_EXTENDED;
 
 	if (!test_cflag(COMMIT_Nolink, ip)) {
+		BUG_ON(xtlck == NULL);
 		xtlck->lwm.offset =
 		    (xtlck->lwm.offset) ? min(index,
 					      (int)xtlck->lwm.offset) : index;
@@ -2004,6 +2010,7 @@ int xtUpdate(tid_t tid, struct inode *ip, xad_t * nxad)
 	if (newpage) {
 		/* close out old page */
 		if (!test_cflag(COMMIT_Nolink, ip)) {
+			BUG_ON(xtlck == NULL);
 			xtlck->lwm.offset = (xtlck->lwm.offset) ?
 			    min(index0, (int)xtlck->lwm.offset) : index0;
 			xtlck->lwm.length =
@@ -2136,6 +2143,7 @@ printf("xtUpdate.updateLeft.split p:0x%p\n", p);
 
       out:
 	if (!test_cflag(COMMIT_Nolink, ip)) {
+		BUG_ON(xtlck == NULL);
 		xtlck->lwm.offset = (xtlck->lwm.offset) ?
 		    min(index0, (int)xtlck->lwm.offset) : index0;
 		xtlck->lwm.length = le16_to_cpu(p->header.nextindex) -
@@ -3538,6 +3546,8 @@ s64 xtTruncate(tid_t tid, struct inode *ip, s64 newsize, int flag)
 	 * ToDo:  tlocks should be on doubly-linked list, so we can
 	 * quickly remove it and add it to the end.
 	 */
+
+	BUG_ON(tblk == NULL);
 
 	/*
 	 * Move parent page's tlock to the end of the tid's tlock list

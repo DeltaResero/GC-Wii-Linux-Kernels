@@ -255,6 +255,7 @@ static int ea_write(struct inode *ip, struct jfs_ea_list *ealist, int size,
 	 * loop over the FEALIST copying data into the buffer one page at
 	 * a time.
 	 */
+	BUG_ON(ealist == NULL);
 	cp = (char *) ealist;
 	nbytes = size;
 	for (i = 0; i < nblocks; i += sbi->nbperpage) {

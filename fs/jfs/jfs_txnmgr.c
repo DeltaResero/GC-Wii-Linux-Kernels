@@ -115,11 +115,11 @@ struct tlock *TxLock;	/* transaction lock table */
  */
 static DEFINE_SPINLOCK(jfsTxnLock);
 
-#define TXN_LOCK()		spin_lock(&jfsTxnLock)
-#define TXN_UNLOCK()		spin_unlock(&jfsTxnLock)
+#define TXN_LOCK()	spin_lock(&jfsTxnLock)
+#define TXN_UNLOCK()	spin_unlock(&jfsTxnLock)
 
-#define LAZY_LOCK_INIT()	spin_lock_init(&TxAnchor.LazyLock);
-#define LAZY_LOCK(flags)	spin_lock_irqsave(&TxAnchor.LazyLock, flags)
+#define LAZY_LOCK_INIT()   spin_lock_init(&TxAnchor.LazyLock);
+#define LAZY_LOCK(flags)   spin_lock_irqsave(&TxAnchor.LazyLock, flags)
 #define LAZY_UNLOCK(flags) spin_unlock_irqrestore(&TxAnchor.LazyLock, flags)
 
 static DECLARE_WAIT_QUEUE_HEAD(jfs_commit_thread_wait);
@@ -140,10 +140,10 @@ static inline void TXN_SLEEP_DROP_LOCK(wait_queue_head_t * event)
 	remove_wait_queue(event, &wait);
 }
 
-#define TXN_SLEEP(event)\
-{\
-	TXN_SLEEP_DROP_LOCK(event);\
-	TXN_LOCK();\
+static inline void TXN_SLEEP(wait_queue_head_t *event)
+{
+	TXN_SLEEP_DROP_LOCK(event);
+	TXN_LOCK();
 }
 
 #define TXN_WAKEUP(event) wake_up_all(event)
@@ -2382,6 +2382,7 @@ static void txUpdateMap(struct tblock * tblk)
 			}
 		}
 		if (tlck->flag & tlckFREEPAGE) {
+			BUG_ON(mp == NULL);
 			if (!(tblk->flag & tblkGC_LAZY)) {
 				/* This is equivalent to txRelease */
 				ASSERT(mp->lid == lid);

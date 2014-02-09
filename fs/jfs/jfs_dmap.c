@@ -456,12 +456,13 @@ dbUpdatePMap(struct inode *ipbmap,
 				write_metapage(mp);
 			}
 
-			mp = read_metapage(bmp->db_ipbmap, lblkno, PSIZE,
-					   0);
-			if (mp == NULL)
+			mp = read_metapage(bmp->db_ipbmap, lblkno, PSIZE, 0);
+			if (unlikely(mp == NULL))
 				return -EIO;
 			metapage_wait_for_io(mp);
 		}
+
+		BUG_ON(mp == NULL);
 		dp = (struct dmap *) mp->data;
 
 		/* determine the bit number and word within the dmap of

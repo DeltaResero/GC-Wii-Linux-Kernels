@@ -2315,12 +2315,15 @@ static int diNewExt(struct inomap * imap, struct iag * iagp, int extno)
 	 * iag from the ag free extent list.
 	 */
 	if (iagp->nfreeexts == cpu_to_le32(1)) {
-		if (fwd >= 0)
+		if (fwd >= 0) {
+			BUG_ON(aiagp == NULL);
 			aiagp->extfreeback = iagp->extfreeback;
+		}
 
-		if (back >= 0)
+		if (back >= 0) {
+			BUG_ON(biagp == NULL);
 			biagp->extfreefwd = iagp->extfreefwd;
-		else
+		} else
 			imap->im_agctl[agno].extfree =
 			    le32_to_cpu(iagp->extfreefwd);
 
@@ -2330,8 +2333,10 @@ static int diNewExt(struct inomap * imap, struct iag * iagp, int extno)
 		 * add the iag to the ag free extent list.
 		 */
 		if (iagp->nfreeexts == cpu_to_le32(EXTSPERIAG)) {
-			if (fwd >= 0)
+			if (fwd >= 0) {
+				BUG_ON(aiagp == NULL);
 				aiagp->extfreeback = cpu_to_le32(iagno);
+			}
 
 			iagp->extfreefwd = cpu_to_le32(fwd);
 			iagp->extfreeback = cpu_to_le32(-1);
@@ -2343,8 +2348,10 @@ static int diNewExt(struct inomap * imap, struct iag * iagp, int extno)
 	 * ag free inode list.
 	 */
 	if (iagp->nfreeinos == 0) {
-		if (freei >= 0)
+		if (freei >= 0) {
+			BUG_ON(ciagp == NULL);
 			ciagp->inofreeback = cpu_to_le32(iagno);
+		}
 
 		iagp->inofreefwd =
 		    cpu_to_le32(imap->im_agctl[agno].inofree);

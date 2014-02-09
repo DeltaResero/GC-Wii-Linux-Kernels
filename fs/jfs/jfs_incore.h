@@ -52,7 +52,7 @@ struct jfs_inode_info {
 	unsigned long cflag;	/* commit flags		*/
 	long	agstart;	/* agstart of the containing IAG */
 	u16	bxflag;		/* xflag of pseudo buffer?	*/
-	unchar	pad;
+	u8	pad;
 	signed char active_ag;	/* ag currently allocating from	*/
 	lid_t	blid;		/* lid of pseudo buffer?	*/
 	lid_t	atlhead;	/* anonymous tlock list head	*/
@@ -85,14 +85,19 @@ struct jfs_inode_info {
 			dtroot_t _dtroot;	/* 288: dtree root */
 		} dir;
 		struct {
-			unchar _unused[16];	/* 16: */
+			u8 _unused[16];		/* 16: */
 			dxd_t _dxd;		/* 16: */
-			unchar _inline[128];	/* 128: inline symlink */
+			u8 _inline[128];	/* 128: inline symlink */
 			/* _inline_ea may overlay the last part of
 			 * file._xtroot if maxentry = XTROOTINITSLOT
 			 */
-			unchar _inline_ea[128];	/* 128: inline extended attr */
+			u8 _inline_ea[128];	/* 128: inline extended attr */
 		} link;
+		struct {
+			u8 _unused[16];	/* 16: */
+			dxd_t _dxd;	/* 16: */
+			u8 _inline[256];/* 256: inline symlink only */
+		} slink;
 	} u;
 	u32 dev;	/* will die when we get wide dev_t */
 	struct inode	vfs_inode;
@@ -101,7 +106,7 @@ struct jfs_inode_info {
 #define i_imap u.file._imap
 #define i_dirtable u.dir._table
 #define i_dtroot u.dir._dtroot
-#define i_inline u.link._inline
+#define i_inline u.slink._inline
 #define i_inline_ea u.link._inline_ea
 
 #define IREAD_LOCK(ip, subclass) \
