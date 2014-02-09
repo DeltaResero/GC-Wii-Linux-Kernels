@@ -105,7 +105,7 @@
 #include <asm/system.h>
 #include <linux/uaccess.h>
 
-#define MAX_NR_CON_DRIVER 16
+#define MAX_NR_CON_DRIVER CONFIG_MAX_NR_CON_DRIVER
 
 #define CON_DRIVER_FLAG_MODULE 1
 #define CON_DRIVER_FLAG_INIT   2
