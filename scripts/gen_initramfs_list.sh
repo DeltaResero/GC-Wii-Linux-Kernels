@@ -105,9 +105,7 @@ list_parse() {
 # for links, devices etc the format differs. See gen_init_cpio for details
 parse() {
 	local location="$1"
-	local name="${location/${srcdir}//}"
-	# change '//' into '/'
-	name="${name//\/\///}"
+	local name="$(echo "$location" | sed -e 's%$srcdir%%' -e 's%//*%/%g')"
 	local mode="$2"
 	local uid="$3"
 	local gid="$4"
