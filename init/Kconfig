@@ -1161,14 +1161,14 @@ config NR_IRQS
 
 config MAX_NR_CON_DRIVER
 	int "Number of console drivers" if EMBEDDED
-	range 1 16
+	range 8 16
 	default 16
 	help
 	  Select the maximum number of console drivers (16 for default).
 
 config MAX_NR_CONSOLES
 	int "Number of consoles" if EMBEDDED
-	range 1 63
+	range 12 63
 	default 63
 	help
 	  Select the maximum number of consoles (63 for default).

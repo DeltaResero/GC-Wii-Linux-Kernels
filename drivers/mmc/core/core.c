@@ -42,9 +42,14 @@ static struct workqueue_struct *workqueue;
 /*
  * Enabling software CRCs on the data blocks can be a significant (30%)
  * performance cost, and for other reasons may not always be desired.
- * So we allow it it to be disabled.
+ * So we allow it to be disabled.
  */
+#ifdef CONFIG_MMC_DISABLE_SPI_CRC
+int use_spi_crc = 0;
+#else
 int use_spi_crc = 1;
+#endif
+
 module_param(use_spi_crc, bool, 0);
 
 /*
