@@ -257,6 +257,30 @@ asmlinkage int printk(const char * fmt, ...)
 asmlinkage int printk_unfiltered(const char *fmt, ...)
 	__attribute__ ((format (printf, 1, 2))) __cold;
 
+#if defined(CONFIG_PRINTK_VERBOSITY) && CONFIG_PRINTK_VERBOSITY > 0
+/*
+ * The idea here is to wrap the actual printk function with a macro which
+ * will filter out all messages above a certain verbosity level. Because
+ * the if condition evaluates to a constant expression the compiler will be
+ * able to eliminate it and the resulting kernel image will be smaller.
+ *
+ * The check with sizeof(void*) should make sure that we don't operate on
+ * pointers, which the compiler wouldn't be able to optimize out, but only
+ * on string constants.
+ */
+
+#include <linux/stringify.h>
+
+#define printk(fmt, ...) ({ 							 \
+	if (sizeof(fmt) == sizeof(void *) ||					 \
+	    (((const char *)(fmt))[0] != '<' && CONFIG_PRINTK_VERBOSITY >= 4) || \
+	    (((const char *)(fmt))[0] == '<' && 				 \
+	     ((const char *)(fmt))[1] <= *__stringify(CONFIG_PRINTK_VERBOSITY))) \
+		printk((fmt), ##__VA_ARGS__); 					 \
+})
+
+#endif /* CONFIG_PRINTK_VERBOSITY */
+
 extern int printk_ratelimit(void);
 extern bool printk_timed_ratelimit(unsigned long *caller_jiffies,
 				   unsigned int interval_msec);
