@@ -1375,9 +1375,16 @@ static inline int skb_network_offset(const struct sk_buff *skb)
  *
  * Various parts of the networking layer expect at least 32 bytes of
  * headroom, you should not reduce this.
+ *
+ * This has been changed to 64 to acommodate for routing between ethernet
+ * and wireless, but only for new allocations
  */
 #ifndef NET_SKB_PAD
 #define NET_SKB_PAD	32
+#endif
+
+#ifndef NET_SKB_PAD_ALLOC
+#define NET_SKB_PAD_ALLOC	64
 #endif
 
 extern int ___pskb_trim(struct sk_buff *skb, unsigned int len);
@@ -1469,9 +1476,9 @@ static inline void __skb_queue_purge(struct sk_buff_head *list)
 static inline struct sk_buff *__dev_alloc_skb(unsigned int length,
 					      gfp_t gfp_mask)
 {
-	struct sk_buff *skb = alloc_skb(length + NET_SKB_PAD, gfp_mask);
+	struct sk_buff *skb = alloc_skb(length + NET_SKB_PAD_ALLOC, gfp_mask);
 	if (likely(skb))
-		skb_reserve(skb, NET_SKB_PAD);
+		skb_reserve(skb, NET_SKB_PAD_ALLOC);
 	return skb;
 }
 
@@ -1544,7 +1551,7 @@ static inline int __skb_cow(struct sk_buff *skb, unsigned int headroom,
 		delta = headroom - skb_headroom(skb);
 
 	if (delta || cloned)
-		return pskb_expand_head(skb, ALIGN(delta, NET_SKB_PAD), 0,
+		return pskb_expand_head(skb, ALIGN(delta, NET_SKB_PAD_ALLOC), 0,
 					GFP_ATOMIC);
 	return 0;
 }
