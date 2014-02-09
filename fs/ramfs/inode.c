@@ -267,6 +267,13 @@ int ramfs_get_sb(struct file_system_type *fs_type,
 	return get_sb_nodev(fs_type, flags, data, ramfs_fill_super, mnt);
 }
 
+static struct file_system_type ramfs_fs_type = {
+	.name		= "ramfs",
+	.get_sb		= ramfs_get_sb,
+	.kill_sb	= kill_litter_super,
+};
+
+#ifndef CONFIG_TMPFS_ROOT
 static int rootfs_get_sb(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data, struct vfsmount *mnt)
 {
@@ -280,29 +287,11 @@ static void ramfs_kill_sb(struct super_block *sb)
 	kill_litter_super(sb);
 }
 
-static struct file_system_type ramfs_fs_type = {
-	.name		= "ramfs",
-	.get_sb		= ramfs_get_sb,
-	.kill_sb	= ramfs_kill_sb,
-};
 static struct file_system_type rootfs_fs_type = {
 	.name		= "rootfs",
 	.get_sb		= rootfs_get_sb,
 	.kill_sb	= kill_litter_super,
 };
-
-static int __init init_ramfs_fs(void)
-{
-	return register_filesystem(&ramfs_fs_type);
-}
-
-static void __exit exit_ramfs_fs(void)
-{
-	unregister_filesystem(&ramfs_fs_type);
-}
-
-module_init(init_ramfs_fs)
-module_exit(exit_ramfs_fs)
 
 int __init init_rootfs(void)
 {
@@ -318,5 +307,19 @@ int __init init_rootfs(void)
 
 	return err;
 }
+#endif
+
+static int __init init_ramfs_fs(void)
+{
+	return register_filesystem(&ramfs_fs_type);
+}
+
+static void __exit exit_ramfs_fs(void)
+{
+	unregister_filesystem(&ramfs_fs_type);
+}
+
+module_init(init_ramfs_fs)
+module_exit(exit_ramfs_fs)
 
 MODULE_LICENSE("GPL");
