@@ -62,7 +62,30 @@ static inline long rcu_batches_completed_bh(void)
 
 extern int rcu_expedited_torture_stats(char *page);
 
-#define synchronize_rcu synchronize_sched
+static inline void rcu_force_quiescent_state(void)
+{
+}
+
+static inline void rcu_bh_force_quiescent_state(void)
+{
+}
+
+static inline void rcu_sched_force_quiescent_state(void)
+{
+}
+
+extern void synchronize_sched(void);
+
+static inline void synchronize_rcu(void)
+{
+	synchronize_sched();
+}
+
+static inline void synchronize_rcu_bh(void)
+{
+	synchronize_sched();
+}
+/*da848c4... rcu: shrink rcutiny by making synchronize_rcu_bh() be inline */
 
 static inline void synchronize_rcu_expedited(void)
 {

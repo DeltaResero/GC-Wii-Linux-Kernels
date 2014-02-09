@@ -43,8 +43,6 @@
 #include <linux/completion.h>
 
 /* Exported common interfaces */
-extern void synchronize_rcu_bh(void);
-extern void synchronize_sched(void);
 extern void rcu_barrier(void);
 extern void rcu_barrier_bh(void);
 extern void rcu_barrier_sched(void);
