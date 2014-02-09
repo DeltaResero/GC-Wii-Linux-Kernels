@@ -1163,6 +1163,10 @@ config DEBUG_PERF_USE_VMALLOC
 
 endmenu
 
+config VT_SINGLE_DRIVER
+	default (MAX_NR_CON_DRIVER = 1)
+	bool
+
 config VM_EVENT_COUNTERS
 	default y
 	bool "Enable VM event counters for /proc/vmstat" if EMBEDDED

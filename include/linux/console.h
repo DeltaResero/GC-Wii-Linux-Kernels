@@ -64,11 +64,20 @@ extern const struct consw vga_con;	/* VGA text console */
 extern const struct consw newport_con;	/* SGI Newport console  */
 extern const struct consw prom_con;	/* SPARC PROM console */
 
+#ifndef CONFIG_VT_SINGLE_DRIVER
 int con_is_bound(const struct consw *csw);
 int register_con_driver(const struct consw *csw, int first, int last);
 int unregister_con_driver(const struct consw *csw);
 int take_over_console(const struct consw *sw, int first, int last, int deflt);
 void give_up_console(const struct consw *sw);
+#else
+#define con_is_bound(a) (1)
+#define unregister_con_driver(a) (-ENODEV)
+#define register_con_driver(a, b, c) (-ENODEV)
+#define take_over_console(a, b, c, d) (-EINVAL)
+#define give_up_console(a) do { } while (0)
+#endif
+
 /* scroll */
 #define SM_UP       (1)
 #define SM_DOWN     (2)

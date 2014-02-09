@@ -140,7 +140,7 @@ const struct consw *conswitchp;
 
 struct vc vc_cons [MAX_NR_CONSOLES];
 
-#ifndef VT_SINGLE_DRIVER
+#ifndef CONFIG_VT_SINGLE_DRIVER
 static const struct consw *con_driver_map[MAX_NR_CONSOLES];
 #endif
 
@@ -188,6 +188,13 @@ int fg_console;
 int last_console;
 int want_console = -1;
 int kmsg_redirect;
+#ifndef CONFIG_VT_SINGLE_DRIVER
+static int saved_fg_console;
+static int saved_last_console;
+static int saved_want_console;
+static int saved_vc_mode;
+static int saved_console_blanked;
+#endif
 
 /*
  * For each existing display, we have a pointer to console currently visible
@@ -721,7 +728,7 @@ static void visual_init(struct vc_data *vc, int num, int init)
 	if (vc->vc_sw)
 		module_put(vc->vc_sw->owner);
 	vc->vc_sw = conswitchp;
-#ifndef VT_SINGLE_DRIVER
+#ifndef CONFIG_VT_SINGLE_DRIVER
 	if (con_driver_map[num])
 		vc->vc_sw = con_driver_map[num];
 #endif
@@ -2859,8 +2866,10 @@ static int __init con_init(void)
 		}
 	}
 
+#ifndef CONFIG_VT_SINGLE_DRIVER
 	for (i = 0; i < MAX_NR_CONSOLES; i++)
 		con_driver_map[i] = conswitchp;
+#endif
 
 	if (blankinterval) {
 		blank_state = blank_normal_wait;
@@ -2953,7 +2962,7 @@ int __init vty_init(const struct file_operations *console_fops)
 	return 0;
 }
 
-#ifndef VT_SINGLE_DRIVER
+#ifndef CONFIG_VT_SINGLE_DRIVER
 
 static struct class *vtconsole_class;
 
@@ -3565,7 +3574,7 @@ static int __init vtconsole_class_init(void)
 }
 postcore_initcall(vtconsole_class_init);
 
-#endif
+#endif	/* CONFIG_VT_SINGLE_DRIVER */
 
 /*
  *	Screen blanking
@@ -4078,7 +4087,7 @@ EXPORT_SYMBOL(fg_console);
 EXPORT_SYMBOL(console_blank_hook);
 EXPORT_SYMBOL(console_blanked);
 EXPORT_SYMBOL(vc_cons);
-#ifndef VT_SINGLE_DRIVER
+#ifndef CONFIG_VT_SINGLE_DRIVER
 EXPORT_SYMBOL(take_over_console);
 EXPORT_SYMBOL(give_up_console);
 #endif
