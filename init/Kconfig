@@ -475,19 +475,17 @@ config IKCONFIG_PROC
 
 config LOG_BUF_SHIFT
 	int "Kernel log buffer size (16 => 64KB, 17 => 128KB)"
-	range 0 21
+	range 12 21
 	default 17
 	help
-	  Select kernel log buffer size as a power of 2
-	  Values below 12 are not recommended and should only be used on
-	  systems tight on resources as kernel logs will likely be incomplete.
+	  Select kernel log buffer size as a power of 2.
 	  Examples:
-	  	     21 =>  2 MB		11 => 2 KB
-		     16 => 64 KB		10 => 1 KB
-	             15 => 32 KB		9 => 512 B
-	             14 => 16 KB		8 => 256 B
-		     13 =>  8 KB		7 => 128 B
-		     12 =>  4 KB		0 => 1 B
+	  	     17 => 128 KB
+		     16 => 64 KB
+	             15 => 32 KB
+	             14 => 16 KB
+		     13 =>  8 KB
+		     12 =>  4 KB
 
 #
 # Architectures with an unreliable sched_clock() should select this:
