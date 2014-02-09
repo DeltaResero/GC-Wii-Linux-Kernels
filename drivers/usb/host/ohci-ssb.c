@@ -126,22 +126,31 @@ static int ssb_ohci_attach(struct ssb_device *dev)
 		 */
 		ssb_device_enable(dev, 0);
 		ssb_write32(dev, 0x200, 0x7ff);
+
+		/* Change Flush control reg */
+		tmp = ssb_read32(dev, 0x400);
+		tmp &= ~8;
+		ssb_write32(dev, 0x400, tmp);
+		tmp = ssb_read32(dev, 0x400);
+
+		/* Change Shim control reg */
+		tmp = ssb_read32(dev, 0x304);
+		tmp &= ~0x100;
+		ssb_write32(dev, 0x304, tmp);
+		tmp = ssb_read32(dev, 0x304);
+
 		udelay(1);
-		if (dev->id.revision == 1) { // bug in rev 1
 
-			/* Change Flush control reg */
-			tmp = ssb_read32(dev, 0x400);
-			tmp &= ~8;
-			ssb_write32(dev, 0x400, tmp);
-			tmp = ssb_read32(dev, 0x400);
-			printk("USB20H fcr: 0x%0x\n", tmp);
+		/* Work around for 5354 failures */
+		if ((dev->id.revision == 2) && (dev->bus->chip_id == 0x5354)) {
+			/* Change syn01 reg */
+			tmp = 0x00fe00fe;
+			ssb_write32(dev, 0x894, tmp);
 
-			/* Change Shim control reg */
-			tmp = ssb_read32(dev, 0x304);
-			tmp &= ~0x100;
-			ssb_write32(dev, 0x304, tmp);
-			tmp = ssb_read32(dev, 0x304);
-			printk("USB20H shim: 0x%0x\n", tmp);
+			/* Change syn03 reg */
+			tmp = ssb_read32(dev, 0x89c);
+			tmp |= 0x1;
+			ssb_write32(dev, 0x89c, tmp);
 		}
 	} else
 		ssb_device_enable(dev, 0);
