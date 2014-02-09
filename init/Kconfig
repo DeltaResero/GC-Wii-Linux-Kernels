@@ -945,8 +945,15 @@ config BUG
 config ELF_CORE
 	default y
 	bool "Enable ELF core dumps" if EMBEDDED
+	depends on CORE_DUMP
 	help
 	  Enable support for generating core dumps. Disabling saves about 4k.
+
+config CORE_DUMP
+	default y
+	bool "Enable core dumps" if EMBEDDED
+	help
+	  Enable support for generating core dumps.
 
 config PCSPKR_PLATFORM
 	bool "Enable PC-Speaker support" if EMBEDDED

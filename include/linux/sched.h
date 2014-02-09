@@ -443,8 +443,13 @@ static inline unsigned long get_mm_hiwater_vm(struct mm_struct *mm)
 	return max(mm->hiwater_vm, mm->total_vm);
 }
 
+#ifdef CONFIG_CORE_DUMP
 extern void set_dumpable(struct mm_struct *mm, int value);
 extern int get_dumpable(struct mm_struct *mm);
+#else
+#define get_dumpable(mm) (0)
+#define set_dumpable(mm, value)
+#endif
 
 /* mm flags */
 /* dumpable bits */

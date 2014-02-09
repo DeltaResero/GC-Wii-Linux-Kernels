@@ -124,7 +124,11 @@ extern int bprm_change_interp(char *interp, struct linux_binprm *bprm);
 extern int copy_strings_kernel(int argc,char ** argv,struct linux_binprm *bprm);
 extern int prepare_bprm_creds(struct linux_binprm *bprm);
 extern void install_exec_creds(struct linux_binprm *bprm);
+#ifdef CONFIG_CORE_DUMP
 extern void do_coredump(long signr, int exit_code, struct pt_regs *regs);
+#else
+#define do_coredump(signr, exit_code, regs)
+#endif
 extern void set_binfmt(struct linux_binfmt *new);
 extern void free_bprm(struct linux_binprm *);
 
