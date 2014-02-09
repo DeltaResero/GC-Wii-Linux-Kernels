@@ -1036,6 +1036,14 @@ config AIO
           by some high performance threaded applications. Disabling
           this option saves about 7k.
 
+config FB_MAX
+	int "Config max number of framebuffers" if EMBEDDED
+	range 1 32
+	default 32
+	depends on FB
+	help
+	  This allows your to configure the size of video_options[] array.
+
 config BLKDEV_MAJOR_HASH_SIZE
 	int "Config major hash size of blkdev" if EMBEDDED
 	range 1 255

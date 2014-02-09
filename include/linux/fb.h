@@ -8,7 +8,7 @@ struct dentry;
 
 /* Definitions of frame buffers						*/
 
-#define FB_MAX			32	/* sufficient for now */
+#define FB_MAX			CONFIG_FB_MAX	/* sufficient for now */
 
 /* ioctls
    0x46 is 'F'								*/
