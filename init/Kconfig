@@ -1053,6 +1053,14 @@ config AIO
           by some high performance threaded applications. Disabling
           this option saves about 7k.
 
+config IGMP
+	depends on NET
+	default y
+	bool "Enable IGMP support" if EMBEDDED && !IP_MULTICAST
+	help
+	  This includes support for the Internet group management
+	  protocol, used for multicast.
+
 config SERIAL_PCI
 	depends on PCI && SERIAL_8250
 	default y
