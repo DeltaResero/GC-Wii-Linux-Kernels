@@ -138,7 +138,7 @@ choice
 	default KERNEL_GZIP
 	depends on HAVE_KERNEL_GZIP || HAVE_KERNEL_BZIP2 || HAVE_KERNEL_LZMA || HAVE_KERNEL_XZ || HAVE_KERNEL_LZO
 	help
-	  The linux kernel is a kind of self-extracting executable.
+	  The Linux Kernel is a kind of self-extracting executable.
 	  Several compression algorithms are available, which differ
 	  in efficiency, compression and decompression speed.
 	  Compression speed is only relevant when building a kernel.
@@ -1104,7 +1104,7 @@ config FB_MODEDB
 	bool "Configure a preferrable framebuffer mode" if EMBEDDED
 	depends on FB
 	help
-	  For a specific board, there should be a preferrable framebuffer mode,
+	  For a specific board, there should be a preferable framebuffer mode,
 	  which may be not good to allow the users to change it. So, we can
 	  make this hardcoded and reduce the size of the modedb. But after
 	  enabling this, you must fill the modeb yourself.
@@ -1148,7 +1148,7 @@ config NR_IRQS
 	help
 	  Configure the max number of IRQS available on your board.
 
-	  If unsure, do touch it.
+	  If unsure, do not touch it.
 
 config MAX_NR_CON_DRIVER
 	int "Number of console drivers" if EMBEDDED
@@ -1373,7 +1373,7 @@ config SLUB
 	help
 	   SLUB is a slab allocator that minimizes cache line usage
 	   instead of managing queues of cached objects (SLAB approach).
-	   Per cpu caching is realized using slabs of objects instead
+	   Per CPU caching is realized using slabs of objects instead
 	   of queues of objects. SLUB can use memory efficiently
 	   and has enhanced diagnostics. SLUB is the default choice for
 	   a slab allocator.
