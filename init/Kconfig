@@ -1145,6 +1145,12 @@ config MAX_SWAPFILES_SHIFT
 	help
 	  Select the maximum number of swapfiles (5 for default).
 
+config BINFMT_SCRIPT
+	default y
+	bool "Enable support for executable shell scripts" if EMBEDDED
+	help
+	  Enable support for standard #!-style shell scripts.
+
 config MAX_USER_RT_PRIO
 	int "Number of realtime priority levels" if EMBEDDED
 	range 5 100
