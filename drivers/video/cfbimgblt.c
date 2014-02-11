@@ -427,15 +427,15 @@ void cfb_imageblit(struct fb_info *p, const struct fb_image *image)
 		}	
 		
 		if (!start_index && !pitch_index) {
-			if (bpp == 32)
-				fast_imageblit32(image, p, dst1, fgcolor,
-						 bgcolor);
-			else if (bpp == 16 && (width & 1) == 0)
+			if (bpp == 16 && (width & 1) == 0)
 				fast_imageblit16(image, p, dst1, fgcolor,
 						 bgcolor);
 			else if (bpp == 8 && (width & 3) == 0)
 				fast_imageblit(image, p, dst1, fgcolor,
-					       bgcolor);
+						bgcolor);
+			else if (bpp == 32)
+				fast_imageblit32(image, p, dst1, fgcolor,
+						bgcolor);
 			else
 				slow_imageblit(image, p, dst1, fgcolor,
 					       bgcolor,
