@@ -2226,7 +2226,7 @@ static struct of_device_id vifb_of_match[] = {
 
 MODULE_DEVICE_TABLE(of, vifb_of_match);
 
-static struct platform_driver vifb_of_driver __refdata = {
+static struct platform_driver vifb_of_driver = {
 	.driver = {
 		.name = DRV_MODULE_NAME,
 		.owner = THIS_MODULE,

@@ -2241,7 +2241,7 @@ static const struct hc_driver starlet_hc_driver = {
 	.hcd_priv_size =	sizeof(struct sthcd_hcd),
 
 	.irq =			NULL,
-	.flags =		HCD_USB11,
+	.flags =		HCD_USB11 | HCD_NO_COHERENT_MEM,
 
 	/* REVISIT, power management calls not yet supported */
 
@@ -2321,8 +2321,7 @@ static int __devexit sthcd_driver_remove(struct device *dev)
  *
  */
 
-static int __devinit sthcd_of_probe(struct platform_device *odev)
-
+static int __init sthcd_of_probe(struct platform_device *odev)
 {
 	return sthcd_driver_probe(&odev->dev);
 }

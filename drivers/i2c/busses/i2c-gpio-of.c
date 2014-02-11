@@ -77,9 +77,10 @@ static int __devinit i2c_gpio_of_probe(struct platform_device *odev)
 	prop = of_get_property(odev->dev.of_node, "timeout", NULL);
 	if (prop)
 		pdata->timeout =  msecs_to_jiffies(*prop);
-//FIXME: Not sure if this was updated correctly from 2.6.34 to 2.6.35
-	error = i2c_gpio_adapter_probe(adap, pdata, &odev->dev, odev->id,
-					THIS_MODULE);
+
+	error = i2c_gpio_adapter_probe(adap, pdata, &odev->dev,
+										odev->dev.of_node->phandle, THIS_MODULE);
+
 	if (error)
 		goto err_probe;
 
