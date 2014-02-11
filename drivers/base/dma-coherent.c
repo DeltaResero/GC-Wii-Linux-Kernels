@@ -12,6 +12,7 @@ struct dma_coherent_mem {
 	int		size;
 	int		flags;
 	unsigned long	*bitmap;
+	spinlock_t	lock;	/* protect bitmap operations */
 };
 
 int dma_declare_coherent_memory(struct device *dev, dma_addr_t bus_addr,
@@ -45,6 +46,7 @@ int dma_declare_coherent_memory(struct device *dev, dma_addr_t bus_addr,
 	dev->dma_mem->device_base = device_addr;
 	dev->dma_mem->size = pages;
 	dev->dma_mem->flags = flags;
+	spin_lock_init(&dev->dma_mem->lock);
 
 	if (flags & DMA_MEMORY_MAP)
 		return DMA_MEMORY_MAP;
@@ -78,6 +80,7 @@ void *dma_mark_declared_memory_occupied(struct device *dev,
 {
 	struct dma_coherent_mem *mem = dev->dma_mem;
 	int pos, err;
+	unsigned long flags;
 
 	size += device_addr & ~PAGE_MASK;
 
@@ -85,7 +88,9 @@ void *dma_mark_declared_memory_occupied(struct device *dev,
 		return ERR_PTR(-EINVAL);
 
 	pos = (device_addr - mem->device_base) >> PAGE_SHIFT;
+	spin_lock_irqsave(&mem->lock, flags);
 	err = bitmap_allocate_region(mem->bitmap, pos, get_order(size));
+	spin_unlock_irqrestore(&mem->lock, flags);
 	if (err != 0)
 		return ERR_PTR(err);
 	return mem->virt_base + (pos << PAGE_SHIFT);
@@ -113,6 +118,7 @@ int dma_alloc_from_coherent(struct device *dev, ssize_t size,
 	struct dma_coherent_mem *mem;
 	int order = get_order(size);
 	int pageno;
+	unsigned long flags;
 
 	if (!dev)
 		return 0;
@@ -125,7 +131,9 @@ int dma_alloc_from_coherent(struct device *dev, ssize_t size,
 	if (unlikely(size > (mem->size << PAGE_SHIFT)))
 		goto err;
 
+	spin_lock_irqsave(&mem->lock, flags);
 	pageno = bitmap_find_free_region(mem->bitmap, mem->size, order);
+	spin_unlock_irqrestore(&mem->lock, flags);
 	if (unlikely(pageno < 0))
 		goto err;
 
@@ -164,12 +172,15 @@ EXPORT_SYMBOL(dma_alloc_from_coherent);
 int dma_release_from_coherent(struct device *dev, int order, void *vaddr)
 {
 	struct dma_coherent_mem *mem = dev ? dev->dma_mem : NULL;
+	unsigned long flags;
 
 	if (mem && vaddr >= mem->virt_base && vaddr <
 		   (mem->virt_base + (mem->size << PAGE_SHIFT))) {
 		int page = (vaddr - mem->virt_base) >> PAGE_SHIFT;
 
+		spin_lock_irqsave(&mem->lock, flags);
 		bitmap_release_region(mem->bitmap, page, order);
+		spin_unlock_irqrestore(&mem->lock, flags);
 		return 1;
 	}
 	return 0;
