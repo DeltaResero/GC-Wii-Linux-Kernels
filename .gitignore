@@ -73,6 +73,10 @@ GRTAGS
 GSYMS
 GTAGS
 
+# modules / firmware files
+lib/modules
+lib/firmware
+
 *.orig
 *.rej
 *~
