@@ -372,7 +372,7 @@ printf "included in their folders on the target device in the /lib/ folder (/lib
 echo "Kernel headers should be located in the folder:" $HDR_DIRECTORY
 printf "\nUsually kernel headers can be installed manually or by using a package manager instead...\n"
 echo "Firmware (if any) should be located in the folder:" $FMW_DIRECTORY
-echo "The b43 (WLAN) Wii firmware must be built / retreived seperate, see the following site for"
+echo "The b43 (WLAN) Wii firmware must be built / retrieved separate, see the following site for"
 printf " more info: http://www.gc-linux.org/wiki/WL:Wifi_Configuration\n"
 printf "\nFirmware should be placed into the '/lib/firmware' folder of the target system.\n"
 echo "Modules (if any) should be located in the folder:" $MOD_DIRECTORY
