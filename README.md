@@ -2,13 +2,13 @@
 **_Linux kernel for GameCube/Wii/vWii (Branch Version: 3.4.80)_**
 ***
 
-This is the 3.4.y GC/Wii Linux kernel branch.  A full copy of this repository can be downloaded by using git to clone the full repository as shown below.
+This is the 3.4.y (POC) GC/Wii Linux kernel branch.  A full copy of this repository can be downloaded by using git to clone the full repository as shown below.
 
     git clone https://github.com/DeltaResero/GC-Wii-Linux-Kernels.git
 
 To clone only a standalone copy of this branch, either download directly from GitHub from within the matching branch or releases section, or clone the branch with the following command (requires Git version 1.8.X or greater):
 
-    git clone -b GC-Wii-Linux-Kernel-3.4.y --single-branch https://github.com/DeltaResero/GC-Wii-Linux-Kernels.git
+    git clone -b GC-Wii-Linux-Kernel-3.4.y-POC --single-branch https://github.com/DeltaResero/GC-Wii-Linux-Kernels.git
 <br>
 For those who are using a version of Git prior to 1.8.X on Debian/Ubuntu based operating systems should able to easily update to at least an 1.8.X version via ppa.  The alternative is to compile Git from source (https://github.com/git/git).  By default any Linux operating system prior to Debian 7 and Ubuntu 13.10 use a version of Git that will require updating.  For Debian based systems, use the following commands to update Git (assuming git is already installed):
 
@@ -29,7 +29,7 @@ Compiling this kernel will has some dependencies that must be installed.  On a D
 ***
 
 The original (2.6.32 and prior) gcLinux work can be found at: http://sourceforge.net/projects/gc-linux/
-This GC/Wii Linux kernel, as with all following the official 2.6.32.z version, are forward ports of multiple patches that include (but are not limited to) the following:  
+This GC/Wii Linux kernel, as with all following the official 2.6.32.y version, are forward ports of multiple patches that include (but are not limited to) the following:  
 
 1. A modified MINI Kernel Preview 5 patch (http://www.gc-linux.org/wiki/MINI:KernelPreviewFive) with most mainline improvements integrated.
     - To clarify, I didn't write any of the original code, I just updated and merged existing code from various sources.  The existing code was altered so it would build against the newer 3.x based kernels.  I dubbed the changed patch as "MINI Kernel Preview 7".  I decided to reserve version 6 for the work that was done in the "origin/cocktail/gc-linux-2.6.34-rc5" branch of the gcLinux Git repository (git://git.infradead.org/users/herraa1/gc-linux-2.6.git).<br>  
@@ -49,16 +49,11 @@ This GC/Wii Linux kernel, as with all following the official 2.6.32.z version, a
 
 Due to significant changes since the last official kernel patch release gcLinux, the 2.6.32 (MIKEp5) patch, the MIKEp7 patch currently has some limitations and bugs that still require attention.  Some of these limitations are as follows:  
 
-- In MINI mode, USB storage support is currently broken ("hcd.c").  Most keyboards, mice, USB Ethernet adapters, and other similar devices seem to be fully functional.  Bluetooth/wireless lan doesn't seem to be affected by this.  This was broke as a result of not being able to properly forward port the DMA handling of USB devices for these consoles from 2.6.34-rc4 to 2.6.34.z and newer kernels.
+- In MINI mode, USB storage support is currently broken ("hcd.c").  Most keyboards, mice, USB Ethernet adapters, and other similar devices seem to be fully functional.  Bluetooth/wireless lan doesn't seem to be affected by this.  This was broke as a result of not being able to properly forward port the DMA handling of USB devices for these consoles from 2.6.34-rc4 to 2.6.34.y and newer kernels (fixed in 3.10+).
 
 - In MINI mode, older (smaller than 2GB) cards don't all work correctly  
 
-- In IOS mode, external swap partitions don't mount correctly as of kernel version 2.6.39.  As a workaround, use a local swapfile.  A short tutorial can be found at: http://www.cyberciti.biz/faq/linux-add-a-swap-file-howto/
-This bug should be relatively easy to find using git bisect.  
-
 - Both IOS and MINI modes seem to have a bug that prevents Linux from booting if a GameCube Controller is inserted in one of the ports while the serial port is enabled in the config.  This bug is caused by a glitch that was created when forward porting from 2.6.32 to 2.6.33.  It should be possible to find this bug using git bisect.
-
-- GameCube SDL doesn't work properly with the 2.6.36 and newer forward ported kernels.  This bug is currently unknown to be either a kernel or software API bug.  It should be possible to fix this by finding out in which commit in the kernel that this error first starts occuring using git bisect.  
 
 - Only Cube Xorg or Farter's Framebuffer can be used, not both at the same time.  If Xorg is setup to use Cube on the target system, do not use a kernel that was compiled with Farter's framebuffer patch without adjusting the Xorg configuration file (usually in: /etc/X11/xorg.conf).  Using both simultaneously will cause the display to show nothing at best.  Due to this, I've made Farter's framebuffer patch optional by leaving a copy of it seperate in the source so that it could be patched manually at anytime.
 <br>
@@ -71,7 +66,7 @@ This bug should be relatively easy to find using git bisect.
 
         "patch < 0001-vfb-defio-wii.diff -p1 -R"  
 
-- Both IOS and MINI also still suffer from the same hardware limitations that they did in 2.6.32.z.  For example, wireless and disc support for Wii consoles is still limited to MINI mode.  Also, DVDs can be mounted as they were in version 2.6.32.z, but due to hardware limitations, it's unable to write to any disc and is unable to read CDs and certain types of DVD's
+- Both IOS and MINI also still suffer from the same hardware limitations that they did in 2.6.32.y.  For example, wireless and disc support for Wii consoles is still limited to MINI mode.  Also, DVDs can be mounted as they were in version 2.6.32.z, but due to hardware limitations, it's unable to write to any disc and is unable to read CDs and certain types of DVD's
     - Support for DVD-RW and DVD-DL disc seems to vary.  Currently, -R and +R (both mini & full-size) DVDs are know to work on both GameCube and Wii consoles.  All WiiU as well as some of the newer Wii disc drives, lack support for DVDs as they don't contain the same type of disc drive.  In other words, support will vary on the age of the console, but most standard GameCube consoles should be able to read mini DVDs (full-sized DVDs are too big for unmodified Gamecube consoles, but they can be read).
     - To mount a disc in a GameCube/Wii Linux distribution, try doing the following:
 
