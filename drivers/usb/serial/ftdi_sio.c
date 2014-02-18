@@ -2131,6 +2131,30 @@ static void ftdi_set_termios(struct tty_struct *tty,
 		termios->c_cflag |= CRTSCTS;
 	}
 
+	/*
+	 * All FTDI UART chips are limited to CS7/8. We shouldn't pretend to
+	 * support CS5/6 and revert the CSIZE setting instead.
+	 *
+	 * CS5 however is used to control some smartcard readers which abuse
+	 * this limitation to switch modes. Original FTDI chips fall back to
+	 * eight data bits.
+	 *
+	 * TODO: Implement a quirk to only allow this with mentioned
+	 *       readers. One I know of (Argolis Smartreader V1)
+	 *       returns "USB smartcard server" as iInterface string.
+	 *       The vendor didn't bother with a custom VID/PID of
+	 *       course.
+	 */
+	if (C_CSIZE(tty) == CS6) {
+		dev_warn(ddev, "requested CSIZE setting not supported\n");
+
+		termios->c_cflag &= ~CSIZE;
+		if (old_termios)
+			termios->c_cflag |= old_termios->c_cflag & CSIZE;
+		else
+			termios->c_cflag |= CS8;
+	}
+
 	cflag = termios->c_cflag;
 
 	if (!old_termios)
@@ -2167,19 +2191,19 @@ no_skip:
 	} else {
 		urb_value |= FTDI_SIO_SET_DATA_PARITY_NONE;
 	}
-	if (cflag & CSIZE) {
-		switch (cflag & CSIZE) {
-		case CS7:
-			urb_value |= 7;
-			dev_dbg(ddev, "Setting CS7\n");
-			break;
-		case CS8:
-			urb_value |= 8;
-			dev_dbg(ddev, "Setting CS8\n");
-			break;
-		default:
-			dev_err(ddev, "CSIZE was set but not CS7-CS8\n");
-		}
+	switch (cflag & CSIZE) {
+	case CS5:
+		dev_dbg(ddev, "Setting CS5 quirk\n");
+		break;
+	case CS7:
+		urb_value |= 7;
+		dev_dbg(ddev, "Setting CS7\n");
+		break;
+	default:
+	case CS8:
+		urb_value |= 8;
+		dev_dbg(ddev, "Setting CS8\n");
+		break;
 	}
 
 	/* This is needed by the break command since it uses the same command
