@@ -1,5 +1,5 @@
 ***
-**_Linux kernel for GameCube/Wii/vWii (Branch Version: 2.6.34.14 - Proof Of Concept)_**
+**_Linux kernel for GameCube/Wii/vWii (Branch Version: 2.6.34.15 [EOL] - Proof Of Concept)_**
 ***
 
 This is the 2.6.34.y GC/Wii Linux kernel branch.  A full copy of this repository can be downloaded by using git to clone the full repository as shown below.
