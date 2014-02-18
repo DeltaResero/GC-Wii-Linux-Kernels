@@ -1293,11 +1293,14 @@ static void unmap_urb_for_dma(struct usb_hcd *hcd, struct urb *urb)
 {
 	enum dma_data_direction dir;
 
-	if (urb->transfer_flags & URB_SETUP_MAP_SINGLE)
+	if (urb_needs_setup_dma_unmap(hcd, urb)) {
 		dma_unmap_single(hcd->self.controller,
 				urb->setup_dma,
 				sizeof(struct usb_ctrlrequest),
 				DMA_TO_DEVICE);
+			if ((hcd->driver->flags & HCD_NO_COHERENT_MEM) &&
+			      urb->transfer_flags)
+				urb->setup_dma = ~(dma_addr_t)0;}
 	else if (urb->transfer_flags & URB_SETUP_MAP_LOCAL)
 		hcd_free_coherent(urb->dev->bus,
 				&urb->setup_dma,
@@ -1316,11 +1319,14 @@ static void unmap_urb_for_dma(struct usb_hcd *hcd, struct urb *urb)
 				urb->transfer_dma,
 				urb->transfer_buffer_length,
 				dir);
-	else if (urb->transfer_flags & URB_DMA_MAP_SINGLE)
+	else if (urb_needs_transfer_dma_unmap(hcd, urb)){
 		dma_unmap_single(hcd->self.controller,
 				urb->transfer_dma,
 				urb->transfer_buffer_length,
 				dir);
+			if ((hcd->driver->flags & HCD_NO_COHERENT_MEM) &&
+			    (urb->transfer_flags & URB_NO_TRANSFER_DMA_MAP))
+				urb->transfer_dma = ~(dma_addr_t)0;}
 	else if (urb->transfer_flags & URB_MAP_LOCAL)
 		hcd_free_coherent(urb->dev->bus,
 				&urb->transfer_dma,
