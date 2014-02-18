@@ -385,8 +385,8 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
-		   -fno-delete-null-pointer-checks -ftree-vectorize -fbranch-target-load-optimize -fivopts -pipe
-
+		   -fno-delete-null-pointer-checks -ftree-vectorize -fbranch-target-load-optimize -fivopts -pipe \
+		   -Wno-error
 
 KBUILD_AFLAGS_KERNEL :=
 ifdef CCONFIG_CC_OPTIMIZE_ALOT
