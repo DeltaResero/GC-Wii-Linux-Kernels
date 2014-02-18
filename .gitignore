@@ -75,8 +75,9 @@ series
 cscope.*
 ncscope.*
 
-# Compiled sstrip
-sstrip
+# modules / firmware files
+lib/modules
+lib/firmware
 
 # gnu global files
 GPATH
