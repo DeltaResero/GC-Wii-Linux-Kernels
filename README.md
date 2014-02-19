@@ -8,7 +8,7 @@ This is the 2.6.32.y-STABLE GC/Wii Linux kernel branch.  A full copy of this rep
 
 To clone only a standalone copy of this branch, either download directly from GitHub from within the matching branch or releases section, or clone the branch with the following command (requires Git version 1.8.X or greater):
 
-    git clone -b GC-Wii-Linux-Kernel-2.6.32.61.y-UNSTABLE --single-branch https://github.com/DeltaResero/GC-Wii-Linux-Kernels.git
+    git clone -b GC-Wii-Linux-Kernel-2.6.32.y-STABLE --single-branch https://github.com/DeltaResero/GC-Wii-Linux-Kernels.git
 <br>
 For those who are using a version of Git prior to 1.8.X on Debian/Ubuntu based operating systems should able to easily update to at least an 1.8.X version via ppa.  The alternative is to compile Git from source (https://github.com/git/git).  By default any Linux operating system prior to Debian 7 and Ubuntu 13.10 use a version of Git that will require updating.  For Debian based systems, use the following commands to update Git (assuming git is already installed):
 
@@ -29,8 +29,8 @@ Compiling this kernel will has some dependencies that must be installed.  On a D
 ***
 
 The original (2.6.32 and prior) gcLinux work can be found at: http://sourceforge.net/projects/gc-linux/
-The modifications made here are mainly bug fixes.  For a less stable version with more added features (mostly backported)see the unstable branch
-instead (GC-Wii-Linux-Kernel-2.6.32.61.y-UNSTABLE).  This branch should (or soon should) consist of the following:
+The modifications made here are mainly bug fixes.  For a less stable version with more added features (mostly backported) see the unstable branch
+instead (GC-Wii-Linux-Kernel-2.6.32.y-UNSTABLE).  This branch should (or soon should) consist of the following:
 
 1. A modified MINI Kernel Preview 5 patch (http://www.gc-linux.org/wiki/MINI:KernelPreviewFive) with most mainline improvements integrated.
     - To clarify, I didn't write any of the original code, I just updated and merged existing code from various sources.  The existing code was altered so it would build against the newer 3.x based kernels.  I dubbed the changed patch as "MINI Kernel Preview 7".  I decided to reserve version 6 for the work that was done in the "origin/cocktail/gc-linux-2.6.34-rc5" branch of the gcLinux Git repository (git://git.infradead.org/users/herraa1/gc-linux-2.6.git).<br>  
@@ -48,7 +48,7 @@ instead (GC-Wii-Linux-Kernel-2.6.32.61.y-UNSTABLE).  This branch should (or soon
 **_Known Bugs / Shortcomings_**
 ***
 
-- Only Cube Xorg or Farter's Framebuffer can be used, not both at the same time.  If Xorg is setup to use Cube on the target system, do not use a kernel that was compiled with Farter's framebuffer patch without adjusting the Xorg configuration file (usually in: /etc/X11/xorg.conf).  Using both simultaneously will cause the display to show nothing at best.  Due to this, I've made Farter's framebuffer patch optional by leaving a copy of it seperate in the source so that it could be patched manually at anytime.
+- Only Cube Xorg or Farter's Framebuffer can be used, not both at the same time.  If Xorg is setup to use Cube on the target system, do not use a kernel that was compiled with Farter's framebuffer patch without adjusting the Xorg configuration file (usually in: /etc/X11/xorg.conf).  Using both simultaneously will cause the display to show nothing at best.  Due to this, I've made Farter's framebuffer patch optional by leaving a copy of it separate in the source so that it could be patched manually at anytime.
 <br>
 
     To patch, enter the command:
@@ -107,30 +107,8 @@ _(Cross) Compiling the Kernel:_
 http://www.gc-linux.org/wiki/Building_a_GameCube_Linux_Kernel_%28ARCH%3Dpowerpc%29
 <br>
 
-- More info on how to start zRam can be found here: http://forums.debian.net/viewtopic.php?t=77627  
-- For simplicity, it's usually best to install the zram-config package in Ubuntu based distributions or add the script manually in other distributions such as Debian.  More information can be found here:  http://gionn.net/2012/03/11/zram-on-debian-ubuntu-for-memory-overcommitment/
-<br>
-
-- Verifying whether zRam has started can be done with the following command as root:
-
-
-
-        swapon -s
-
-- Turn zRam swapping off can be done with the following command as root: 
- 
- 
-
-        "swapoff /dev/zram#"
-        
-    Change the # to the device number that swap should be stopped (typically # = 0)  
-
-_Verifying Zcache Status:_  
-Once the system boots, run "dmesg | grep zcache" to see its status (If nothing is shown Zcache is likely disabled)  
-<br> 
-
 **_Compiled Filesystem/Kernel Demos_**  
-	Wii IOS/MINI kernels (2.6.32.y):  PLANNING...
+	Wii IOS/MINI kernels (2.6.32.y-STABLE):  PLANNING...
 <br>
 	Debian:  https://spideroak.com/browse/share/DeltaResero/wii/Linux/Filesytems/Demos/Debian/
 <br>
