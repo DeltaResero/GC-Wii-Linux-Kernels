@@ -8,7 +8,7 @@ This is the 2.6.32.y-UNSTABLE GC/Wii Linux kernel branch.  A full copy of this r
 
 To clone only a standalone copy of this branch, either download directly from GitHub from within the matching branch or releases section, or clone the branch with the following command (requires Git version 1.8.X or greater):
 
-    git clone -b GC-Wii-Linux-Kernel-2.6.32.61.y-UNSTABLE --single-branch https://github.com/DeltaResero/GC-Wii-Linux-Kernels.git
+    git clone -b GC-Wii-Linux-Kernel-2.6.32.y-UNSTABLE --single-branch https://github.com/DeltaResero/GC-Wii-Linux-Kernels.git
 <br>
 For those who are using a version of Git prior to 1.8.X on Debian/Ubuntu based operating systems should able to easily update to at least an 1.8.X version via ppa.  The alternative is to compile Git from source (https://github.com/git/git).  By default any Linux operating system prior to Debian 7 and Ubuntu 13.10 use a version of Git that will require updating.  For Debian based systems, use the following commands to update Git (assuming git is already installed):
 
@@ -30,9 +30,9 @@ Compiling this kernel will has some dependencies that must be installed.  On a D
 
 The original (2.6.32 and prior) gcLinux work can be found at: http://sourceforge.net/projects/gc-linux/
 This GC/Wii Linux kernel is a heavily patched version that was created prior to forward porting to help learn more about how the Linux operating system and kernel worked.
-The modifications made here are not guaranteeded to work but I did my best to remove the ones that didn't and it should work for most.  Why this kernel was marked as unstable is
+The modifications made here are not guaranteeded to work but I did my best to remove the ones that didn't and it should work for most.  Why this kernel was marked as unstable was
 mainly due to the huge number of backported features that were added to this branch.  If stability is an issue,
-try the GC-Wii-Linux-Kernel-2.6.32.61.y-STABLE branch instead.  This branch should (or soon should) consist of the following:
+try the GC-Wii-Linux-Kernel-2.6.32.y-STABLE branch instead.  This branch should (or soon should) consist of the following:
 
 1. A modified MINI Kernel Preview 5 patch (http://www.gc-linux.org/wiki/MINI:KernelPreviewFive) with most mainline improvements integrated.
     - To clarify, I didn't write any of the original code, I just updated and merged existing code from various sources.  The existing code was altered so it would build against the newer 3.x based kernels.  I dubbed the changed patch as "MINI Kernel Preview 7".  I decided to reserve version 6 for the work that was done in the "origin/cocktail/gc-linux-2.6.34-rc5" branch of the gcLinux Git repository (git://git.infradead.org/users/herraa1/gc-linux-2.6.git).<br>  
@@ -61,7 +61,7 @@ try the GC-Wii-Linux-Kernel-2.6.32.61.y-STABLE branch instead.  This branch shou
 
         "patch < 0001-vfb-defio-gc-wii.diff -p1 -R"  
 
-- Both IOS and MINI also still suffer from the same hardware limitations that they did in 2.6.32.z.  For example, wireless and disc support for Wii consoles is still limited to MINI mode.  Also, DVDs can be mounted as they were in version 2.6.32.z, but due to hardware limitations, it's unable to write to any disc and is unable to read CDs and certain types of DVD's
+- Both IOS and MINI also still suffer from the same hardware limitations that they did in 2.6.32.y.  For example, wireless and disc support for Wii consoles is still limited to MINI mode.  Also, DVDs can be mounted as they were in version 2.6.32.y, but due to hardware limitations, it's unable to write to any disc and is unable to read CDs and certain types of DVD's
     - Support for DVD-RW and DVD-DL disc seems to vary.  Currently, -R and +R (both mini & full-size) DVDs are know to work on both GameCube and Wii consoles.  All WiiU as well as some of the newer Wii disc drives, lack support for DVDs as they don't contain the same type of disc drive.  In other words, support will vary on the age of the console, but most standard GameCube consoles should be able to read mini DVDs (full-sized DVDs are too big for unmodified Gamecube consoles, but they can be read).  
 <br>
 - More information can be found here: http://www.gc-linux.org/wiki/MINI:KernelPreviewFive
@@ -132,7 +132,7 @@ Once the system boots, run "dmesg | grep zcache" to see its status (If nothing i
 <br> 
 
 **_Compiled Filesystem/Kernel Demos_**  
-	Wii IOS/MINI kernels (2.6.32.y):  https://spideroak.com/browse/share/DeltaResero/wii/Linux/Kernels/2.6.32.y/
+	Wii IOS/MINI kernels (2.6.32.y):  PENDING...  
 <br>
 	Debian:  https://spideroak.com/browse/share/DeltaResero/wii/Linux/Filesytems/Demos/Debian/
 <br>
