@@ -135,7 +135,7 @@ Once the system boots, run "dmesg | grep zcache" to see its status (If nothing i
 	Wii IOS/MINI kernels (2.6.32.y):  PENDING...  
 <br>
 	Debian:  https://spideroak.com/browse/share/DeltaResero/wii/Linux/Filesytems/Demos/Debian/  
-	(Wheezy and neweermay not work correctly with 2.6.32.y)
+	(Wheezy and newer may not work correctly with 2.6.32.y)
 <br>
 - Once the disk image is download and extracted, it can be copied to devices (such as SD cards) in Linux with the command:
 
