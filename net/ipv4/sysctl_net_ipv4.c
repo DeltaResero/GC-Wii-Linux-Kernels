@@ -22,7 +22,10 @@
 #include <net/inet_frag.h>
 
 static int zero;
+static int one = 1;
 static int tcp_retr1_max = 255;
+static int tcp_syn_retries_min = 1;
+static int tcp_syn_retries_max = MAX_TCP_SYNCNT;
 static int ip_local_port_range_min[] = { 1, 1 };
 static int ip_local_port_range_max[] = { 65535, 65535 };
 
@@ -237,7 +240,10 @@ static struct ctl_table ipv4_table[] = {
 		.data		= &ipv4_config.no_pmtu_disc,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= &tcp_syn_retries_min,
+		.extra2		= &tcp_syn_retries_max,
+		.strategy	= &sysctl_intvec
 	},
 	{
 		.ctl_name	= NET_IPV4_NONLOCAL_BIND,
@@ -520,7 +526,9 @@ static struct ctl_table ipv4_table[] = {
 		.data		= &sysctl_tcp_wmem,
 		.maxlen		= sizeof(sysctl_tcp_wmem),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec
+		.proc_handler	= proc_dointvec_minmax,
+		.strategy	= sysctl_intvec,
+		.extra1		= &one,
 	},
 	{
 		.ctl_name	= NET_TCP_RMEM,
@@ -528,7 +536,9 @@ static struct ctl_table ipv4_table[] = {
 		.data		= &sysctl_tcp_rmem,
 		.maxlen		= sizeof(sysctl_tcp_rmem),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec
+		.proc_handler	= proc_dointvec_minmax,
+		.strategy	= sysctl_intvec,
+		.extra1		= &one,
 	},
 	{
 		.ctl_name	= NET_TCP_APP_WIN,
@@ -734,7 +744,7 @@ static struct ctl_table ipv4_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.strategy	= sysctl_intvec,
-		.extra1		= &zero
+		.extra1		= &one
 	},
 	{
 		.ctl_name	= CTL_UNNUMBERED,
@@ -744,7 +754,7 @@ static struct ctl_table ipv4_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.strategy	= sysctl_intvec,
-		.extra1		= &zero
+		.extra1		= &one
 	},
 	{ .ctl_name = 0 }
 };
