@@ -1,7 +1,7 @@
 ***
 **_Linux kernel for GameCube/Wii/vWii (Branch Version: 3.10.105)_**
 ***
-
+WARNING, this branch has an error preventing it from compiling correctly. The error should be fixed in the 3.12.y branch.
 This is the 3.10.y GC/Wii Linux kernel branch.  A full copy of this repository can be downloaded by using git to clone the full repository as shown below.
 
     git clone https://github.com/DeltaResero/GC-Wii-Linux-Kernels.git
