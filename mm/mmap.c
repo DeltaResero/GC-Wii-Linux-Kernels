@@ -252,8 +252,6 @@ static struct vm_area_struct *remove_vma(struct vm_area_struct *vma)
 		vma->vm_ops->close(vma);
 	if (vma->vm_file)
 		fput(vma->vm_file);
-	if (vma->vm_prfile)
-		fput(vma->vm_prfile);
 	mpol_put(vma_policy(vma));
 	uksm_remove_vma(vma);
 	kmem_cache_free(vm_area_cachep, vma);
@@ -873,8 +871,6 @@ again:			remove_next = 1 + (end > next->vm_end);
 		if (file) {
 			uprobe_munmap(next, next->vm_start, next->vm_end);
 			fput(file);
-			if (vma->vm_prfile)
-				fput(vma->vm_prfile);
 		}
 		if (next->anon_vma)
 			anon_vma_merge(vma, next);
@@ -2467,8 +2463,6 @@ static int __split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 
 	if (new->vm_file)
 		get_file(new->vm_file);
-	if (new->vm_prfile)
-		get_file(new->vm_prfile);
 
 	if (new->vm_ops && new->vm_ops->open)
 		new->vm_ops->open(new);
@@ -2490,8 +2484,6 @@ static int __split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 		new->vm_ops->close(new);
 	if (new->vm_file)
 		fput(new->vm_file);
-	if (new->vm_prfile)
-		fput(new->vm_prfile);
 	unlink_anon_vmas(new);
  out_free_mpol:
 	mpol_put(pol);
@@ -2904,8 +2896,6 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
 				goto out_free_mempol;
 			if (new_vma->vm_file)
 				get_file(new_vma->vm_file);
-			if (new_vma->vm_prfile)
-				get_file(new_vma->vm_prfile);
 			if (new_vma->vm_ops && new_vma->vm_ops->open)
 				new_vma->vm_ops->open(new_vma);
 			vma_link(mm, new_vma, prev, rb_link, rb_parent);
