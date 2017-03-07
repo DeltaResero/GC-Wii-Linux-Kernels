@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 10
-SUBLEVEL = 30
+SUBLEVEL = 105
 EXTRAVERSION =
 NAME = TOSSUG Baby Fish
 
@@ -243,10 +243,10 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 HOSTCC       = $(CCACHE) gcc -pipe
 HOSTCXX      = $(CCACHE) g++ -pipe
 ifdef CCONFIG_CC_OPTIMIZE_ALOT
- HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fomit-frame-pointer -fivopts -fbranch-target-load-optimize -pipe
+ HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O3 -fomit-frame-pointer -fivopts -fbranch-target-load-optimize -pipe -std=gnu89
  HOSTCXXFLAGS = -O3 -fivopts -fbranch-target-load-optimize -pipe
 else
- HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -Os -fomit-frame-pointer -fivopts -fbranch-target-load-optimize -pipe
+ HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -Os -fomit-frame-pointer -fivopts -fbranch-target-load-optimize -pipe -std=gnu89
  HOSTCXXFLAGS = -Os -fivopts -fbranch-target-load-optimize -pipe
 endif
 
@@ -386,7 +386,8 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks -ftree-vectorize -fbranch-target-load-optimize -fivopts -pipe \
-		   -Wno-error
+		   -Wno-error \
+		   -std=gnu89
 
 KBUILD_AFLAGS_KERNEL :=
 ifdef CCONFIG_CC_OPTIMIZE_ALOT
@@ -644,6 +645,8 @@ ifndef CONFIG_FUNCTION_TRACER
 KBUILD_CFLAGS	+= -fomit-frame-pointer
 endif
 endif
+
+KBUILD_CFLAGS   += $(call cc-option, -fno-var-tracking-assignments)
 
 ifdef CONFIG_DEBUG_INFO
 KBUILD_CFLAGS	+= -g

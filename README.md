@@ -1,5 +1,5 @@
 ***
-**_Linux kernel for GameCube/Wii/vWii (Branch Version: 3.10.30)_**
+**_Linux kernel for GameCube/Wii/vWii (Branch Version: 3.10.105)_**
 ***
 
 This is the 3.10.y GC/Wii Linux kernel branch.  A full copy of this repository can be downloaded by using git to clone the full repository as shown below.
@@ -141,23 +141,7 @@ Once the system boots, run "dmesg | grep zcache" to see its status (If nothing i
 	Wii IOS/MINI kernels (3.10.y):  https://spideroak.com/browse/share/DeltaResero/wii/Linux/Kernels/3.10.y/
 <br>
 	Debian:  https://spideroak.com/browse/share/DeltaResero/wii/Linux/Filesytems/Demos/Debian/
-<br>
-	Ubuntu:  PLANNING...
-<br>
-	Mint:  PLANNING...
-<br>
 - NOTE: Debian Sid/Jessie is not currently recommended, it's recommended to use (stable) Wheezy or (old stable) Squeeze.  
-
-**_Fully customized (more complete) desktop distributions images:_**  
-	Debian Wheezy: PENDING...... (still UTC clock bugs)
-<br>
-	Debian Jessie: NOT READY YET (waiting for stability)
-<br>
-  Mint: PLANNING... (won't be ready until after Debian Wheezy) release
-<br>  
-	Ubuntu (ICEWM): NOT READY YET... (13.10 is completely unstable [non-kernel related])  
-<br>
-
 - Once the disk image is download and extracted, it can be copied to devices (such as SD cards) in Linux with the command:
 
         sudo dd if=4gbWheezyWii.img of=/dev/sdx#
