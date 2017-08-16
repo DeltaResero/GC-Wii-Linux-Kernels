@@ -57,6 +57,7 @@ For those using a version of Git prior to 1.8.X, the above command will not work
 With a 486 MHz G3 PowerPC processor, 40MB of RAM (24MB of main RAM with 16MB of VRAM), 3MB for embedded GPU, a DVD-ROM drive allowing for miniDVDs or DVDs via a case mod/removal, and an optional Ethernet adapter, the GameCube is capable of running a basic operating system. While the patched kernel sources here can be used to build kernels for the GameCube, the focus here will mostly be on Wii. For more information on how to set up Homebrew on a GameCube. see here: https://sdremix.com/installation/gamecube-installation/running-gcn-homebrew/
 
 ** _Getting Started with Wii_**
+
 With a 729MHz G3 PowerPC processor, 88MB of RAM (64MB GDDR3 with 24MB 1T-SRAM), 3MB for embedded GPU, an optical disc drive, an optional USB Ethernet adapter, SD/SDHC card reader, two USB 2.0 ports, Wi-Fi IEEE 802.11 b/g, and Bluetooth, the Wii is very capable of running a lightweight operating system. To install Linux on the Wii and use this kernel, Homebrew should be set up first. There are many ways of doing this and if this hasn't been done yet, it is recommended to follow the guide over at http://www.wiibrew.org/wiki/Homebrew_setup
 
 Although Linux may be loaded through the Homebrew Channel on Wii, it is recommended to be loaded through bootmii/MINI to access all the RAM, enable Wi-Fi, Bluetooth, USB2.0 support, and to be able to use the optical drive. While the kernel itself can communicate with nearly all Wii peripherals; Wii Remotes, Wi-Fi, USB, Bluetooth, GameCube controllers, USBGeckos,  and the DVD drive, GameCube Memory Cards are currently unsupported and do not work currently in kernels past the 2.6.32.y. To select between IOS and Mini, change loader=mini or loader=ios in the bootargs of "arch/powerpc/boot/dts/wii.dts" and also set the location of root here.
@@ -73,7 +74,6 @@ To cross compile with a modern cross compiler (recommended), you will also need 
 
     sudo apt-get install gcc-powerpc-linux-gnu
 
-<br>
 
 - Remember to edit the corresponding dts file (arch/powerpc/boot/dts).  Also, enabling zcache/zswap require editing the dts bootargs.  See this for more info: https://bugs.archlinux.org/task/27267 & http://lwn.net/Articles/552791/
 
