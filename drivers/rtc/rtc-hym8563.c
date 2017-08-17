@@ -144,7 +144,7 @@ static int hym8563_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	 * it does not seem to carry it over a subsequent write/read.
 	 * So we'll limit ourself to 100 years, starting at 2000 for now.
 	 */
-	buf[6] = tm->tm_year - 100;
+	buf[6] = bin2bcd(tm->tm_year - 100);
 
 	/*
 	 * CTL1 only contains TEST-mode bits apart from stop,
@@ -568,6 +568,9 @@ static int hym8563_probe(struct i2c_client *client,
 						&hym8563_rtc_ops, THIS_MODULE);
 	if (IS_ERR(hym8563->rtc))
 		return PTR_ERR(hym8563->rtc);
+
+	/* the hym8563 alarm only supports a minute accuracy */
+	hym8563->rtc->uie_unsupported = 1;
 
 #ifdef CONFIG_COMMON_CLK
 	hym8563_clkout_register_clk(hym8563);

@@ -1471,6 +1471,11 @@ static void usbg_queue_tm_rsp(struct se_cmd *se_cmd)
 {
 }
 
+static void usbg_aborted_task(struct se_cmd *se_cmd)
+{
+	return;
+}
+
 static const char *usbg_check_wwn(const char *name)
 {
 	const char *n;
@@ -1613,7 +1618,7 @@ static struct se_wwn *usbg_make_tport(
 		return ERR_PTR(-ENOMEM);
 	}
 	tport->tport_wwpn = wwpn;
-	snprintf(tport->tport_name, sizeof(tport->tport_name), wnn_name);
+	snprintf(tport->tport_name, sizeof(tport->tport_name), "%s", wnn_name);
 	return &tport->tport_wwn;
 }
 
@@ -1897,6 +1902,7 @@ static struct target_core_fabric_ops usbg_ops = {
 	.queue_data_in			= usbg_send_read_response,
 	.queue_status			= usbg_send_status_response,
 	.queue_tm_rsp			= usbg_queue_tm_rsp,
+	.aborted_task			= usbg_aborted_task,
 	.check_stop_free		= usbg_check_stop_free,
 
 	.fabric_make_wwn		= usbg_make_tport,

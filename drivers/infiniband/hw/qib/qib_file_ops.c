@@ -45,6 +45,8 @@
 #include <linux/delay.h>
 #include <linux/export.h>
 
+#include <rdma/ib.h>
+
 #include "qib.h"
 #include "qib_common.h"
 #include "qib_user_sdma.h"
@@ -1578,7 +1580,7 @@ static int do_qib_user_sdma_queue_create(struct file *fp)
 	struct qib_ctxtdata *rcd = fd->rcd;
 	struct qib_devdata *dd = rcd->dd;
 
-	if (dd->flags & QIB_HAS_SEND_DMA)
+	if (dd->flags & QIB_HAS_SEND_DMA) {
 
 		fd->pq = qib_user_sdma_queue_create(&dd->pcidev->dev,
 						    dd->unit,
@@ -1586,6 +1588,7 @@ static int do_qib_user_sdma_queue_create(struct file *fp)
 						    fd->subctxt);
 		if (!fd->pq)
 			return -ENOMEM;
+	}
 
 	return 0;
 }
@@ -2056,6 +2059,9 @@ static ssize_t qib_write(struct file *fp, const char __user *data,
 	struct qib_cmd cmd;
 	ssize_t ret = 0;
 	void *dest;
+
+	if (WARN_ON_ONCE(!ib_safe_file_access(fp)))
+		return -EACCES;
 
 	if (count < sizeof(cmd.type)) {
 		ret = -EINVAL;

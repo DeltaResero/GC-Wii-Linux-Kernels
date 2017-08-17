@@ -1415,7 +1415,7 @@ int rv770_resume_smc(struct radeon_device *rdev)
 int rv770_set_sw_state(struct radeon_device *rdev)
 {
 	if (rv770_send_msg_to_smc(rdev, PPSMC_MSG_SwitchToSwState) != PPSMC_Result_OK)
-		return -EINVAL;
+		DRM_ERROR("rv770_set_sw_state failed\n");
 	return 0;
 }
 
@@ -2331,12 +2331,6 @@ void rv770_get_engine_memory_ss(struct radeon_device *rdev)
 						       ASIC_INTERNAL_ENGINE_SS, 0);
 	pi->mclk_ss = radeon_atombios_get_asic_ss_info(rdev, &ss,
 						       ASIC_INTERNAL_MEMORY_SS, 0);
-
-	/* disable ss, causes hangs on some cayman boards */
-	if (rdev->family == CHIP_CAYMAN) {
-		pi->sclk_ss = false;
-		pi->mclk_ss = false;
-	}
 
 	if (pi->sclk_ss || pi->mclk_ss)
 		pi->dynamic_ss = true;

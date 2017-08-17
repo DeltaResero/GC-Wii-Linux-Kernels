@@ -41,7 +41,6 @@
 #include <asm/realmode.h>
 
 static pgd_t *save_pgd __initdata;
-static unsigned long efi_flags __initdata;
 
 /*
  * We allocate runtime services regions bottom-up, starting from -4G, i.e.
@@ -87,7 +86,6 @@ void __init efi_call_phys_prelog(void)
 		return;
 
 	early_code_mapping_set_exec(1);
-	local_irq_save(efi_flags);
 
 	n_pgds = DIV_ROUND_UP((max_pfn << PAGE_SHIFT), PGDIR_SIZE);
 	save_pgd = kmalloc(n_pgds * sizeof(pgd_t), GFP_KERNEL);
@@ -115,7 +113,6 @@ void __init efi_call_phys_epilog(void)
 		set_pgd(pgd_offset_k(pgd * PGDIR_SIZE), save_pgd[pgd]);
 	kfree(save_pgd);
 	__flush_tlb_all();
-	local_irq_restore(efi_flags);
 	early_code_mapping_set_exec(0);
 }
 
@@ -137,12 +134,38 @@ void efi_sync_low_kernel_mappings(void)
 		sizeof(pgd_t) * num_pgds);
 }
 
-void efi_setup_page_tables(void)
+int efi_setup_page_tables(unsigned long pa_memmap, unsigned num_pages)
 {
-	efi_scratch.efi_pgt = (pgd_t *)(unsigned long)real_mode_header->trampoline_pgd;
+	pgd_t *pgd;
 
-	if (!efi_enabled(EFI_OLD_MEMMAP))
-		efi_scratch.use_pgd = true;
+	if (efi_enabled(EFI_OLD_MEMMAP))
+		return 0;
+
+	efi_scratch.efi_pgt = (pgd_t *)(unsigned long)real_mode_header->trampoline_pgd;
+	pgd = __va(efi_scratch.efi_pgt);
+
+	/*
+	 * It can happen that the physical address of new_memmap lands in memory
+	 * which is not mapped in the EFI page table. Therefore we need to go
+	 * and ident-map those pages containing the map before calling
+	 * phys_efi_set_virtual_address_map().
+	 */
+	if (kernel_map_pages_in_pgd(pgd, pa_memmap, pa_memmap, num_pages, _PAGE_NX)) {
+		pr_err("Error ident-mapping new memmap (0x%lx)!\n", pa_memmap);
+		return 1;
+	}
+
+	efi_scratch.use_pgd = true;
+
+
+	return 0;
+}
+
+void efi_cleanup_page_tables(unsigned long pa_memmap, unsigned num_pages)
+{
+	pgd_t *pgd = (pgd_t *)__va(real_mode_header->trampoline_pgd);
+
+	kernel_unmap_pages_in_pgd(pgd, pa_memmap, num_pages);
 }
 
 static void __init __map_region(efi_memory_desc_t *md, u64 va)

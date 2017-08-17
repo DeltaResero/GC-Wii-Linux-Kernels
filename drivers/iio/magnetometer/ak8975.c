@@ -151,6 +151,8 @@ static int ak8975_setup_irq(struct ak8975_data *data)
 	int rc;
 	int irq;
 
+	init_waitqueue_head(&data->data_ready_queue);
+	clear_bit(0, &data->flags);
 	if (client->irq)
 		irq = client->irq;
 	else
@@ -166,8 +168,6 @@ static int ak8975_setup_irq(struct ak8975_data *data)
 		return rc;
 	}
 
-	init_waitqueue_head(&data->data_ready_queue);
-	clear_bit(0, &data->flags);
 	data->eoc_irq = irq;
 
 	return rc;
@@ -352,8 +352,6 @@ static int ak8975_read_axis(struct iio_dev *indio_dev, int index, int *val)
 {
 	struct ak8975_data *data = iio_priv(indio_dev);
 	struct i2c_client *client = data->client;
-	u16 meas_reg;
-	s16 raw;
 	int ret;
 
 	mutex_lock(&data->lock);
@@ -401,16 +399,11 @@ static int ak8975_read_axis(struct iio_dev *indio_dev, int index, int *val)
 		dev_err(&client->dev, "Read axis data fails\n");
 		goto exit;
 	}
-	meas_reg = ret;
 
 	mutex_unlock(&data->lock);
 
-	/* Endian conversion of the measured values. */
-	raw = (s16) (le16_to_cpu(meas_reg));
-
 	/* Clamp to valid range. */
-	raw = clamp_t(s16, raw, -4096, 4095);
-	*val = raw;
+	*val = clamp_t(s16, ret, -4096, 4095);
 	return IIO_VAL_INT;
 
 exit:

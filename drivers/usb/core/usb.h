@@ -43,7 +43,7 @@ static inline unsigned usb_get_max_power(struct usb_device *udev,
 		struct usb_host_config *c)
 {
 	/* SuperSpeed power is in 8 mA units; others are in 2 mA units */
-	unsigned mul = (udev->speed == USB_SPEED_SUPER ? 8 : 2);
+	unsigned mul = (udev->speed >= USB_SPEED_SUPER ? 8 : 2);
 
 	return c->desc.bMaxPower * mul;
 }
@@ -55,7 +55,7 @@ extern int usb_match_one_id_intf(struct usb_device *dev,
 extern int usb_match_device(struct usb_device *dev,
 			    const struct usb_device_id *id);
 extern void usb_forced_unbind_intf(struct usb_interface *intf);
-extern void usb_rebind_intf(struct usb_interface *intf);
+extern void usb_unbind_and_rebind_marked_interfaces(struct usb_device *udev);
 
 extern int usb_hub_claim_port(struct usb_device *hdev, unsigned port,
 		struct dev_state *owner);
