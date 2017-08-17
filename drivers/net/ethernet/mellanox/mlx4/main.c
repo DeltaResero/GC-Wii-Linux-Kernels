@@ -2466,7 +2466,8 @@ slave_start:
 					 "with IB port. Single port VFs syntax"
 					 " is only supported when all ports "
 					 "are configured as ethernet\n");
-				goto err_close;
+				err = -EINVAL;
+				goto err_master_mfunc;
 			}
 			for (i = 0; i < sizeof(nvfs)/sizeof(nvfs[0]); i++) {
 				unsigned j;
@@ -2800,7 +2801,7 @@ static struct pci_driver mlx4_driver = {
 	.name		= DRV_NAME,
 	.id_table	= mlx4_pci_table,
 	.probe		= mlx4_init_one,
-	.shutdown	= mlx4_remove_one,
+	.shutdown	= __mlx4_remove_one,
 	.remove		= mlx4_remove_one,
 	.err_handler    = &mlx4_err_handler,
 };

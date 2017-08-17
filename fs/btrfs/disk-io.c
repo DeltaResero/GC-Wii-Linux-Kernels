@@ -368,7 +368,8 @@ static int verify_parent_transid(struct extent_io_tree *io_tree,
 out:
 	unlock_extent_cached(io_tree, eb->start, eb->start + eb->len - 1,
 			     &cached_state, GFP_NOFS);
-	btrfs_tree_read_unlock_blocking(eb);
+	if (need_lock)
+		btrfs_tree_read_unlock_blocking(eb);
 	return ret;
 }
 
@@ -3633,6 +3634,11 @@ int close_ctree(struct btrfs_root *root)
 
 	btrfs_free_block_groups(fs_info);
 
+	/*
+	 * we must make sure there is not any read request to
+	 * submit after we stopping all workers.
+	 */
+	invalidate_inode_pages2(fs_info->btree_inode->i_mapping);
 	btrfs_stop_all_workers(fs_info);
 
 	free_root_pointers(fs_info, 1);

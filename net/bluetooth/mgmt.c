@@ -1045,6 +1045,43 @@ static void clean_up_hci_complete(struct hci_dev *hdev, u8 status)
 	}
 }
 
+static void hci_stop_discovery(struct hci_request *req)
+{
+	struct hci_dev *hdev = req->hdev;
+	struct hci_cp_remote_name_req_cancel cp;
+	struct inquiry_entry *e;
+
+	switch (hdev->discovery.state) {
+	case DISCOVERY_FINDING:
+		if (test_bit(HCI_INQUIRY, &hdev->flags)) {
+			hci_req_add(req, HCI_OP_INQUIRY_CANCEL, 0, NULL);
+		} else {
+			cancel_delayed_work(&hdev->le_scan_disable);
+			hci_req_add_le_scan_disable(req);
+		}
+
+		break;
+
+	case DISCOVERY_RESOLVING:
+		e = hci_inquiry_cache_lookup_resolve(hdev, BDADDR_ANY,
+						     NAME_PENDING);
+		if (!e)
+			return;
+
+		bacpy(&cp.bdaddr, &e->data.bdaddr);
+		hci_req_add(req, HCI_OP_REMOTE_NAME_REQ_CANCEL, sizeof(cp),
+			    &cp);
+
+		break;
+
+	default:
+		/* Passive scanning */
+		if (test_bit(HCI_LE_SCAN, &hdev->dev_flags))
+			hci_req_add_le_scan_disable(req);
+		break;
+	}
+}
+
 static int clean_up_hci_state(struct hci_dev *hdev)
 {
 	struct hci_request req;
@@ -1061,9 +1098,7 @@ static int clean_up_hci_state(struct hci_dev *hdev)
 	if (test_bit(HCI_ADVERTISING, &hdev->dev_flags))
 		disable_advertising(&req);
 
-	if (test_bit(HCI_LE_SCAN, &hdev->dev_flags)) {
-		hci_req_add_le_scan_disable(&req);
-	}
+	hci_stop_discovery(&req);
 
 	list_for_each_entry(conn, &hdev->conn_hash.list, list) {
 		struct hci_cp_disconnect dc;
@@ -2997,8 +3032,13 @@ static int user_pairing_resp(struct sock *sk, struct hci_dev *hdev,
 	}
 
 	if (addr->type == BDADDR_LE_PUBLIC || addr->type == BDADDR_LE_RANDOM) {
-		/* Continue with pairing via SMP */
+		/* Continue with pairing via SMP. The hdev lock must be
+		 * released as SMP may try to recquire it for crypto
+		 * purposes.
+		 */
+		hci_dev_unlock(hdev);
 		err = smp_user_confirm_reply(conn, mgmt_op, passkey);
+		hci_dev_lock(hdev);
 
 		if (!err)
 			err = cmd_complete(sk, hdev->id, mgmt_op,
@@ -3570,8 +3610,6 @@ static int stop_discovery(struct sock *sk, struct hci_dev *hdev, void *data,
 {
 	struct mgmt_cp_stop_discovery *mgmt_cp = data;
 	struct pending_cmd *cmd;
-	struct hci_cp_remote_name_req_cancel cp;
-	struct inquiry_entry *e;
 	struct hci_request req;
 	int err;
 
@@ -3601,52 +3639,22 @@ static int stop_discovery(struct sock *sk, struct hci_dev *hdev, void *data,
 
 	hci_req_init(&req, hdev);
 
-	switch (hdev->discovery.state) {
-	case DISCOVERY_FINDING:
-		if (test_bit(HCI_INQUIRY, &hdev->flags)) {
-			hci_req_add(&req, HCI_OP_INQUIRY_CANCEL, 0, NULL);
-		} else {
-			cancel_delayed_work(&hdev->le_scan_disable);
+	hci_stop_discovery(&req);
 
-			hci_req_add_le_scan_disable(&req);
-		}
-
-		break;
-
-	case DISCOVERY_RESOLVING:
-		e = hci_inquiry_cache_lookup_resolve(hdev, BDADDR_ANY,
-						     NAME_PENDING);
-		if (!e) {
-			mgmt_pending_remove(cmd);
-			err = cmd_complete(sk, hdev->id,
-					   MGMT_OP_STOP_DISCOVERY, 0,
-					   &mgmt_cp->type,
-					   sizeof(mgmt_cp->type));
-			hci_discovery_set_state(hdev, DISCOVERY_STOPPED);
-			goto unlock;
-		}
-
-		bacpy(&cp.bdaddr, &e->data.bdaddr);
-		hci_req_add(&req, HCI_OP_REMOTE_NAME_REQ_CANCEL, sizeof(cp),
-			    &cp);
-
-		break;
-
-	default:
-		BT_DBG("unknown discovery state %u", hdev->discovery.state);
-
-		mgmt_pending_remove(cmd);
-		err = cmd_complete(sk, hdev->id, MGMT_OP_STOP_DISCOVERY,
-				   MGMT_STATUS_FAILED, &mgmt_cp->type,
-				   sizeof(mgmt_cp->type));
+	err = hci_req_run(&req, stop_discovery_complete);
+	if (!err) {
+		hci_discovery_set_state(hdev, DISCOVERY_STOPPING);
 		goto unlock;
 	}
 
-	err = hci_req_run(&req, stop_discovery_complete);
-	if (err < 0)
-		mgmt_pending_remove(cmd);
-	else
-		hci_discovery_set_state(hdev, DISCOVERY_STOPPING);
+	mgmt_pending_remove(cmd);
+
+	/* If no HCI commands were sent we're done */
+	if (err == -ENODATA) {
+		err = cmd_complete(sk, hdev->id, MGMT_OP_STOP_DISCOVERY, 0,
+				   &mgmt_cp->type, sizeof(mgmt_cp->type));
+		hci_discovery_set_state(hdev, DISCOVERY_STOPPED);
+	}
 
 unlock:
 	hci_dev_unlock(hdev);
@@ -4530,7 +4538,7 @@ static int load_long_term_keys(struct sock *sk, struct hci_dev *hdev,
 
 	for (i = 0; i < key_count; i++) {
 		struct mgmt_ltk_info *key = &cp->keys[i];
-		u8 type, addr_type;
+		u8 type, addr_type, authenticated;
 
 		if (key->addr.type == BDADDR_LE_PUBLIC)
 			addr_type = ADDR_LE_DEV_PUBLIC;
@@ -4542,8 +4550,19 @@ static int load_long_term_keys(struct sock *sk, struct hci_dev *hdev,
 		else
 			type = HCI_SMP_LTK_SLAVE;
 
+		switch (key->type) {
+		case MGMT_LTK_UNAUTHENTICATED:
+			authenticated = 0x00;
+			break;
+		case MGMT_LTK_AUTHENTICATED:
+			authenticated = 0x01;
+			break;
+		default:
+			continue;
+		}
+
 		hci_add_ltk(hdev, &key->addr.bdaddr, addr_type, type,
-			    key->type, key->val, key->enc_size, key->ediv,
+			    authenticated, key->val, key->enc_size, key->ediv,
 			    key->rand);
 	}
 
@@ -5005,6 +5024,14 @@ void mgmt_new_link_key(struct hci_dev *hdev, struct link_key *key,
 	mgmt_event(MGMT_EV_NEW_LINK_KEY, hdev, &ev, sizeof(ev), NULL);
 }
 
+static u8 mgmt_ltk_type(struct smp_ltk *ltk)
+{
+	if (ltk->authenticated)
+		return MGMT_LTK_AUTHENTICATED;
+
+	return MGMT_LTK_UNAUTHENTICATED;
+}
+
 void mgmt_new_ltk(struct hci_dev *hdev, struct smp_ltk *key, bool persistent)
 {
 	struct mgmt_ev_new_long_term_key ev;
@@ -5030,7 +5057,7 @@ void mgmt_new_ltk(struct hci_dev *hdev, struct smp_ltk *key, bool persistent)
 
 	bacpy(&ev.key.addr.bdaddr, &key->bdaddr);
 	ev.key.addr.type = link_to_bdaddr(LE_LINK, key->bdaddr_type);
-	ev.key.type = key->authenticated;
+	ev.key.type = mgmt_ltk_type(key);
 	ev.key.enc_size = key->enc_size;
 	ev.key.ediv = key->ediv;
 	ev.key.rand = key->rand;
