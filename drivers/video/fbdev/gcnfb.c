@@ -542,7 +542,7 @@ static u32 pseudo_palette[17];
  */
 
 #ifdef CONFIG_WII_AVE_RVL
-static int vi_ave_setup(struct vi_ctl *ctl);
+static void vi_ave_setup(struct vi_ctl *ctl);
 static int vi_ave_get_video_format(struct vi_ctl *ctl,
 				   enum vi_video_format *fmt);
 #endif
@@ -1078,7 +1078,7 @@ static void vi_detect_tv_mode(struct vi_ctl *ctl)
 /*
  * Initialize the video hardware for a given TV mode.
  */
-static int vi_setup_tv_mode(struct vi_ctl *ctl)
+static void vi_setup_tv_mode(struct vi_ctl *ctl)
 {
 	void __iomem *io_base = ctl->io_base;
 	struct vi_mode_timings *timings = &ctl->timings;
@@ -1171,8 +1171,6 @@ static int vi_setup_tv_mode(struct vi_ctl *ctl)
 #ifdef CONFIG_WII_AVE_RVL
 	vi_ave_setup(ctl);
 #endif
-
-	return 0;
 }
 
 /*
@@ -1432,7 +1430,7 @@ static u8 vi_ave_gamma[] = {
 /*
  * Initialize the audio/video encoder.
  */
-static int vi_ave_setup(struct vi_ctl *ctl)
+static void vi_ave_setup(struct vi_ctl *ctl)
 {
 	struct i2c_client *client;
 	u8 macrovision[26];
@@ -1487,8 +1485,6 @@ static int vi_ave_setup(struct vi_ctl *ctl)
 	/* PAL 480i/60 supposedly needs a "filter" */
 	pal60 = !!(format == 2 && ctl->mode->lines == 525);
 	vi_ave_out8(client, 0x6e, pal60);
-
-	return 0;
 }
 
 static struct vi_ctl *first_vi_ctl;
@@ -1844,6 +1840,7 @@ static int vifb_set_par(struct fb_info *info)
 	return 0;
 }
 
+/* unused */
 static int vifb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 {
 	unsigned long off;
@@ -1884,7 +1881,7 @@ static int vifb_ioctl(struct fb_info *info,
 
 	switch (cmd) {
 	case FBIOWAITRETRACE:
-		interruptible_sleep_on(&ctl->vtrace_waitq);
+		wait_event_interruptible(ctl->vtrace_waitq, signal_pending(current));
 		return signal_pending(current) ? -EINTR : 0;
 	case FBIOFLIPHACK:
 		/*
@@ -1923,7 +1920,7 @@ static int vifb_ioctl(struct fb_info *info,
 			} else {
 				ctl->flip_pending = 1;
 				spin_unlock_irqrestore(&ctl->lock, flags);
-				interruptible_sleep_on(&ctl->vtrace_waitq);
+				wait_event_interruptible(ctl->vtrace_waitq, signal_pending(current));
 				return signal_pending(current) ?
 					-EINTR : ctl->visible_page;
 			}
